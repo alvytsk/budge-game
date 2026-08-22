@@ -10,6 +10,8 @@ from podvinsya.domain.actions import (
     DeclareAttack,
     JudgeCorrect,
     JudgePass,
+    PauseDuel,
+    ResumeDuel,
     StartDuel,
     StartMatch,
 )
@@ -21,7 +23,9 @@ from podvinsya.domain.events import (
     AnswerAccepted,
     AttackDeclared,
     BoardDealt,
+    DuelPaused,
     DuelResolved,
+    DuelResumed,
     DuelStarted,
     Event,
     MatchCreated,
@@ -56,6 +60,10 @@ def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[E
             return _judge_correct(state, ctx)
         case JudgePass():
             return _judge_pass(state, ctx)
+        case PauseDuel():
+            return _pause_duel(state, ctx)
+        case ResumeDuel():
+            return _resume_duel(state, ctx)
         case _:
             raise NotImplementedError(type(command).__name__)
 
@@ -254,6 +262,21 @@ def _judge_correct(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]
             anchor=ctx.now,
         ),
     )
+
+
+def _pause_duel(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
+    duel = _require_live_duel(state)
+    _, charged = _charge(duel, ctx.now)
+    return (DuelPaused(charged_ms=charged),)
+
+
+def _resume_duel(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
+    duel = _require_duel(state)
+    if duel.phase is not DuelPhase.RUNNING:
+        raise Rejected(RejectionReason.DUEL_NOT_RUNNING)
+    if not duel.paused:
+        raise Rejected(RejectionReason.DUEL_NOT_PAUSED)
+    return (DuelResumed(anchor=ctx.now),)
 
 
 def _judge_pass(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
