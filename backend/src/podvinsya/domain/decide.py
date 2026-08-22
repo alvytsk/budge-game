@@ -9,6 +9,7 @@ from podvinsya.domain.actions import (
     DealBoard,
     DeclareAttack,
     JudgeCorrect,
+    JudgePass,
     StartDuel,
     StartMatch,
 )
@@ -20,10 +21,12 @@ from podvinsya.domain.events import (
     AnswerAccepted,
     AttackDeclared,
     BoardDealt,
+    DuelResolved,
     DuelStarted,
     Event,
     MatchCreated,
     MatchStarted,
+    PassUsed,
     PlayerAdded,
     SecretAssigned,
 )
@@ -51,6 +54,8 @@ def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[E
             return _start_duel(state, ctx)
         case JudgeCorrect():
             return _judge_correct(state, ctx)
+        case JudgePass():
+            return _judge_pass(state, ctx)
         case _:
             raise NotImplementedError(type(command).__name__)
 
@@ -220,7 +225,19 @@ def _charge(duel: Duel, now: datetime) -> tuple[Budgets, int]:
 
 
 def _resolve(state: MatchState, duel: Duel, loser: PlayerId) -> tuple[Event, ...]:
-    raise NotImplementedError("duel resolution lands in task 11")
+    winner = duel.opponent_of(loser)
+    attacking = state.groups[duel.attacking_group]
+    defending = state.groups[duel.defending_group]
+    return (
+        DuelResolved(
+            winner=winner,
+            loser=loser,
+            surviving_group=attacking.id,
+            absorbed_group=defending.id,
+            absorbed_cells=defending.cells,
+            burned_category=defending.category,
+        ),
+    )
 
 
 def _judge_correct(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
@@ -234,6 +251,33 @@ def _judge_correct(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]
             image_index=duel.index,
             charged_ms=charged,
             next_answering=duel.opponent_of(duel.answering),
+            anchor=ctx.now,
+        ),
+    )
+
+
+def _judge_pass(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
+    duel = _require_live_duel(state)
+    budgets, charged = _charge(duel, ctx.now)
+    penalty = state.settings.pass_penalty_ms
+    after_penalty = budgets.charge(duel.answering, penalty)
+
+    if after_penalty.get(duel.answering) == 0:
+        pass_event = PassUsed(
+            player=duel.answering,
+            image_index=duel.index,
+            charged_ms=charged,
+            penalty_ms=penalty,
+            anchor=None,
+        )
+        return (pass_event, *_resolve(state, duel, loser=duel.answering))
+
+    return (
+        PassUsed(
+            player=duel.answering,
+            image_index=duel.index,
+            charged_ms=charged,
+            penalty_ms=penalty,
             anchor=ctx.now,
         ),
     )

@@ -5,13 +5,16 @@ from podvinsya.domain.events import (
     AnswerAccepted,
     AttackDeclared,
     BoardDealt,
+    DuelResolved,
     DuelStarted,
     Event,
     MatchCreated,
     MatchStarted,
+    PassUsed,
     PlayerAdded,
     SecretAssigned,
 )
+from podvinsya.domain.rules import next_turn
 from podvinsya.domain.state import Duel, DuelPhase, Group, MatchState, MatchStatus, Player
 
 
@@ -97,6 +100,37 @@ def evolve(state: MatchState, event: Event) -> MatchState:
                     anchor=event.anchor,
                 ),
             )
+        case PassUsed():
+            duel = _duel(state)
+            charged = duel.budgets.charge(event.player, event.charged_ms)
+            evolved = replace(
+                state,
+                duel=replace(
+                    duel,
+                    budgets=charged.charge(event.player, event.penalty_ms),
+                    index=duel.index + 1,
+                    anchor=event.anchor,
+                ),
+            )
+        case DuelResolved():
+            surviving = state.groups[event.surviving_group]
+            merged = replace(
+                surviving,
+                owner=event.winner,
+                cells=surviving.cells | event.absorbed_cells,
+            )
+            groups = {
+                gid: g for gid, g in state.groups.items() if gid != event.absorbed_group
+            }
+            groups[merged.id] = merged
+            after = replace(
+                state,
+                groups=groups,
+                played_categories=state.played_categories | {event.burned_category},
+                duel=None,
+            )
+            turn_index, round_no = next_turn(after)
+            evolved = replace(after, turn_index=turn_index, round_no=round_no)
         case _:
             raise NotImplementedError(type(event).__name__)
     return replace(evolved, seq=state.seq + 1)
