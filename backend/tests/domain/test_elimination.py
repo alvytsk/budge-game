@@ -32,6 +32,11 @@ def test_losing_your_last_group_eliminates_you() -> None:
 
     assert state.player(duel.defender).eliminated is True
     assert state.groups_of(duel.defender) == ()
+    # DuelResolved advances the turn before PlayerEliminated marks the loser, so the
+    # cursor can come to rest on the player who just went out. The elimination branch
+    # repairs it; without this assertion nothing notices when that repair is removed,
+    # and the match hangs on a dead player's turn with no legal command available.
+    assert state.player(state.current_player()).eliminated is False
 
 
 def test_a_player_with_groups_left_is_not_eliminated() -> None:
@@ -67,6 +72,10 @@ def test_the_last_player_standing_wins_and_the_match_finishes() -> None:
     assert state.status is MatchStatus.FINISHED
     assert state.winner == duel.attacker
     assert {g.owner for g in state.groups.values()} == {duel.attacker}
+    # Victory is counted over surviving players, never over groups. The winner holds the
+    # whole board as several groups with different categories, so a rule that fired only
+    # when one group remained would not have ended this match at all.
+    assert len(state.groups) > 1
 
 
 def test_a_finished_match_refuses_further_attacks() -> None:
