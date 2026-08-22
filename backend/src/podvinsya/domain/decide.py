@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import datetime
 
 from podvinsya.domain.actions import (
     AddPlayer,
@@ -7,6 +8,7 @@ from podvinsya.domain.actions import (
     CreateMatch,
     DealBoard,
     DeclareAttack,
+    JudgeCorrect,
     StartDuel,
     StartMatch,
 )
@@ -15,6 +17,7 @@ from podvinsya.domain.budgets import Budgets
 from podvinsya.domain.context import DecisionContext
 from podvinsya.domain.errors import Rejected, RejectionReason
 from podvinsya.domain.events import (
+    AnswerAccepted,
     AttackDeclared,
     BoardDealt,
     DuelStarted,
@@ -24,8 +27,10 @@ from podvinsya.domain.events import (
     PlayerAdded,
     SecretAssigned,
 )
+from podvinsya.domain.ids import PlayerId
 from podvinsya.domain.rules import legal_targets, starting_budget_ms
 from podvinsya.domain.state import Duel, DuelPhase, MatchState, MatchStatus
+from podvinsya.domain.timing import elapsed_ms
 
 
 def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[Event, ...]:
@@ -44,6 +49,8 @@ def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[E
             return _declare_attack(state, command, ctx)
         case StartDuel():
             return _start_duel(state, ctx)
+        case JudgeCorrect():
+            return _judge_correct(state, ctx)
         case _:
             raise NotImplementedError(type(command).__name__)
 
@@ -195,3 +202,38 @@ def _start_duel(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
     if duel.phase is not DuelPhase.DECLARED:
         raise Rejected(RejectionReason.DUEL_NOT_DECLARED)
     return (DuelStarted(anchor=ctx.now),)
+
+
+def _require_live_duel(state: MatchState) -> Duel:
+    duel = _require_duel(state)
+    if duel.phase is not DuelPhase.RUNNING:
+        raise Rejected(RejectionReason.DUEL_NOT_RUNNING)
+    if duel.paused:
+        raise Rejected(RejectionReason.DUEL_PAUSED)
+    return duel
+
+
+def _charge(duel: Duel, now: datetime) -> tuple[Budgets, int]:
+    remaining = duel.budgets.get(duel.answering)
+    charged = elapsed_ms(duel.anchor, now, remaining)
+    return duel.budgets.charge(duel.answering, charged), charged
+
+
+def _resolve(state: MatchState, duel: Duel, loser: PlayerId) -> tuple[Event, ...]:
+    raise NotImplementedError("duel resolution lands in task 11")
+
+
+def _judge_correct(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
+    duel = _require_live_duel(state)
+    budgets, charged = _charge(duel, ctx.now)
+    if budgets.get(duel.answering) == 0:
+        return _resolve(state, duel, loser=duel.answering)
+    return (
+        AnswerAccepted(
+            player=duel.answering,
+            image_index=duel.index,
+            charged_ms=charged,
+            next_answering=duel.opponent_of(duel.answering),
+            anchor=ctx.now,
+        ),
+    )

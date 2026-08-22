@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from dataclasses import replace
 
 from podvinsya.domain.events import (
+    AnswerAccepted,
     AttackDeclared,
     BoardDealt,
     DuelStarted,
@@ -83,6 +84,18 @@ def evolve(state: MatchState, event: Event) -> MatchState:
             evolved = replace(
                 state,
                 duel=replace(duel, anchor=event.anchor, phase=DuelPhase.RUNNING),
+            )
+        case AnswerAccepted():
+            duel = _duel(state)
+            evolved = replace(
+                state,
+                duel=replace(
+                    duel,
+                    budgets=duel.budgets.charge(event.player, event.charged_ms),
+                    answering=event.next_answering,
+                    index=duel.index + 1,
+                    anchor=event.anchor,
+                ),
             )
         case _:
             raise NotImplementedError(type(event).__name__)
