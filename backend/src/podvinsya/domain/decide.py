@@ -303,6 +303,11 @@ def _judge_correct(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]
         return _resolve(state, duel, loser=duel.answering)
     _require_next_image(duel)
     budgets, charged = _charge(duel, ctx.now)
+    # Not a second clock-authority check -- is_expired above is that one, and
+    # while the clock runs forward this branch is unreachable. It defends the
+    # backwards clock: with the budget already at zero, now < anchor makes
+    # is_expired false and elapsed_ms clamps the negative difference to zero,
+    # so the duel would otherwise run on with a player at zero.
     if budgets.get(duel.answering) == 0:
         return _resolve(state, duel, loser=duel.answering)
     return (

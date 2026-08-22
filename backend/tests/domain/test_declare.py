@@ -121,7 +121,8 @@ def test_attacking_out_of_turn_is_rejected() -> None:
     # The defending group deliberately belongs to the CURRENT player. A guard that
     # compared the defender's owner to the current player — rather than the attacker's —
     # would let this declaration through, so this pairing is what gives the test the
-    # power to see that mutation. Any enemy target would satisfy the assertion.
+    # power to see that mutation. The search below therefore pins the target's owner
+    # too, instead of taking whichever enemy group comes first.
     attacking, defending_id = next(
         (g, target)
         for g in state.groups.values()
