@@ -33,7 +33,7 @@ from podvinsya.db.errors import ConcurrentModification
 from podvinsya.db.repository import LoadedMatch
 from podvinsya.domain.actions import AddPlayer, AssignSecret, Command, CreateMatch, DealBoard
 from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DecisionContext
+from podvinsya.domain.context import DealPlan, DecisionContext
 from podvinsya.domain.decide import decide
 from podvinsya.domain.errors import RejectionReason
 from podvinsya.domain.evolve import fold
@@ -460,16 +460,61 @@ async def test_a_retry_keeps_the_operation_id_and_nothing_else() -> None:
 async def test_a_retry_that_legitimately_decides_differently_is_accepted() -> None:
     """«Переигрывание может законно дать другие события — это корректно,
     потому что ничего не было закоммичено.» A re-deal draws a different
-    shuffle; the attempt must not compare the two and panic."""
+    shuffle; the attempt must not compare the two and panic.
+
+    "Does not crash" is not enough to prove that: the assertion must fail
+    if the two attempts happened to decide identically. `Materialiser`'s
+    `Random` is shared and mutated across `build` calls, so the second
+    attempt's shuffle is expected to diverge from the first's -- this
+    records both deals and checks the divergence directly, comparing only
+    each cell's owner (the property "the host's shuffle button" is about),
+    since group_id and category are always fresh per call regardless of
+    whether the shuffle itself changed and would make the comparison true
+    for the wrong reason.
+    """
+
+    class _RecordingMaterialiser(Materialiser):
+        def __init__(self) -> None:
+            super().__init__(FakeClock(NOW), _NullRepository(), FakeCategoryBank(), Random(0))
+            self.deals: list[DealPlan] = []
+
+        async def build(
+            self,
+            state: MatchState,
+            command: Command,
+            tx: Transaction,
+            *,
+            at: datetime | None = None,
+        ) -> DecisionContext:
+            ctx = await super().build(state, command, tx, at=at)
+            assert ctx.deal is not None
+            self.deals.append(ctx.deal)
+            return ctx
+
+    def layout(plan: DealPlan) -> tuple[tuple[object, object], ...]:
+        return tuple(sorted((dealt.cell, dealt.owner) for dealt in plan.cells))
+
+    materialiser = _RecordingMaterialiser()
     uow = _FlakyBodyUoW("40001", fails=1)
-    path = CommitPath(uow, _materialiser(random=Random(0)), _NoWaitClock(NOW), Random(0))
+    path = CommitPath(uow, materialiser, _NoWaitClock(NOW), Random(0))
     state, queued = _deal_board_request()
 
     outcome = await path.run(state, queued)
 
     assert isinstance(outcome, Accepted)
     assert len(outcome.events) == 1
-    assert isinstance(outcome.events[0], BoardDealt)
+    accepted = outcome.events[0]
+    assert isinstance(accepted, BoardDealt)
+
+    assert len(materialiser.deals) == 2, "one deal per attempt, the failed one and the accepted one"
+    first_attempt, second_attempt = materialiser.deals
+    assert layout(first_attempt) != layout(second_attempt), (
+        "the two attempts must genuinely reshuffle, not repeat the same layout -- "
+        "otherwise this test cannot tell 'legitimately differs' from 'happened to crash'"
+    )
+    assert accepted.cells == second_attempt.cells, (
+        "the committed batch must be the second attempt's deal, not the discarded first one"
+    )
 
 
 async def test_retries_are_bounded_and_then_the_database_is_unavailable() -> None:
@@ -506,7 +551,15 @@ async def test_an_error_out_of_the_commit_itself_reconciles() -> None:
 
 
 async def test_a_reconciled_match_is_reported_as_committed() -> None:
-    """«Совпало — коммит прошёл, обработка продолжается со свёртки.»"""
+    """«Совпало — коммит прошёл, обработка продолжается со свёртки.»
+
+    MATCHED must not be confused with ABSENT: if it were mapped to _Retry
+    the way ABSENT is, this test's outcome would still read Accepted --
+    the scripted fake has no second ambiguous result, so the retried
+    attempt would complete cleanly on its own -- but the match would have
+    appended the same command to the log twice. Pinning the commit count
+    at exactly one is what tells the two apart.
+    """
     uow = _AmbiguousCommitUoW([Reconciliation.MATCHED])
     path = CommitPath(uow, _materialiser(), _NoWaitClock(NOW), Random(0))
     state, queued = _create_match_request()
@@ -514,6 +567,10 @@ async def test_a_reconciled_match_is_reported_as_committed() -> None:
     outcome = await path.run(state, queued)
 
     assert outcome == Accepted((_expected_match_created(),))
+    assert len(uow.committed) == 1, (
+        "MATCHED must be reported as-is, not retried -- retrying would append "
+        "the same command a second time"
+    )
 
 
 async def test_a_reconciled_absence_is_retried() -> None:
