@@ -33,7 +33,11 @@ def _url() -> str:
 
 
 def _run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_server_default=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
@@ -48,7 +52,12 @@ async def _run_online() -> None:
 
 
 def run_offline() -> None:
-    context.configure(url=_url(), target_metadata=target_metadata, literal_binds=True)
+    context.configure(
+        url=_url(),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        compare_server_default=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 

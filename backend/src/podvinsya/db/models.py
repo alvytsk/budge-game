@@ -39,9 +39,18 @@ _STATUSES = ", ".join(f"'{status.value}'" for status in MatchStatus)
 
 
 class Match(Base):
-    """One match. `status` mirrors the domain's `MatchStatus`, and the check
-    constraint is built from that enum rather than a list retyped here, so a
-    new status cannot silently diverge from what the database will accept.
+    """One match. `status` mirrors the domain's `MatchStatus`; the check
+    constraint here is built from that enum rather than a list retyped by
+    hand, so this model's copy cannot itself diverge from `MatchStatus`.
+
+    That does not, by itself, keep the *migration's* copy of the constraint
+    in sync: `alembic check` compares check constraints by name only, not by
+    body, so a `MatchStatus` member added here without updating the
+    hardcoded `status IN (...)` text in the migration passes `alembic
+    check` silently. What actually catches that drift is the behavioural
+    test `test_the_status_check_admits_exactly_the_domain_statuses` in
+    `tests/db/test_schema.py`, which inserts every domain status and one
+    that is not.
 
     TEXT plus a check constraint rather than a PostgreSQL ENUM: adding a
     value to a PG enum has historically been restricted inside a

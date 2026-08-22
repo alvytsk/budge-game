@@ -85,7 +85,17 @@ async def test_the_status_check_admits_exactly_the_domain_statuses(
     clean_db: None, sessions: async_sessionmaker[AsyncSession]
 ) -> None:
     """Derived from MatchStatus, not from a list retyped here: a status added
-    to the domain and forgotten in the migration fails this test."""
+    to the domain and forgotten in the migration fails this test.
+
+    This is the only thing standing between a new `MatchStatus` member and a
+    stale migration: `alembic check` compares check constraints by name, not
+    by body, so a `status IN (...)` text that falls out of sync with
+    `MatchStatus` passes `alembic check` silently (see
+    `test_models_and_migrations_do_not_disagree` in `test_migrations.py`).
+    This test inserts every current domain status plus one that is not one,
+    against the live database, so it fails the moment the migration's
+    hardcoded list and `MatchStatus` disagree in either direction.
+    """
     for status in MatchStatus:
         await _a_match(sessions, id=uuid4(), status=status.value)
     with pytest.raises(DBAPIError):
