@@ -3363,9 +3363,11 @@ def test_the_last_player_standing_wins_and_the_match_finishes() -> None:
     assert state.winner == duel.attacker
     assert {g.owner for g in state.groups.values()} == {duel.attacker}
 
-    # Victory is counted over surviving players, never over groups. The winner holds the
-    # whole board as several groups with different categories, so a rule that fired only
-    # when one group remained would not have ended this match at all.
+    # Documents the scenario's shape rather than guarding a mutation: the winner holds the
+    # board as many groups, which is what the spec means by "victory is counted over
+    # survivors, never groups". The group-count rule is actually killed two lines above —
+    # under it the match never reaches FINISHED at all — so do not read this line as the
+    # thing that catches it.
     assert len(state.groups) > 1
 
 
