@@ -285,10 +285,23 @@ def _expire_timer(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
     return _resolve(state, duel, loser=duel.answering)
 
 
+def _require_next_image(duel: Duel) -> None:
+    """Refuse to advance past the last image drawn at declaration time.
+
+    A duel is not bounded by the image count -- a correct answer costs no
+    budget, so the pack can genuinely run dry. Spec 8 calls that a content
+    defect and says plainly there is no domain transition for it, so this is a
+    refusal handed back to the host, never a game outcome.
+    """
+    if duel.index + 1 >= len(duel.image_order):
+        raise Rejected(RejectionReason.IMAGES_EXHAUSTED)
+
+
 def _judge_correct(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
     duel = _require_live_duel(state)
     if is_expired(duel, ctx.now):
         return _resolve(state, duel, loser=duel.answering)
+    _require_next_image(duel)
     budgets, charged = _charge(duel, ctx.now)
     if budgets.get(duel.answering) == 0:
         return _resolve(state, duel, loser=duel.answering)
@@ -354,6 +367,7 @@ def _judge_pass(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
     duel = _require_live_duel(state)
     if is_expired(duel, ctx.now):
         return _resolve(state, duel, loser=duel.answering)
+    _require_next_image(duel)
     budgets, charged = _charge(duel, ctx.now)
     penalty = state.settings.pass_penalty_ms
     after_penalty = budgets.charge(duel.answering, penalty)
