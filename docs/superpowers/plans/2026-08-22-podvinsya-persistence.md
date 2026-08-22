@@ -1062,6 +1062,7 @@ in the stream and every codec, store and projection test built on it would
 keep passing while covering one type less.
 """
 
+from collections import Counter
 from typing import get_args
 
 from podvinsya.domain.events import Event
@@ -1087,9 +1088,72 @@ def test_the_rich_stream_ends_in_a_won_match() -> None:
 
 def test_the_stream_is_a_foldable_log() -> None:
     """seq counts events, one per event, starting at one. Every later task
-    relies on that identity to line the log's `seq` up with the state's."""
+    relies on that identity to line the log's `seq` up with the state's.
+
+    This covers `_Recorder.apply`'s bookkeeping and nothing more: it stays
+    true under a duplicated or reordered command, so it is not a guard on
+    the sequence the builder assembles. That is the next test's job.
+    """
     recorded = build_rich_stream()
     assert recorded.state.seq == len(recorded.events)
+
+
+def test_the_stream_has_the_expected_shape() -> None:
+    """Pin the command sequence itself, hand-verified.
+
+    Without this, a duplicated or misordered command in `build_rich_stream`
+    changes what every later persistence task treats as ground truth and no
+    test notices — verified: adding a second `JudgePass` leaves the seq/len
+    identity true and the coverage assertion green.
+
+    Judging, passing, pausing, resuming and undoing are each 1 because only
+    the hand-played first duel exercises them; `AttackDeclared`,
+    `DuelStarted` and `DuelResolved` are each 10, one per duel; the single
+    elimination ends a two-player match.
+
+    The expected values are deliberately literal. Changing the stream should
+    be a decision someone makes, not something that drifts.
+    """
+    names = [type(event).__name__ for event in build_rich_stream().events]
+    expected_counts = {
+        "MatchCreated": 1,
+        "PlayerAdded": 2,
+        "SecretAssigned": 2,
+        "BoardDealt": 1,
+        "MatchStarted": 1,
+        "AttackDeclared": 10,
+        "DuelStarted": 10,
+        "AnswerAccepted": 1,
+        "PassUsed": 1,
+        "DuelPaused": 1,
+        "DuelResumed": 1,
+        "JudgementUndone": 1,
+        "DuelResolved": 10,
+        "PlayerEliminated": 1,
+        "MatchWon": 1,
+    }
+    assert Counter(names) == Counter(expected_counts)
+    assert len(names) == sum(expected_counts.values()) == 44
+
+    expected_first_duel = [
+        "MatchCreated",
+        "PlayerAdded",
+        "SecretAssigned",
+        "PlayerAdded",
+        "SecretAssigned",
+        "BoardDealt",
+        "MatchStarted",
+        "AttackDeclared",
+        "DuelStarted",
+        "AnswerAccepted",
+        "PassUsed",
+        "DuelPaused",
+        "DuelResumed",
+        "JudgementUndone",
+        "DuelResolved",
+    ]
+    first_resolved = names.index("DuelResolved")
+    assert names[: first_resolved + 1] == expected_first_duel
 
 
 def test_the_stream_is_deterministic_in_shape() -> None:
@@ -1213,7 +1277,8 @@ class _Recorder:
     It also assembles `duel_journal`, which is the runtime's job in
     production: the domain reads the journal but never builds it, and the
     rule that undo cannot cross into the previous duel lives entirely in
-    whoever assembles it. Here that is `_reset` on `StartDuel`.
+    whoever assembles it. Here that is the `journal.clear()` at the end of
+    `_declare_and_start`, which runs at the start of every duel.
     """
 
     def __init__(self, match_id: MatchId, board: BoardSize, settings: MatchSettings) -> None:
@@ -1281,10 +1346,12 @@ def _expire(recorder: _Recorder, now: datetime) -> datetime:
 def build_rich_stream() -> Recorded:
     """One complete match containing every event type at least once.
 
-    Two players on the smallest legal board: twelve cells, so the match is
-    over in eleven duels. The first duel is played by hand so that judging,
-    passing, pausing, resuming and undoing all appear; the rest are decided
-    by the clock, which is the shortest legal way to finish a match.
+    Two players on the smallest legal board: twelve cells, so at most
+    eleven merges are available and the loop is bounded. This match ends
+    sooner — in ten duels — because `MatchWon` fires when one player is
+    left, not when one group is. The first duel is played by hand so that
+    judging, passing, pausing, resuming and undoing all appear; the rest
+    are decided by the clock, the shortest legal way to finish a match.
     """
     board = BoardSize(3, 4)
     settings = MatchSettings()
