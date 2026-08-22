@@ -1467,7 +1467,7 @@ class CommitPath:
                 ctx = await self._materialiser.build(state, queued.command, tx)
                 events = decide(state, queued.command, ctx)
                 if not events:
-                    return NothingToDo()
+                    return NoOp()
                 await tx.append(
                     state.id,
                     expected_last_seq=state.seq,
@@ -1668,7 +1668,7 @@ async with uow.begin() as tx:
         outcome = NoOp()
     else:
         await tx.append(...)
-        outcome = Committed(events)
+        outcome = Committed(events)   # the spec's name; this plan's is Accepted
 # COMMIT — every lock is released here
 
 if isinstance(outcome, NoOp):
