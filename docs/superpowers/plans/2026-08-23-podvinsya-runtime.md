@@ -133,6 +133,7 @@ def test_the_clock_and_the_fakes_satisfy_their_ports() -> None:
 ```python
 """The clock is the only place the runtime is allowed to learn the time."""
 
+import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -153,9 +154,18 @@ def test_the_system_clock_reports_an_aware_utc_instant() -> None:
 
 async def test_a_sleep_until_in_the_past_returns_at_once() -> None:
     """A deadline already passed is the normal case after a slow commit,
-    not an error: the loop asks to sleep and gets control straight back."""
+    not an error: the loop asks to sleep and gets control straight back.
+
+    The elapsed-time assertion is what gives this test teeth. Without it,
+    the sign-flip it exists to catch — `self.now() - when` — merely makes
+    the call sleep five real seconds and pass anyway. Measuring that a call
+    did *not* wait is not the same as waiting: the constraint forbids tests
+    whose passing depends on time elapsing, and this asserts the opposite.
+    """
     clock = SystemClock()
+    started = time.monotonic()
     await clock.sleep_until(clock.now() - timedelta(seconds=5))
+    assert time.monotonic() - started < 0.1
 
 
 async def test_the_fake_clock_does_not_move_on_its_own() -> None:
