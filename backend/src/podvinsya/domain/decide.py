@@ -128,32 +128,37 @@ def _deal_board(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
     plan = ctx.deal
     cells = [dealt.cell for dealt in plan.cells]
     if sorted(cells) != sorted(state.board.cells()):
-        raise Rejected(RejectionReason.DEAL_INVALID)
+        raise Rejected(RejectionReason.DEAL_INCOMPLETE)
 
     categories = [dealt.category for dealt in plan.cells]
     if len(set(categories)) != len(categories):
-        raise Rejected(RejectionReason.DEAL_INVALID)
+        raise Rejected(RejectionReason.DEAL_DUPLICATE_CATEGORY)
 
     group_ids = [dealt.group_id for dealt in plan.cells]
     if len(set(group_ids)) != len(group_ids):
-        raise Rejected(RejectionReason.DEAL_INVALID)
+        raise Rejected(RejectionReason.DEAL_DUPLICATE_GROUP_ID)
+
+    owners = Counter(dealt.owner for dealt in plan.cells)
+    if set(owners) != {p.id for p in state.players}:
+        raise Rejected(RejectionReason.DEAL_UNKNOWN_OWNER)
 
     per_player = state.board.cell_count // state.player_count
-    owners = Counter(dealt.owner for dealt in plan.cells)
-    if set(owners) != {p.id for p in state.players} or set(owners.values()) != {per_player}:
-        raise Rejected(RejectionReason.DEAL_INVALID)
+    if set(owners.values()) != {per_player}:
+        raise Rejected(RejectionReason.DEAL_UNBALANCED)
 
     secret_owner = {category: owner for owner, category in state.secrets.items()}
     for dealt in plan.cells:
         expected_owner = secret_owner.get(dealt.category)
         if expected_owner is not None:
-            if dealt.owner != expected_owner or dealt.revealed:
-                raise Rejected(RejectionReason.DEAL_INVALID)
+            if dealt.owner != expected_owner:
+                raise Rejected(RejectionReason.DEAL_SECRET_MISPLACED)
+            if dealt.revealed:
+                raise Rejected(RejectionReason.DEAL_SECRET_REVEALED)
         elif not dealt.revealed:
-            raise Rejected(RejectionReason.DEAL_INVALID)
+            raise Rejected(RejectionReason.DEAL_CATEGORY_NOT_REVEALED)
     dealt_categories = {d.category for d in plan.cells}
     if len(dealt_categories & set(state.secrets.values())) != len(state.secrets):
-        raise Rejected(RejectionReason.DEAL_INVALID)
+        raise Rejected(RejectionReason.DEAL_SECRET_ABSENT)
 
     return (BoardDealt(cells=plan.cells),)
 

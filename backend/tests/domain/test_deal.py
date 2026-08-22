@@ -4,10 +4,20 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import DealBoard
-from podvinsya.domain.context import DealPlan, DealtCell
+from podvinsya.domain.actions import (
+    AddPlayer,
+    AssignSecret,
+    CreateMatch,
+    DealBoard,
+    StartMatch,
+)
+from podvinsya.domain.board import BoardSize
+from podvinsya.domain.context import DealPlan
 from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.ids import GroupId
+from podvinsya.domain.genesis import create_initial_state
+from podvinsya.domain.ids import CategoryId, MatchId, PlayerId
+from podvinsya.domain.settings import MatchSettings
+from podvinsya.domain.state import MatchState
 
 from .conftest import apply, build_dealt_state, build_setup_state, make_deal
 
@@ -67,45 +77,122 @@ def test_deal_without_a_plan_is_rejected() -> None:
     assert excinfo.value.reason is RejectionReason.DEAL_INVALID
 
 
-def test_deal_missing_a_cell_is_rejected() -> None:
-    state, players = build_setup_state(4)
-    plan = make_deal(state.board, players, dict(state.secrets))
-    truncated = DealPlan(cells=plan.cells[:-1])
+def _valid_plan(state: MatchState, players: tuple[PlayerId, ...]) -> DealPlan:
+    return make_deal(state.board, players, dict(state.secrets))
+
+
+def _index_of_secret(plan: DealPlan, secret: CategoryId) -> int:
+    return next(i for i, c in enumerate(plan.cells) if c.category == secret)
+
+
+def _plain_indices(plan: DealPlan, secrets: set[CategoryId]) -> list[int]:
+    return [i for i, c in enumerate(plan.cells) if c.category not in secrets]
+
+
+def test_deal_outside_setup_is_rejected() -> None:
+    """Trips only _require_setup: the plan handed in is a valid one."""
+    state, players = build_dealt_state(4)
+    state = apply(state, StartMatch())
     with pytest.raises(Rejected) as excinfo:
-        apply(state, DealBoard(), deal=truncated)
-    assert excinfo.value.reason is RejectionReason.DEAL_INVALID
+        apply(state, DealBoard(), deal=_valid_plan(state, players))
+    assert excinfo.value.reason is RejectionReason.WRONG_STATUS
+
+
+def test_deal_before_every_player_has_joined_is_rejected() -> None:
+    board = BoardSize(4, 6)
+    state = create_initial_state(MatchId(uuid4()), board, MatchSettings())
+    state = apply(state, CreateMatch(board=board, settings=MatchSettings(), player_count=4))
+    for index in range(3):
+        player_id = PlayerId(uuid4())
+        state = apply(state, AddPlayer(player_id=player_id, name=f"P{index}", colour="#fff"))
+        state = apply(state, AssignSecret(player_id=player_id, category=CategoryId(uuid4())))
+    with pytest.raises(Rejected) as excinfo:
+        apply(state, DealBoard(), deal=DealPlan(cells=()))
+    assert excinfo.value.reason is RejectionReason.PLAYER_COUNT_INVALID
+
+
+def test_deal_missing_a_cell_is_rejected() -> None:
+    """One board cell left uncovered, with everything else about the plan intact.
+
+    The last cell is pointed at the first cell's coordinates rather than dropped:
+    truncating the plan would also unbalance the per-player counts, so the balance
+    guard would catch it and the cells-cover guard could be deleted unnoticed.
+    """
+    state, players = build_setup_state(4)
+    plan = _valid_plan(state, players)
+    cells = list(plan.cells)
+    cells[-1] = replace(cells[-1], cell=cells[0].cell)
+    with pytest.raises(Rejected) as excinfo:
+        apply(state, DealBoard(), deal=DealPlan(cells=tuple(cells)))
+    assert excinfo.value.reason is RejectionReason.DEAL_INCOMPLETE
 
 
 def test_deal_with_a_duplicate_category_is_rejected() -> None:
+    """Two plain cells share a category.
+
+    The donor category is deliberately *not* a secret: copying a secret across
+    would land it on the wrong owner too, so the secret-ownership guard would
+    catch the plan and this test would say nothing about duplicates.
+    """
     state, players = build_setup_state(4)
-    plan = make_deal(state.board, players, dict(state.secrets))
-    clashing = DealPlan(
-        cells=(
-            *plan.cells[:-1],
-            DealtCell(
-                cell=plan.cells[-1].cell,
-                owner=plan.cells[-1].owner,
-                category=plan.cells[0].category,
-                group_id=GroupId(uuid4()),
-                revealed=True,
-            ),
-        )
-    )
+    plan = _valid_plan(state, players)
+    plain = _plain_indices(plan, set(state.secrets.values()))
+    cells = list(plan.cells)
+    cells[plain[-1]] = replace(cells[plain[-1]], category=cells[plain[0]].category)
     with pytest.raises(Rejected) as excinfo:
-        apply(state, DealBoard(), deal=clashing)
-    assert excinfo.value.reason is RejectionReason.DEAL_INVALID
+        apply(state, DealBoard(), deal=DealPlan(cells=tuple(cells)))
+    assert excinfo.value.reason is RejectionReason.DEAL_DUPLICATE_CATEGORY
+
+
+def test_deal_with_a_duplicate_group_id_is_rejected() -> None:
+    state, players = build_setup_state(4)
+    plan = _valid_plan(state, players)
+    cells = list(plan.cells)
+    cells[-1] = replace(cells[-1], group_id=cells[0].group_id)
+    with pytest.raises(Rejected) as excinfo:
+        apply(state, DealBoard(), deal=DealPlan(cells=tuple(cells)))
+    assert excinfo.value.reason is RejectionReason.DEAL_DUPLICATE_GROUP_ID
+
+
+def test_deal_with_an_unknown_owner_is_rejected() -> None:
+    """Every cell of one player reassigned to a stranger: the counts stay balanced."""
+    state, players = build_setup_state(4)
+    plan = _valid_plan(state, players)
+    stranger = PlayerId(uuid4())
+    cells = [
+        replace(c, owner=stranger) if c.owner == players[3] else c for c in plan.cells
+    ]
+    with pytest.raises(Rejected) as excinfo:
+        apply(state, DealBoard(), deal=DealPlan(cells=tuple(cells)))
+    assert excinfo.value.reason is RejectionReason.DEAL_UNKNOWN_OWNER
+
+
+def test_deal_with_unequal_per_player_counts_is_rejected() -> None:
+    """One plain cell moved without a swap back: the owner set is still complete."""
+    state, players = build_setup_state(4)
+    plan = _valid_plan(state, players)
+    cells = list(plan.cells)
+    moved = next(
+        i
+        for i, c in enumerate(plan.cells)
+        if c.owner == players[1] and c.category not in state.secrets.values()
+    )
+    cells[moved] = replace(cells[moved], owner=players[0])
+    with pytest.raises(Rejected) as excinfo:
+        apply(state, DealBoard(), deal=DealPlan(cells=tuple(cells)))
+    assert excinfo.value.reason is RejectionReason.DEAL_UNBALANCED
 
 
 def test_deal_with_a_secret_on_the_wrong_owner_is_rejected() -> None:
     state, players = build_setup_state(4)
-    plan = make_deal(state.board, players, dict(state.secrets))
+    plan = _valid_plan(state, players)
     secret_of_first = state.secrets[players[0]]
 
     # Swap owners between the first player's secret cell and one plain cell of the
     # second player. Simply moving the secret across would unbalance the per-player
-    # counts and trip the earlier balance guard, leaving the secret-ownership guard
-    # untested while the test still passed on the same DEAL_INVALID reason.
-    secret_index = next(i for i, c in enumerate(plan.cells) if c.category == secret_of_first)
+    # counts, so the balance guard would fire first and this test would never reach
+    # the guard it is named for.
+    secret_index = _index_of_secret(plan, secret_of_first)
     plain_index = next(
         i
         for i, c in enumerate(plan.cells)
@@ -117,16 +204,46 @@ def test_deal_with_a_secret_on_the_wrong_owner_is_rejected() -> None:
 
     with pytest.raises(Rejected) as excinfo:
         apply(state, DealBoard(), deal=DealPlan(cells=tuple(cells)))
-    assert excinfo.value.reason is RejectionReason.DEAL_INVALID
+    assert excinfo.value.reason is RejectionReason.DEAL_SECRET_MISPLACED
+
+
+def test_deal_with_a_secret_already_revealed_is_rejected() -> None:
+    state, players = build_setup_state(4)
+    plan = _valid_plan(state, players)
+    cells = list(plan.cells)
+    secret_index = _index_of_secret(plan, state.secrets[players[0]])
+    cells[secret_index] = replace(cells[secret_index], revealed=True)
+    with pytest.raises(Rejected) as excinfo:
+        apply(state, DealBoard(), deal=DealPlan(cells=tuple(cells)))
+    assert excinfo.value.reason is RejectionReason.DEAL_SECRET_REVEALED
+
+
+def test_deal_with_a_plain_category_left_unrevealed_is_rejected() -> None:
+    state, players = build_setup_state(4)
+    plan = _valid_plan(state, players)
+    plain = _plain_indices(plan, set(state.secrets.values()))
+    cells = list(plan.cells)
+    cells[plain[0]] = replace(cells[plain[0]], revealed=False)
+    with pytest.raises(Rejected) as excinfo:
+        apply(state, DealBoard(), deal=DealPlan(cells=tuple(cells)))
+    assert excinfo.value.reason is RejectionReason.DEAL_CATEGORY_NOT_REVEALED
+
+
+def test_deal_that_leaves_a_secret_off_the_board_is_rejected() -> None:
+    """A declared secret replaced by a plain category: no other guard notices."""
+    state, players = build_setup_state(4)
+    plan = _valid_plan(state, players)
+    cells = list(plan.cells)
+    secret_index = _index_of_secret(plan, state.secrets[players[0]])
+    cells[secret_index] = replace(
+        cells[secret_index], category=CategoryId(uuid4()), revealed=True
+    )
+    with pytest.raises(Rejected) as excinfo:
+        apply(state, DealBoard(), deal=DealPlan(cells=tuple(cells)))
+    assert excinfo.value.reason is RejectionReason.DEAL_SECRET_ABSENT
 
 
 def test_deal_before_every_secret_is_assigned_is_rejected() -> None:
-    from podvinsya.domain.actions import AddPlayer, CreateMatch
-    from podvinsya.domain.board import BoardSize
-    from podvinsya.domain.genesis import create_initial_state
-    from podvinsya.domain.ids import MatchId, PlayerId
-    from podvinsya.domain.settings import MatchSettings
-
     board = BoardSize(4, 6)
     state = create_initial_state(MatchId(uuid4()), board, MatchSettings())
     state = apply(state, CreateMatch(board=board, settings=MatchSettings(), player_count=4))
