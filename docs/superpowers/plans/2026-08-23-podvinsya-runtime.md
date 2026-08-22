@@ -1259,19 +1259,21 @@ This is §6.3's failure-policy table made executable. Everything above it — th
 
 **Interfaces:**
 - Consumes: `UnitOfWorkPort`, `Transaction`, `Reconciliation`, `RuntimeCode`, `ContentExhausted`; `Materialiser`; `QueuedCommand`; `decide` and `Rejected` from the domain; `ConcurrentModification` from `db.errors`.
-- Produces: `Committed`, `NothingToDo`, `Refused`, `Broken`, the `AttemptOutcome` union, and `CommitPath(uow, materialiser, clock, random, *, max_attempts=3)` with `async def run(state, queued) -> AttemptOutcome`.
+- Produces: `CommitPath(uow, materialiser, clock, random, *, max_attempts=3)` with `async def run(state, queued) -> CommandOutcome`, and the private `_Retry` sentinel.
+
+**One union, not two.** An earlier draft of this plan gave the commit path its own `Committed`/`NothingToDo`/`Refused`/`Broken` beside Task 2's `Accepted`/`NoOp`/`Rejected`/`Failed` — four pairs with identical shapes and different names, plus a translation in the cycle that could only ever be a bug factory. `run` returns Task 2's `CommandOutcome` directly. `_Retry` is private to this module and never escapes `run`.
 
 **The table this implements**, from §6.3, verbatim in the left column:
 
 | Условие | What `run` returns |
 |---|---|
-| отказ из `decide` | `Refused(reason)` — state untouched, runtime healthy |
-| нехватка контента при отборе | `Broken(CONTENT_UNAVAILABLE, …)` — an ordinary refusal; **no quarantine** |
+| отказ из `decide` | `Rejected(reason)` — state untouched, runtime healthy |
+| нехватка контента при отборе | `Failed(CONTENT_UNAVAILABLE, …)` — an ordinary refusal; **no quarantine** |
 | известный откат БД (`40001`, `40P01`) | retry, bounded, with jitter, re-materialising and re-deciding in a fresh transaction |
 | неоднозначный коммит | reconcile on `(match_id, operation_id)` |
-| БД недоступна после повторов | `Broken(DATABASE_UNAVAILABLE, …)` — the caller quarantines |
-| исключение в `decide` / `evolve` | `Broken(INTERNAL, …)`, no retries |
-| исключение в материализаторе | `Broken(INTERNAL, …)` |
+| БД недоступна после повторов | `Failed(DATABASE_UNAVAILABLE, …)` — the caller quarantines |
+| исключение в `decide` / `evolve` | `Failed(INTERNAL, …)`, no retries |
+| исключение в материализаторе | `Failed(INTERNAL, …)` |
 
 The broadcaster row is not here: it happens after the commit, and it belongs to Task 6.
 
@@ -1429,15 +1431,17 @@ def _sqlstate(error: DBAPIError) -> str | None:
 
 
 class CommitPath:
-    async def run(self, state: MatchState, queued: QueuedCommand) -> AttemptOutcome:
+    async def run(self, state: MatchState, queued: QueuedCommand) -> CommandOutcome:
         for attempt in range(self._max_attempts):
             outcome = await self._attempt(state, queued)
             if not isinstance(outcome, _Retry):
                 return outcome
             await self._backoff(attempt)
-        return Broken(RuntimeCode.DATABASE_UNAVAILABLE, "retries exhausted")
+        return Failed(RuntimeCode.DATABASE_UNAVAILABLE, "retries exhausted")
 
-    async def _attempt(self, state: MatchState, queued: QueuedCommand) -> AttemptOutcome | _Retry:
+    async def _attempt(
+        self, state: MatchState, queued: QueuedCommand
+    ) -> CommandOutcome | _Retry:
         events: tuple[Event, ...] = ()
         body_completed = False
         try:
@@ -1454,11 +1458,11 @@ class CommitPath:
                 )
                 body_completed = True
         except Rejected as refusal:
-            return Refused(refusal.reason)
+            return Rejected(refusal.reason)
         except ContentExhausted as shortfall:
-            return Broken(RuntimeCode.CONTENT_UNAVAILABLE, str(shortfall))
+            return Failed(RuntimeCode.CONTENT_UNAVAILABLE, str(shortfall))
         except ConcurrentModification:
-            return Broken(RuntimeCode.INTERNAL, "another writer advanced this match")
+            return Failed(RuntimeCode.INTERNAL, "another writer advanced this match")
         except DBAPIError as error:
             return await self._after_database_error(error, state, queued, events, body_completed)
         except Exception as unexpected:
@@ -1466,7 +1470,7 @@ class CommitPath:
             # three the same answer and explicitly no retries: a bug
             # reproduces exactly on replay.
             logger.exception("attempt failed for %s", state.id)
-            return Broken(RuntimeCode.INTERNAL, repr(unexpected))
+            return Failed(RuntimeCode.INTERNAL, repr(unexpected))
         return Committed(events)
 ```
 
@@ -1482,7 +1486,7 @@ class CommitPath:
         if not body_completed:
             if _sqlstate(error) in RETRYABLE_SQLSTATES:
                 return _Retry()
-            return Broken(RuntimeCode.DATABASE_UNAVAILABLE, repr(error))
+            return Failed(RuntimeCode.DATABASE_UNAVAILABLE, repr(error))
 
         outcome = await self._uow.reconcile(
             state.id,
@@ -1492,11 +1496,11 @@ class CommitPath:
         )
         match outcome:
             case Reconciliation.MATCHED:
-                return Committed(events)
+                return Accepted(events)
             case Reconciliation.ABSENT:
                 return _Retry()
             case Reconciliation.DIVERGED:
-                return Broken(RuntimeCode.INTERNAL, "the log диverged from this batch")
+                return Failed(RuntimeCode.INTERNAL, "the log диverged from this batch")
 ```
 
 Fix that last string — it is deliberately mangled here so nobody pastes it without reading. Write it in English.
@@ -1632,7 +1636,7 @@ git commit -m "Sleep until the deadline, and make a stale timer harmless"
 - Test: `backend/tests/runtime/test_match.py`
 
 **Interfaces:**
-- Consumes: `CommitPath` and its outcomes, `DeadlineScheduler`, `QueuedCommand`, `SystemOrigin`, `Broadcaster`, `Clock`, `RuntimeCode`, `Quarantined`; `fold` from the domain.
+- Consumes: `CommitPath` and Task 2's `CommandOutcome`, `DeadlineScheduler`, `QueuedCommand`, `SystemOrigin`, `Broadcaster`, `Clock`, `RuntimeCode`, `Quarantined`; `fold` from the domain.
 - Produces: `MatchRuntime(match_id, state, commit_path, scheduler, broadcaster)` with `submit(command, origin)`, `run()`, `stop()`, and read-only `state` / `quarantined`.
 
 **The cycle, from §6.2:**
@@ -1708,7 +1712,7 @@ async def test_a_broadcaster_that_raises_still_resolves_the_caller() -> None:
     else's socket broke would be a lie about durable state."""
 
 
-async def test_a_broken_outcome_quarantines_and_tells_the_caller() -> None:
+async def test_a_failed_outcome_quarantines_and_tells_the_caller() -> None:
 
 
 async def test_a_content_shortfall_does_not_quarantine() -> None:
@@ -1750,15 +1754,15 @@ class MatchRuntime:
 
         outcome = await self._commit.run(self._state, queued)
         match outcome:
-            case NothingToDo():
+            case NoOp():
                 queued.origin.resolve_noop()
-            case Refused(reason):
+            case Rejected(reason):
                 queued.origin.resolve_rejected(reason)
-            case Broken(code, message):
+            case Failed(code, message):
                 if code is not RuntimeCode.CONTENT_UNAVAILABLE:
                     self._quarantine(message)
                 queued.origin.resolve_failed(code, message)
-            case Committed(events):
+            case Accepted(events):
                 base_seq = self._state.seq
                 self._state = fold(self._state, events)
                 self._scheduler.reschedule(self._state)
