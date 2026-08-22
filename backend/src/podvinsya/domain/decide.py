@@ -8,6 +8,7 @@ from podvinsya.domain.actions import (
     CreateMatch,
     DealBoard,
     DeclareAttack,
+    ExpireTimer,
     JudgeCorrect,
     JudgePass,
     PauseDuel,
@@ -37,7 +38,7 @@ from podvinsya.domain.events import (
 from podvinsya.domain.ids import PlayerId
 from podvinsya.domain.rules import legal_targets, starting_budget_ms
 from podvinsya.domain.state import Duel, DuelPhase, MatchState, MatchStatus
-from podvinsya.domain.timing import elapsed_ms
+from podvinsya.domain.timing import elapsed_ms, is_expired
 
 
 def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[Event, ...]:
@@ -64,6 +65,8 @@ def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[E
             return _pause_duel(state, ctx)
         case ResumeDuel():
             return _resume_duel(state, ctx)
+        case ExpireTimer():
+            return _expire_timer(state, ctx)
         case _:
             raise NotImplementedError(type(command).__name__)
 
@@ -248,8 +251,21 @@ def _resolve(state: MatchState, duel: Duel, loser: PlayerId) -> tuple[Event, ...
     )
 
 
+def _expire_timer(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
+    if state.duel is None:
+        return ()
+    duel = state.duel
+    if duel.phase is not DuelPhase.RUNNING or duel.paused:
+        return ()
+    if not is_expired(duel, ctx.now):
+        return ()
+    return _resolve(state, duel, loser=duel.answering)
+
+
 def _judge_correct(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
     duel = _require_live_duel(state)
+    if is_expired(duel, ctx.now):
+        return _resolve(state, duel, loser=duel.answering)
     budgets, charged = _charge(duel, ctx.now)
     if budgets.get(duel.answering) == 0:
         return _resolve(state, duel, loser=duel.answering)
@@ -281,6 +297,8 @@ def _resume_duel(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
 
 def _judge_pass(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
     duel = _require_live_duel(state)
+    if is_expired(duel, ctx.now):
+        return _resolve(state, duel, loser=duel.answering)
     budgets, charged = _charge(duel, ctx.now)
     penalty = state.settings.pass_penalty_ms
     after_penalty = budgets.charge(duel.answering, penalty)
