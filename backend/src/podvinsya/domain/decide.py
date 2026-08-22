@@ -31,8 +31,10 @@ from podvinsya.domain.events import (
     Event,
     MatchCreated,
     MatchStarted,
+    MatchWon,
     PassUsed,
     PlayerAdded,
+    PlayerEliminated,
     SecretAssigned,
 )
 from podvinsya.domain.ids import PlayerId
@@ -239,16 +241,28 @@ def _resolve(state: MatchState, duel: Duel, loser: PlayerId) -> tuple[Event, ...
     winner = duel.opponent_of(loser)
     attacking = state.groups[duel.attacking_group]
     defending = state.groups[duel.defending_group]
-    return (
-        DuelResolved(
-            winner=winner,
-            loser=loser,
-            surviving_group=attacking.id,
-            absorbed_group=defending.id,
-            absorbed_cells=defending.cells,
-            burned_category=defending.category,
-        ),
+    resolved = DuelResolved(
+        winner=winner,
+        loser=loser,
+        surviving_group=attacking.id,
+        absorbed_group=defending.id,
+        absorbed_cells=defending.cells,
+        burned_category=defending.category,
     )
+
+    loser_groups_left = sum(
+        1
+        for gid, group in state.groups.items()
+        if group.owner == loser and gid not in (attacking.id, defending.id)
+    )
+    if loser_groups_left > 0:
+        return (resolved,)
+
+    eliminated = PlayerEliminated(player_id=loser)
+    survivors = [p.id for p in state.players if not p.eliminated and p.id != loser]
+    if len(survivors) == 1:
+        return (resolved, eliminated, MatchWon(player_id=survivors[0]))
+    return (resolved, eliminated)
 
 
 def _expire_timer(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:

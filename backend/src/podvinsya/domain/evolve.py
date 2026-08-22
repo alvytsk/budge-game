@@ -12,8 +12,10 @@ from podvinsya.domain.events import (
     Event,
     MatchCreated,
     MatchStarted,
+    MatchWon,
     PassUsed,
     PlayerAdded,
+    PlayerEliminated,
     SecretAssigned,
 )
 from podvinsya.domain.rules import next_turn
@@ -146,6 +148,25 @@ def evolve(state: MatchState, event: Event) -> MatchState:
             )
             turn_index, round_no = next_turn(after)
             evolved = replace(after, turn_index=turn_index, round_no=round_no)
+        case PlayerEliminated():
+            marked = replace(
+                state,
+                players=tuple(
+                    replace(p, eliminated=True) if p.id == event.player_id else p
+                    for p in state.players
+                ),
+            )
+            if marked.player(marked.current_player()).eliminated:
+                turn_index, round_no = next_turn(marked)
+                evolved = replace(marked, turn_index=turn_index, round_no=round_no)
+            else:
+                evolved = marked
+        case MatchWon():
+            evolved = replace(
+                state,
+                status=MatchStatus.FINISHED,
+                winner=event.player_id,
+            )
         case _:
             raise NotImplementedError(type(event).__name__)
     return replace(evolved, seq=state.seq + 1)
