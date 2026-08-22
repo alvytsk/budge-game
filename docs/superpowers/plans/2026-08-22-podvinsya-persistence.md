@@ -2934,16 +2934,25 @@ from podvinsya.db.store import UnitOfWork
 from podvinsya.domain.events import Event, MatchCreated
 from podvinsya.domain.ids import MatchId
 from podvinsya.domain.state import DuelPhase
-from support.streams import build_rich_stream
+from support.streams import Recorded, build_rich_stream
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
 
 async def _persist(
-    sessions: async_sessionmaker[AsyncSession], upto: int | None = None
+    sessions: async_sessionmaker[AsyncSession],
+    upto: int | None = None,
+    *,
+    recorded: Recorded | None = None,
 ) -> tuple[MatchId, tuple[Event, ...]]:
-    """Persist a real stream, optionally truncated to catch a match mid-duel."""
-    recorded = build_rich_stream()
+    """Persist a real stream, optionally truncated to catch a match mid-duel.
+
+    `build_rich_stream` mints fresh random ids on every call, so a caller that
+    needs to compare the loaded state against the exact state that produced it
+    must pass that same `Recorded` in rather than let this helper build its
+    own: two independent calls are never equal.
+    """
+    recorded = recorded if recorded is not None else build_rich_stream()
     events = recorded.events if upto is None else recorded.events[:upto]
     created = events[0]
     assert isinstance(created, MatchCreated)
@@ -2964,7 +2973,7 @@ async def test_a_finished_match_loads_back_exactly(
     clean_db: None, sessions: async_sessionmaker[AsyncSession]
 ) -> None:
     recorded = build_rich_stream()
-    match_id, _ = await _persist(sessions)
+    match_id, _ = await _persist(sessions, recorded=recorded)
     loaded = await MatchRepository(sessions).load(match_id)
     assert loaded.state == recorded.state, (
         "the fold of the persisted log must equal the fold that produced it"
@@ -2984,7 +2993,7 @@ async def test_a_match_caught_mid_duel_loads_with_its_duel_intact(
         for index, event in enumerate(recorded.events)
         if type(event).__name__ == "DuelResumed"
     ) + 1
-    match_id, events = await _persist(sessions, upto=cut)
+    match_id, events = await _persist(sessions, upto=cut, recorded=recorded)
     loaded = await MatchRepository(sessions).load(match_id)
     duel = loaded.state.duel
     assert duel is not None
