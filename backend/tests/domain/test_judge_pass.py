@@ -74,6 +74,8 @@ def test_duel_resolution_merges_groups_under_the_attacker_category_when_attacker
     defending_before = state.groups[defending_id]
     before_group_count = len(state.groups)
     before_played = state.played_categories
+    before_turn_index = state.turn_index
+    before_round_no = state.round_no
     thin = replace(duel, budgets=Budgets.of({duel.attacker: 1_000, duel.defender: 60_000}))
     state = replace(state, duel=thin)
 
@@ -89,6 +91,9 @@ def test_duel_resolution_merges_groups_under_the_attacker_category_when_attacker
     assert surviving.cells == attacking_before.cells | defending_before.cells
     assert len(state.groups) == before_group_count - 1
     assert state.played_categories == before_played | {defending_before.category}
+    assert (state.turn_index, state.round_no) == (before_turn_index + 1, before_round_no), (
+        "the turn must advance inside DuelResolved; nothing else in the suite pins this"
+    )
 
 
 def test_duel_resolution_merges_groups_under_the_attacker_category_when_attacker_wins() -> (
@@ -110,6 +115,8 @@ def test_duel_resolution_merges_groups_under_the_attacker_category_when_attacker
     defending_before = state.groups[defending_id]
     before_group_count = len(state.groups)
     before_played = state.played_categories
+    before_turn_index = state.turn_index
+    before_round_no = state.round_no
     thin = replace(duel, budgets=Budgets.of({duel.attacker: 60_000, duel.defender: 1_000}))
     state = replace(state, duel=thin)
 
@@ -125,3 +132,6 @@ def test_duel_resolution_merges_groups_under_the_attacker_category_when_attacker
     assert surviving.cells == attacking_before.cells | defending_before.cells
     assert len(state.groups) == before_group_count - 1
     assert state.played_categories == before_played | {defending_before.category}
+    assert (state.turn_index, state.round_no) == (before_turn_index + 1, before_round_no), (
+        "the turn must advance inside DuelResolved; nothing else in the suite pins this"
+    )
