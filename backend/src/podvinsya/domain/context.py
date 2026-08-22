@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from podvinsya.domain.board import Cell
+from podvinsya.domain.budgets import Budgets
 from podvinsya.domain.ids import CategoryId, GroupId, ImageId, PlayerId
 
 
@@ -20,6 +21,20 @@ class DealPlan:
 
 
 @dataclass(frozen=True, slots=True)
+class JournalEntry:
+    """State of the duel immediately before one judging event.
+
+    The runtime derives these from the event log and hands them in; the domain
+    never reads the log itself.
+    """
+
+    seq: int
+    budgets: Budgets
+    answering: PlayerId
+    image_index: int
+
+
+@dataclass(frozen=True, slots=True)
 class DecisionContext:
     """Every non-deterministic input the domain needs, supplied as a value.
 
@@ -31,3 +46,4 @@ class DecisionContext:
     now: datetime
     deal: DealPlan | None = None
     image_order: tuple[ImageId, ...] | None = None
+    duel_journal: tuple[JournalEntry, ...] = ()

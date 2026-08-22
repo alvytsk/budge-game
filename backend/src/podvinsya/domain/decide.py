@@ -15,6 +15,7 @@ from podvinsya.domain.actions import (
     ResumeDuel,
     StartDuel,
     StartMatch,
+    UndoLastJudgement,
 )
 from podvinsya.domain.board import validate_board
 from podvinsya.domain.budgets import Budgets
@@ -29,6 +30,7 @@ from podvinsya.domain.events import (
     DuelResumed,
     DuelStarted,
     Event,
+    JudgementUndone,
     MatchCreated,
     MatchStarted,
     MatchWon,
@@ -69,6 +71,8 @@ def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[E
             return _resume_duel(state, ctx)
         case ExpireTimer():
             return _expire_timer(state, ctx)
+        case UndoLastJudgement():
+            return _undo(state, ctx)
         case _:
             raise NotImplementedError(type(command).__name__)
 
@@ -307,6 +311,24 @@ def _resume_duel(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
     if not duel.paused:
         raise Rejected(RejectionReason.DUEL_NOT_PAUSED)
     return (DuelResumed(anchor=ctx.now),)
+
+
+def _undo(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
+    duel = _require_duel(state)
+    if duel.phase is not DuelPhase.RUNNING:
+        raise Rejected(RejectionReason.DUEL_NOT_RUNNING)
+    if not ctx.duel_journal:
+        raise Rejected(RejectionReason.NOTHING_TO_UNDO)
+    entry = ctx.duel_journal[-1]
+    return (
+        JudgementUndone(
+            undone_seq=entry.seq,
+            budgets=entry.budgets,
+            answering=entry.answering,
+            image_index=entry.image_index,
+            anchor=ctx.now,
+        ),
+    )
 
 
 def _judge_pass(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:

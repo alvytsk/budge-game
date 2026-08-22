@@ -10,6 +10,7 @@ from podvinsya.domain.events import (
     DuelResumed,
     DuelStarted,
     Event,
+    JudgementUndone,
     MatchCreated,
     MatchStarted,
     MatchWon,
@@ -129,6 +130,18 @@ def evolve(state: MatchState, event: Event) -> MatchState:
         case DuelResumed():
             duel = _duel(state)
             evolved = replace(state, duel=replace(duel, anchor=event.anchor))
+        case JudgementUndone():
+            duel = _duel(state)
+            evolved = replace(
+                state,
+                duel=replace(
+                    duel,
+                    budgets=event.budgets,
+                    answering=event.answering,
+                    index=event.image_index,
+                    anchor=event.anchor,
+                ),
+            )
         case DuelResolved():
             surviving = state.groups[event.surviving_group]
             merged = replace(
