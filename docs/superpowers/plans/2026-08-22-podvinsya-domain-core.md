@@ -1319,8 +1319,9 @@ git commit -m "feat(domain): add players and assign secrets"
 Добавить в `backend/tests/domain/conftest.py`:
 
 ```python
+from collections import Counter
+
 from podvinsya.domain.actions import DealBoard
-from podvinsya.domain.board import Cell
 from podvinsya.domain.context import DealPlan, DealtCell
 from podvinsya.domain.ids import GroupId
 
@@ -1330,13 +1331,26 @@ def make_deal(
     players: tuple[PlayerId, ...],
     secrets: dict[PlayerId, CategoryId],
 ) -> DealPlan:
-    """Deterministic deal: cells round-robin across players, secret on each owner's first cell."""
+    """Deterministic deal on a Latin-square pattern, secret on each owner's first cell.
+
+    Owner is (col + row) % n, so no two orthogonally adjacent cells share an
+    owner and every neighbour is a legal target from move one. A plain
+    round-robin over the row-major cell order would hand each player a solid
+    column whenever the board width is a multiple of the player count, and
+    then "the cell below is a legal target" stops being true.
+
+    Even counts hold for the three default boards in BOARDS; the assert at the
+    end makes any other board loud rather than silently lopsided.
+    """
+    n = len(players)
     cells = board.cells()
-    per_player = len(cells) // len(players)
+    per_player = len(cells) // n
+    seen: set[PlayerId] = set()
     dealt: list[DealtCell] = []
-    for index, cell in enumerate(cells):
-        owner = players[index % len(players)]
-        is_first_for_owner = index // len(players) == 0
+    for cell in cells:
+        owner = players[(cell.col + cell.row) % n]
+        is_first_for_owner = owner not in seen
+        seen.add(owner)
         category = secrets[owner] if is_first_for_owner else CategoryId(uuid4())
         dealt.append(
             DealtCell(
@@ -1347,7 +1361,8 @@ def make_deal(
                 revealed=not is_first_for_owner,
             )
         )
-    assert len(dealt) == per_player * len(players)
+    counts = Counter(d.owner for d in dealt)
+    assert set(counts.values()) == {per_player}, f"uneven deal: {counts}"
     return DealPlan(cells=tuple(dealt))
 
 
