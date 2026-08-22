@@ -11,6 +11,7 @@ from podvinsya.domain.actions import (
     CreateMatch,
     DealBoard,
     DeclareAttack,
+    StartDuel,
     StartMatch,
 )
 from podvinsya.domain.board import BoardSize
@@ -159,3 +160,13 @@ def build_declared_state() -> tuple[MatchState, tuple[PlayerId, ...], GroupId, G
 @pytest.fixture
 def declared_state() -> tuple[MatchState, tuple[PlayerId, ...], GroupId, GroupId]:
     return build_declared_state()
+
+
+def build_duel_state() -> tuple[MatchState, tuple[PlayerId, ...], GroupId, GroupId]:
+    state, players, attacking, defending = build_declared_state()
+    return apply(state, StartDuel(), now=BASE_TIME), players, attacking, defending
+
+
+@pytest.fixture
+def duel_state() -> tuple[MatchState, tuple[PlayerId, ...], GroupId, GroupId]:
+    return build_duel_state()

@@ -4,6 +4,7 @@ from dataclasses import replace
 from podvinsya.domain.events import (
     AttackDeclared,
     BoardDealt,
+    DuelStarted,
     Event,
     MatchCreated,
     MatchStarted,
@@ -77,9 +78,21 @@ def evolve(state: MatchState, event: Event) -> MatchState:
                     phase=DuelPhase.DECLARED,
                 ),
             )
+        case DuelStarted():
+            duel = _duel(state)
+            evolved = replace(
+                state,
+                duel=replace(duel, anchor=event.anchor, phase=DuelPhase.RUNNING),
+            )
         case _:
             raise NotImplementedError(type(event).__name__)
     return replace(evolved, seq=state.seq + 1)
+
+
+def _duel(state: MatchState) -> Duel:
+    if state.duel is None:
+        raise NotImplementedError("event requires an active duel")
+    return state.duel
 
 
 def fold(state: MatchState, events: Iterable[Event]) -> MatchState:

@@ -7,6 +7,7 @@ from podvinsya.domain.actions import (
     CreateMatch,
     DealBoard,
     DeclareAttack,
+    StartDuel,
     StartMatch,
 )
 from podvinsya.domain.board import validate_board
@@ -16,6 +17,7 @@ from podvinsya.domain.errors import Rejected, RejectionReason
 from podvinsya.domain.events import (
     AttackDeclared,
     BoardDealt,
+    DuelStarted,
     Event,
     MatchCreated,
     MatchStarted,
@@ -23,7 +25,7 @@ from podvinsya.domain.events import (
     SecretAssigned,
 )
 from podvinsya.domain.rules import legal_targets, starting_budget_ms
-from podvinsya.domain.state import MatchState, MatchStatus
+from podvinsya.domain.state import Duel, DuelPhase, MatchState, MatchStatus
 
 
 def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[Event, ...]:
@@ -40,6 +42,8 @@ def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[E
             return _start_match(state)
         case DeclareAttack():
             return _declare_attack(state, command, ctx)
+        case StartDuel():
+            return _start_duel(state, ctx)
         case _:
             raise NotImplementedError(type(command).__name__)
 
@@ -177,3 +181,17 @@ def _declare_attack(
             budgets=budgets,
         ),
     )
+
+
+def _require_duel(state: MatchState) -> Duel:
+    _require_running(state)
+    if state.duel is None:
+        raise Rejected(RejectionReason.NO_DUEL)
+    return state.duel
+
+
+def _start_duel(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
+    duel = _require_duel(state)
+    if duel.phase is not DuelPhase.DECLARED:
+        raise Rejected(RejectionReason.DUEL_NOT_DECLARED)
+    return (DuelStarted(anchor=ctx.now),)
