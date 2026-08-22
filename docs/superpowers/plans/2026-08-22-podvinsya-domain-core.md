@@ -1433,15 +1433,15 @@ def dealt_state() -> tuple[MatchState, tuple[PlayerId, ...]]:
 
 ```python
 from collections import Counter
+from dataclasses import replace
 from uuid import uuid4
 
 import pytest
 
 from podvinsya.domain.actions import DealBoard
-from podvinsya.domain.board import Cell
 from podvinsya.domain.context import DealPlan, DealtCell
 from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.ids import CategoryId, GroupId
+from podvinsya.domain.ids import GroupId
 
 from .conftest import apply, build_dealt_state, build_setup_state, make_deal
 
@@ -1533,20 +1533,24 @@ def test_deal_with_a_duplicate_category_is_rejected() -> None:
 def test_deal_with_a_secret_on_the_wrong_owner_is_rejected() -> None:
     state, players = build_setup_state(4)
     plan = make_deal(state.board, players, dict(state.secrets))
-    stolen = tuple(
-        DealtCell(
-            c.cell,
-            players[(players.index(c.owner) + 1) % len(players)],
-            c.category,
-            c.group_id,
-            c.revealed,
-        )
-        if c.category in state.secrets.values() and c.category == state.secrets[players[0]]
-        else c
-        for c in plan.cells
+    secret_of_first = state.secrets[players[0]]
+
+    # Swap owners between the first player's secret cell and one plain cell of the
+    # second player. Simply moving the secret across would unbalance the per-player
+    # counts and trip the earlier balance guard, leaving the secret-ownership guard
+    # untested while the test still passed on the same DEAL_INVALID reason.
+    secret_index = next(i for i, c in enumerate(plan.cells) if c.category == secret_of_first)
+    plain_index = next(
+        i
+        for i, c in enumerate(plan.cells)
+        if c.owner == players[1] and c.category not in state.secrets.values()
     )
+    cells = list(plan.cells)
+    cells[secret_index] = replace(cells[secret_index], owner=players[1])
+    cells[plain_index] = replace(cells[plain_index], owner=players[0])
+
     with pytest.raises(Rejected) as excinfo:
-        apply(state, DealBoard(), deal=DealPlan(cells=stolen))
+        apply(state, DealBoard(), deal=DealPlan(cells=tuple(cells)))
     assert excinfo.value.reason is RejectionReason.DEAL_INVALID
 
 
