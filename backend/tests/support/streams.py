@@ -12,9 +12,11 @@ imports it from here.
 """
 
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from itertools import count
+from uuid import UUID, uuid4
 
 from podvinsya.domain.actions import (
     AddPlayer,
@@ -86,6 +88,30 @@ def make_deal(
     counts = Counter(d.owner for d in dealt)
     assert set(counts.values()) == {per_player}, f"uneven deal: {counts}"
     return DealPlan(cells=tuple(dealt))
+
+
+def deterministic_uuid4(start: int = 1) -> Callable[[], UUID]:
+    """A drop-in replacement for this module's `uuid4`, yielding `UUID(int=n)`
+    for n = start, start + 1, ...
+
+    Every id `build_rich_stream` mints goes through the bare `uuid4()` name
+    in *this* module — nothing in `podvinsya.domain` calls it — so
+    `monkeypatch.setattr(streams, "uuid4", deterministic_uuid4())` makes the
+    whole stream reproducible, values included, without touching the domain
+    and without changing any other test's ids.
+
+    Only a test that needs to compare exact values across separate
+    invocations of `build_rich_stream` should reach for this — the codec's
+    golden-file test is the first one. Every other consumer wants fresh
+    random ids: later tasks build two streams in one test and write both to
+    a database whose primary keys would collide if the ids repeated.
+    """
+    counter = count(start)
+
+    def _uuid4() -> UUID:
+        return UUID(int=next(counter))
+
+    return _uuid4
 
 
 @dataclass(frozen=True, slots=True)

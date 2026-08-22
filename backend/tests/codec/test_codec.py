@@ -14,7 +14,8 @@ from podvinsya.db.codec.registry import CURRENT_VERSION, WIRE_NAMES
 from podvinsya.db.errors import NaiveDatetime, UnknownEventType, UnknownSchemaVersion
 from podvinsya.domain.board import Cell
 from podvinsya.domain.events import DuelResolved, DuelStarted, Event
-from support.streams import build_rich_stream
+from support import streams
+from support.streams import build_rich_stream, deterministic_uuid4
 
 GOLDEN = Path(__file__).parent / "golden" / "rich_stream.json"
 
@@ -98,25 +99,55 @@ def test_a_future_schema_version_is_refused() -> None:
         decode("duel.started", 99, payload)
 
 
-def test_the_payload_shape_matches_the_golden_file() -> None:
+def test_the_payload_shape_matches_the_golden_file(monkeypatch: pytest.MonkeyPatch) -> None:
     """The round-trip tests prove the codec is self-consistent; only a
     checked-in payload proves the shape on disk has not changed under a
-    library upgrade."""
+    library upgrade — `Cell` rendering as `{"col": 0, "row": 0}` instead of
+    `[0, 0]`, `Budgets.entries` changing container shape, a datetime
+    rendering as `+00:00` instead of `Z`. Catching that needs an exact
+    value comparison, not just a check that the same field names are
+    present.
+
+    A value comparison needs the checked-in file and a fresh run to agree
+    on values, not just on shape, so `build_rich_stream`'s ids are pinned
+    via `deterministic_uuid4` for the duration of this test. Everything
+    else about the match — which duels happen, who wins, which cells get
+    absorbed — is otherwise a function of those ids too (`legal_targets` is
+    resolved via `sorted()` over `GroupId`, a UUID), so pinning the ids
+    makes the whole stream, values included, reproducible against the file
+    below. No other test should do this: fresh random ids are what let two
+    streams coexist in the same database without their primary keys
+    colliding.
+
+    Both sides go through `_canonical` before comparison: `DuelResolved
+    .absorbed_cells` is a frozenset, and Pydantic dumps a frozenset in
+    set-iteration order, which pinning the ids does not itself pin.
+
+    This also folds in what used to be a separate `test_the_golden_file_
+    decodes`: decoding each checked-in row and comparing it back to the
+    real event that produced it proves decode does not raise on the
+    checked-in payload, and proves something stronger — that it
+    reconstructs exactly the event that produced it.
+    """
+    monkeypatch.setattr(streams, "uuid4", deterministic_uuid4())
     events = build_rich_stream().events
     produced: list[dict[str, Any]] = [
         {"type": t, "schema_version": v, "payload": _canonical(p)}
         for t, v, p in (encode(event) for event in events)
     ]
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
-    assert [row["type"] for row in produced] == [row["type"] for row in golden]
-    assert [set(row["payload"]) for row in produced] == [set(row["payload"]) for row in golden]
+    canonical_golden = [
+        {
+            "type": row["type"],
+            "schema_version": row["schema_version"],
+            "payload": _canonical(row["payload"]),
+        }
+        for row in golden
+    ]
+    assert produced == canonical_golden
 
-
-def test_the_golden_file_decodes() -> None:
-    golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
-    for row in golden:
-        decoded = decode(row["type"], row["schema_version"], row["payload"])
-        assert type(decoded).__name__ in {cls.__name__ for cls in WIRE_NAMES}
+    for row, event in zip(golden, events, strict=True):
+        assert decode(row["type"], row["schema_version"], row["payload"]) == event
 
 
 def test_a_decoded_cell_is_a_cell_and_not_a_bare_tuple() -> None:
