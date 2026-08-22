@@ -16,6 +16,7 @@ from podvinsya.db.codec import encode
 from podvinsya.db.codec.registry import WIRE_NAMES
 from podvinsya.db.errors import ConcurrentModification
 from podvinsya.db.models import Match, MatchEventRow
+from podvinsya.db.projection import apply_events
 from podvinsya.domain.events import Event
 from podvinsya.domain.ids import MatchId
 
@@ -43,6 +44,10 @@ class TransactionContext:
 
         `operation_id` arrives from the caller and is never invented here —
         §5.1 makes generating it the server's job, in the runtime.
+
+        The read model of §5.2 is folded here too, inside this same
+        transaction: a projection updated after the commit could disagree
+        with the log across a crash.
         """
         if not events:
             raise ValueError(
@@ -74,6 +79,7 @@ class TransactionContext:
                     payload=payload,
                 )
             )
+        await apply_events(self.session, match_id, events)
         await self.session.flush()
 
 
