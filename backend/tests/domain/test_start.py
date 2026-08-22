@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from podvinsya.domain.actions import StartMatch
@@ -39,15 +41,11 @@ def test_next_turn_advances_and_wraps_the_round() -> None:
     index, round_no = next_turn(state)
     assert (index, round_no) == (1, 1)
 
-    from dataclasses import replace
-
     at_last = replace(state, turn_index=3)
     assert next_turn(at_last) == (0, 2)
 
 
 def test_next_turn_skips_eliminated_players() -> None:
-    from dataclasses import replace
-
     state, players = build_dealt_state(4)
     state = apply(state, StartMatch())
     knocked_out = tuple(
@@ -55,3 +53,15 @@ def test_next_turn_skips_eliminated_players() -> None:
     )
     state = replace(state, players=knocked_out)
     assert next_turn(state) == (2, 1)
+
+
+def test_next_turn_falls_back_when_every_player_is_eliminated() -> None:
+    state, _ = build_dealt_state(4)
+    state = apply(state, StartMatch())
+    wiped = replace(
+        state, players=tuple(replace(p, eliminated=True) for p in state.players)
+    )
+
+    # The bounded loop finds nobody and falls through. This must return the cursor
+    # unchanged — neither spinning forever nor raising. Nothing else pins that.
+    assert next_turn(wiped) == (wiped.turn_index, wiped.round_no)
