@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from podvinsya.db.codec import decode, encode
 from podvinsya.db.errors import EventStreamCorrupt, MatchNotFound
 from podvinsya.db.models import Match, MatchEventRow
-from podvinsya.domain.events import MatchCreated
+from podvinsya.domain.events import Event, MatchCreated
 from podvinsya.domain.evolve import fold
 from podvinsya.domain.genesis import create_initial_state
 from podvinsya.domain.ids import MatchId
@@ -55,18 +55,16 @@ class MatchRepository:
                 )
             )
 
-    async def load(self, match_id: MatchId) -> LoadedMatch:
-        """Rebuild a match by folding its log, and nothing else.
+    async def read_events(self, match_id: MatchId) -> tuple[Event, ...]:
+        """Select and decode one match's whole log, in seq order.
 
-        The genesis event supplies the board and settings
-        `create_initial_state` needs, so they are read from the log rather
-        than from the `matches` row: that row is a projection, and a
-        projection must never become the thing recovery trusts. Folding
-        `MatchCreated` again immediately afterwards is harmless — `evolve`
-        assigns the same values it just supplied.
-
-        §4.4's pause-on-recovery is deliberately absent. It emits an event,
-        and this layer emits nothing.
+        This is the only place that turns a stored log back into events:
+        `load` folds what this returns to recover a match's state, and a
+        rebuild caller can hand the same tuple to
+        `podvinsya.db.projection.rebuild` to recover the read model — which
+        is what makes "the read model is rebuilt from the log" something
+        the codebase can actually do, not just something the tests assert
+        with events they already held in memory.
         """
         async with self._sessions() as session:
             rows = (
@@ -84,7 +82,22 @@ class MatchRepository:
             raise MatchNotFound(match_id)
         if [row.seq for row in rows] != list(range(1, len(rows) + 1)):
             raise EventStreamCorrupt(f"{match_id}: the log has a gap or starts past seq 1")
-        events = [decode(row.type, row.schema_version, row.payload) for row in rows]
+        return tuple(decode(row.type, row.schema_version, row.payload) for row in rows)
+
+    async def load(self, match_id: MatchId) -> LoadedMatch:
+        """Rebuild a match by folding its log, and nothing else.
+
+        The genesis event supplies the board and settings
+        `create_initial_state` needs, so they are read from the log rather
+        than from the `matches` row: that row is a projection, and a
+        projection must never become the thing recovery trusts. Folding
+        `MatchCreated` again immediately afterwards is harmless — `evolve`
+        assigns the same values it just supplied.
+
+        §4.4's pause-on-recovery is deliberately absent. It emits an event,
+        and this layer emits nothing.
+        """
+        events = await self.read_events(match_id)
         genesis = events[0]
         if not isinstance(genesis, MatchCreated):
             raise EventStreamCorrupt(

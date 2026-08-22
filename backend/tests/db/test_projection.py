@@ -6,7 +6,7 @@ cannot is a bug in the incremental path."""
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from podvinsya.db.models import Match, MatchPlayer
@@ -146,6 +146,30 @@ async def test_a_rebuild_discards_whatever_was_there_before(
         )
     async with sessions() as session, session.begin():
         await rebuild(session, recorded.state.id, recorded.events)
+    assert await _snapshot(sessions, recorded.state.id) == expected
+
+
+async def test_a_rebuild_from_the_database_alone_restores_the_projection(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """The claim that the read model is not authoritative and is rebuilt
+    from the log is only true if something can produce the events `rebuild`
+    needs by reading the database — not by reusing the in-memory `Recorded`
+    the test happened to build the match from. This test never touches
+    `recorded.events`: it goes back through `MatchRepository.read_events`,
+    the same path a real recovery would use."""
+    recorded = await _play_whole_match(sessions)
+    expected = await _snapshot(sessions, recorded.state.id)
+    async with sessions() as session, session.begin():
+        match = (
+            await session.execute(select(Match).where(Match.id == recorded.state.id))
+        ).scalar_one()
+        match.status = MatchStatus.SETUP.value
+        match.winner_id = None
+        await session.execute(delete(MatchPlayer).where(MatchPlayer.match_id == recorded.state.id))
+    events = await MatchRepository(sessions).read_events(recorded.state.id)
+    async with sessions() as session, session.begin():
+        await rebuild(session, recorded.state.id, events)
     assert await _snapshot(sessions, recorded.state.id) == expected
 
 
