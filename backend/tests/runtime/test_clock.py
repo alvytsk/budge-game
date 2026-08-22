@@ -1,6 +1,7 @@
 """The clock is the only place the runtime is allowed to learn the time."""
 
 import asyncio
+import time
 from datetime import UTC, datetime, timedelta
 
 from podvinsya.runtime.clock import SystemClock
@@ -19,9 +20,23 @@ def test_the_system_clock_reports_an_aware_utc_instant() -> None:
 
 async def test_a_sleep_until_in_the_past_returns_at_once() -> None:
     """A deadline already passed is the normal case after a slow commit,
-    not an error: the loop asks to sleep and gets control straight back."""
+    not an error: the loop asks to sleep and gets control straight back.
+
+    A bare `await` with no assertion cannot tell "returned at once" apart
+    from "slept for a few seconds and then returned" — both leave the test
+    green, just at different speeds. So this bounds the wall-clock elapsed
+    time instead. That measures the call, not the test: the "no test waits
+    on wall-clock time" rule forbids a test whose passing depends on time
+    elapsing, and this one's passing depends on time *not* elapsing, which
+    is the opposite thing. 0.1s is generous for a call that should do no
+    actual sleeping at all — comfortably above scheduler noise on a loaded
+    machine, comfortably below anything a real sleep would produce.
+    """
     clock = SystemClock()
+    started = time.monotonic()
     await clock.sleep_until(clock.now() - timedelta(seconds=5))
+    elapsed = time.monotonic() - started
+    assert elapsed < 0.1, f"sleep_until on a past deadline took {elapsed}s, expected ~0"
 
 
 async def test_the_fake_clock_does_not_move_on_its_own() -> None:
