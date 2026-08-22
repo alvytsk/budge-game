@@ -2,10 +2,25 @@
 name = "podvinsya"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "hypothesis>=6.100", "ruff>=0.5", "mypy>=1.10"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "hypothesis>=6.100",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+podvinsya = "podvinsya.cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -15,13 +30,18 @@ build-backend = "hatchling.build"
 packages = ["src/podvinsya"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
 testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: needs a live PostgreSQL (see compose.test.yaml)",
+]
 
 [tool.mypy]
 strict = true
 mypy_path = "src"
 files = ["src/podvinsya", "tests"]
+exclude = ["src/podvinsya/db/migrations/versions/"]
 
 [tool.ruff]
 line-length = 100

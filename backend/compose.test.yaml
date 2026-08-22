@@ -1,0 +1,21 @@
+# PostgreSQL for the integration suite only. Port 5434 keeps it clear of a
+# default local server (5432) and of the neighbouring triviador project (5433).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: podvinsya
+      POSTGRES_PASSWORD: podvinsya
+      POSTGRES_DB: podvinsya_test
+    ports:
+      - "5434:5432"
+    # The test database is disposable by definition: keeping it in a tmpfs
+    # makes the suite faster and makes "it survived a reboot" impossible to
+    # rely on by accident.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U podvinsya -d podvinsya_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
