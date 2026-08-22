@@ -5,13 +5,13 @@ provably safe and reconciled when it is not.
 exactly one branch below, and which branch a failure takes is decided by
 what the driver's own exception says, not by matching text against it.
 
-There is one outcome union here, not two: `run` returns exactly `podvinsya
-.runtime.origins.CommandOutcome` — `Accepted`, `NoOp`, `Rejected` or
-`Failed` — the same four Task 2 already defined. An earlier draft of this
-module minted its own `Committed`/`NothingToDo`/`Refused`/`Broken` beside
-them, four pairs with identical shapes and different names, plus a
-translation that could only ever be a bug factory. `_Retry` is this
-module's own sentinel and never escapes `run`.
+There is one outcome union here, not two: `run` returns exactly
+`origins.CommandOutcome` — `Accepted`, `NoOp`, `Rejected` or `Failed` — the
+same four Task 2 already defined. An earlier draft of this module minted
+its own `Committed`/`NothingToDo`/`Refused`/`Broken` beside them, four
+pairs with identical shapes and different names, plus a translation that
+could only ever be a bug factory. `_Retry` is this module's own sentinel
+and never escapes `run`.
 """
 
 import logging
