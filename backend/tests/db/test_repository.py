@@ -131,6 +131,31 @@ async def test_a_log_that_does_not_begin_with_genesis_is_corrupt(
     assert "MatchCreated" in str(excinfo.value)
 
 
+async def test_a_row_with_a_malformed_payload_is_corrupt_not_a_pydantic_error(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """The codec's own unit test proves `decode` translates a Pydantic
+    `ValidationError`; this proves it end to end through `load` against a
+    real row. A missing field, a wrong type, or a payload shaped for a
+    different wire type is the likeliest real corruption — what a forgotten
+    upcaster looks like — and it must surface as `EventStreamCorrupt`, the
+    type a runtime's `except EventStreamCorrupt:` would actually catch, not
+    as a bare `pydantic.ValidationError` sailing straight past it.
+    """
+    match_id, _ = await _persist(sessions, upto=4)
+    async with sessions() as session, session.begin():
+        await session.execute(
+            text(
+                "UPDATE match_events SET payload = '{}'::jsonb "
+                "WHERE match_id = :id AND seq = 2"
+            ),
+            {"id": match_id},
+        )
+    with pytest.raises(EventStreamCorrupt) as excinfo:
+        await MatchRepository(sessions).load(match_id)
+    assert "match.player_added" in str(excinfo.value)
+
+
 async def test_a_gap_in_the_log_is_corrupt(
     clean_db: None, sessions: async_sessionmaker[AsyncSession]
 ) -> None:

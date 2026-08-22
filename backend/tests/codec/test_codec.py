@@ -11,7 +11,12 @@ import pytest
 
 from podvinsya.db.codec import decode, encode, normalize_utc
 from podvinsya.db.codec.registry import CURRENT_VERSION, WIRE_NAMES
-from podvinsya.db.errors import NaiveDatetime, UnknownEventType, UnknownSchemaVersion
+from podvinsya.db.errors import (
+    InvalidPayload,
+    NaiveDatetime,
+    UnknownEventType,
+    UnknownSchemaVersion,
+)
 from podvinsya.domain.board import Cell
 from podvinsya.domain.events import DuelResolved, DuelStarted, Event
 from support import streams
@@ -90,6 +95,19 @@ def test_a_naive_datetime_nested_in_a_payload_is_refused_on_decode() -> None:
 def test_an_unregistered_wire_type_is_refused() -> None:
     with pytest.raises(UnknownEventType):
         decode("duel.answer_was_wrong", 1, {})
+
+
+def test_a_malformed_payload_is_refused_as_corrupt_not_as_a_pydantic_error() -> None:
+    """A payload missing a required field raises `pydantic_core.
+    ValidationError` from `validate_python` if left uncaught. That type is
+    not an `EventStreamCorrupt`, so it would sail straight past a runtime's
+    `except EventStreamCorrupt:` and be misclassified as a retry rather than
+    a quarantine. The message must still say which row and why."""
+    with pytest.raises(InvalidPayload) as excinfo:
+        decode("duel.started", 1, {})  # DuelStarted.anchor is required
+    message = str(excinfo.value)
+    assert "duel.started" in message
+    assert "1" in message
 
 
 def test_a_future_schema_version_is_refused() -> None:

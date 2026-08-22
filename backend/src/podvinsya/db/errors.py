@@ -35,6 +35,17 @@ class NaiveDatetime(EventStreamCorrupt):
     """
 
 
+class InvalidPayload(EventStreamCorrupt):
+    """A payload does not validate against its event class.
+
+    A missing field, a wrong type, or a payload shaped for a different wire
+    type all land here — the likeliest real-world corruption, since it is
+    what a forgotten upcaster looks like. Raised with the wire type, the
+    schema version, and the underlying Pydantic message, so an operator can
+    tell which row is bad and why.
+    """
+
+
 class ConcurrentModification(Exception):
     """`append`'s optimistic UPDATE matched zero rows.
 

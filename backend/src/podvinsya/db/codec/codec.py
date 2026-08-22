@@ -24,11 +24,11 @@ from dataclasses import fields, is_dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from podvinsya.db.codec.registry import CLASSES_BY_WIRE_NAME, CURRENT_VERSION, WIRE_NAMES
 from podvinsya.db.codec.upcasters import upcast_chain
-from podvinsya.db.errors import NaiveDatetime, UnknownEventType
+from podvinsya.db.errors import InvalidPayload, NaiveDatetime, UnknownEventType
 from podvinsya.domain.events import Event
 
 # A manual dict rather than `functools.cache`: mypy strict rejects a
@@ -112,5 +112,11 @@ def decode(wire_type: str, schema_version: int, payload: Mapping[str, Any]) -> E
     if cls is None:
         raise UnknownEventType(wire_type)
     upcast = upcast_chain(wire_type, schema_version)  # raises UnknownSchemaVersion
-    event: Event = _adapter_for(cls).validate_python(upcast(dict(payload)))
+    try:
+        event: Event = _adapter_for(cls).validate_python(upcast(dict(payload)))
+    except ValidationError as exc:
+        raise InvalidPayload(
+            f"{wire_type} v{schema_version}: payload does not validate against "
+            f"{cls.__name__} — {exc}"
+        ) from exc
     return normalize_utc(event)
