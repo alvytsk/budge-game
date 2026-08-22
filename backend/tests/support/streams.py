@@ -102,7 +102,8 @@ class _Recorder:
     It also assembles `duel_journal`, which is the runtime's job in
     production: the domain reads the journal but never builds it, and the
     rule that undo cannot cross into the previous duel lives entirely in
-    whoever assembles it. Here that is `_reset` on `StartDuel`.
+    whoever assembles it. Here that is the `journal.clear()` call at the end
+    of `_declare_and_start`, once a new duel has started.
     """
 
     def __init__(self, match_id: MatchId, board: BoardSize, settings: MatchSettings) -> None:
@@ -170,10 +171,17 @@ def _expire(recorder: _Recorder, now: datetime) -> datetime:
 def build_rich_stream() -> Recorded:
     """One complete match containing every event type at least once.
 
-    Two players on the smallest legal board: twelve cells, so the match is
-    over in eleven duels. The first duel is played by hand so that judging,
-    passing, pausing, resuming and undoing all appear; the rest are decided
-    by the clock, which is the shortest legal way to finish a match.
+    Two players on the smallest legal board: twelve cells, so the group
+    count -- one group per cell to start -- can merge at most eleven times
+    before the whole board is a single group; that bound is what makes the
+    loop below provably terminate. In practice the match ends sooner:
+    `MatchWon` fires the moment one player holds zero groups, which happens
+    before every group has merged into one. As played here that is ten
+    duels and forty-four events, the same every run (see
+    test_the_stream_is_deterministic_in_shape). The first duel is played by
+    hand so that judging, passing, pausing, resuming and undoing all appear;
+    the remaining nine are decided by the clock, the shortest legal way to
+    finish the rest of the match.
     """
     board = BoardSize(3, 4)
     settings = MatchSettings()
