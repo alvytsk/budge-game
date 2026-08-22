@@ -3,11 +3,12 @@ import pytest
 from podvinsya.domain.actions import JudgeCorrect, JudgePass, PauseDuel, UndoLastJudgement
 from podvinsya.domain.context import JournalEntry
 from podvinsya.domain.errors import Rejected, RejectionReason
+from podvinsya.domain.state import MatchState
 
 from .conftest import apply, at, build_duel_state
 
 
-def _snapshot(state, seq: int) -> JournalEntry:  # type: ignore[no-untyped-def]
+def _snapshot(state: MatchState, seq: int) -> JournalEntry:
     duel = state.duel
     assert duel is not None
     return JournalEntry(

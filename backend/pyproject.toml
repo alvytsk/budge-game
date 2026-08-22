@@ -21,7 +21,7 @@ testpaths = ["tests"]
 [tool.mypy]
 strict = true
 mypy_path = "src"
-packages = ["podvinsya"]
+files = ["src/podvinsya", "tests"]
 
 [tool.ruff]
 line-length = 100

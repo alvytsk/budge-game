@@ -1,12 +1,13 @@
 from dataclasses import replace
 
 from podvinsya.domain.actions import ExpireTimer
-from podvinsya.domain.state import MatchStatus
+from podvinsya.domain.ids import GroupId, PlayerId
+from podvinsya.domain.state import MatchState, MatchStatus
 
 from .conftest import apply, at, build_duel_state
 
 
-def _leave_only(state, player, keep_group_id):  # type: ignore[no-untyped-def]
+def _leave_only(state: MatchState, player: PlayerId, keep_group_id: GroupId) -> MatchState:
     """Strip a player down to a single group so the next loss eliminates them."""
     groups = {
         gid: g for gid, g in state.groups.items()

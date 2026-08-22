@@ -11,11 +11,13 @@ from podvinsya.domain.board import is_connected
 from podvinsya.domain.context import DecisionContext, JournalEntry
 from podvinsya.domain.decide import decide
 from podvinsya.domain.events import DuelPaused, DuelResolved, JudgementUndone, PassUsed
+from podvinsya.domain.ids import PlayerId
+from podvinsya.domain.state import MatchState
 
 from .conftest import apply, at, build_declared_state, build_duel_state
 
 
-def _force_loss(state, loser):  # type: ignore[no-untyped-def]
+def _force_loss(state: MatchState, loser: PlayerId) -> MatchState:
     """Wind the answering player's clock down so the next ExpireTimer resolves."""
     duel = state.duel
     assert duel is not None
