@@ -64,6 +64,47 @@ def test_budgets_come_from_each_side_own_group() -> None:
     )
 
 
+def test_budgets_are_not_swapped_between_the_sides() -> None:
+    from dataclasses import replace
+
+    state, _ = build_running_state(4)
+    attacker_id = state.current_player()
+    attacking = next(
+        g for g in state.groups.values() if g.owner == attacker_id and legal_targets(state, g.id)
+    )
+    defending_id = sorted(legal_targets(state, attacking.id))[0]
+    defending = state.groups[defending_id]
+
+    # Grow the attacking group so the two sides carry different bonuses. Every group is
+    # a single cell at declaration time, so both bonuses are zero and a swapped wiring
+    # is invisible — this is the only test that can see the difference. The grown group
+    # is deliberately not connected: nothing validates connectivity at declaration, and
+    # the Latin-square deal leaves a player no same-owner orthogonal neighbour to absorb.
+    donor = next(
+        g
+        for g in state.groups.values()
+        if g.owner == attacker_id and g.id not in (attacking.id, defending_id)
+    )
+    grown = replace(attacking, cells=attacking.cells | donor.cells)
+    groups = {gid: g for gid, g in state.groups.items() if gid != donor.id}
+    groups[grown.id] = grown
+    state = replace(state, groups=groups)
+
+    state = apply(
+        state,
+        DeclareAttack(attacking_group=grown.id, defending_group=defending_id),
+        image_order=IMAGE_POOL,
+    )
+
+    duel = state.duel
+    assert duel is not None
+    assert duel.budgets.get(duel.attacker) == starting_budget_ms(grown, state.settings)
+    assert duel.budgets.get(duel.defender) == starting_budget_ms(defending, state.settings)
+    assert duel.budgets.get(duel.attacker) != duel.budgets.get(duel.defender), (
+        "the sides must differ here, or this test cannot see a swap"
+    )
+
+
 def test_the_whole_image_order_is_drawn_up_front() -> None:
     state, _, _, _ = build_declared_state()
     duel = state.duel
