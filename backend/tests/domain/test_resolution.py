@@ -130,7 +130,12 @@ def test_a_late_pass_resolves_without_recording_the_pass() -> None:
     assert not any(isinstance(e, PassUsed) for e in events), (
         "a pass arriving after the deadline must not enter the log as a played pass"
     )
-    assert any(isinstance(e, DuelResolved) for e in events)
+    # Who loses matters as much as the absence of the phantom pass. This expiry branch
+    # inside _judge_pass is new code, and a swapped loser here would be invisible to a
+    # bare isinstance check while handing the duel to the wrong player.
+    resolved = next(e for e in events if isinstance(e, DuelResolved))
+    assert resolved.loser == duel.answering
+    assert resolved.winner == duel.opponent_of(duel.answering)
 
 
 def test_expire_timer_before_the_deadline_is_ignored() -> None:
