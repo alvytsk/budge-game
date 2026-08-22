@@ -16,8 +16,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
-from podvinsya.db.repository import LoadedMatch
-from podvinsya.db.store import Reconciliation
+from podvinsya.db.repository import LoadedMatch as LoadedMatch
+from podvinsya.db.store import Reconciliation as Reconciliation
 from podvinsya.domain.errors import RejectionReason
 from podvinsya.domain.events import Event, MatchCreated
 from podvinsya.domain.ids import CategoryId, ImageId, MatchId
