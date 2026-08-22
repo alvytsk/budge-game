@@ -3,11 +3,13 @@ from uuid import uuid4
 import pytest
 
 from podvinsya.domain.actions import AddPlayer, AssignSecret
+from podvinsya.domain.context import DecisionContext
+from podvinsya.domain.decide import decide
 from podvinsya.domain.errors import Rejected, RejectionReason
 from podvinsya.domain.ids import CategoryId, PlayerId
 from podvinsya.domain.state import MatchState
 
-from .conftest import apply, build_setup_state
+from .conftest import BASE_TIME, apply, build_setup_state
 
 
 def test_adding_a_player_records_name_and_colour(created_state: MatchState) -> None:
@@ -104,6 +106,31 @@ def test_reassigning_a_secret_replaces_it(created_state: MatchState) -> None:
         AssignSecret(player_id=player_id, category=second),
     )
     assert state.secrets[player_id] == second
+
+
+def test_reassigning_the_same_secret_emits_nothing(
+    created_state: MatchState,
+) -> None:
+    player_id = PlayerId(uuid4())
+    category = CategoryId(uuid4())
+    state = apply(
+        created_state,
+        AddPlayer(player_id=player_id, name="Дед", colour="#22c55e"),
+    )
+    state = apply(
+        state,
+        AssignSecret(player_id=player_id, category=category),
+    )
+
+    command = AssignSecret(player_id=player_id, category=category)
+    assert decide(state, command, DecisionContext(now=BASE_TIME)) == (), (
+        "legal but unchanged must produce no event — neither a rejection nor"
+        " a duplicate"
+    )
+
+    unchanged = apply(state, command)
+    assert unchanged.seq == state.seq
+    assert unchanged.secrets[player_id] == category
 
 
 def test_two_players_cannot_share_a_secret_category(
