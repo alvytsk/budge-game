@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from dataclasses import replace
 
 from podvinsya.domain.events import (
+    AttackDeclared,
     BoardDealt,
     Event,
     MatchCreated,
@@ -9,7 +10,7 @@ from podvinsya.domain.events import (
     PlayerAdded,
     SecretAssigned,
 )
-from podvinsya.domain.state import Group, MatchState, MatchStatus, Player
+from podvinsya.domain.state import Duel, DuelPhase, Group, MatchState, MatchStatus, Player
 
 
 def evolve(state: MatchState, event: Event) -> MatchState:
@@ -56,6 +57,25 @@ def evolve(state: MatchState, event: Event) -> MatchState:
                 turn_order=event.turn_order,
                 turn_index=0,
                 round_no=1,
+            )
+        case AttackDeclared():
+            defending = state.groups[event.defending_group]
+            evolved = replace(
+                state,
+                groups={**state.groups, defending.id: replace(defending, revealed=True)},
+                duel=Duel(
+                    attacker=event.attacker,
+                    defender=event.defender,
+                    attacking_group=event.attacking_group,
+                    defending_group=event.defending_group,
+                    category=event.category,
+                    image_order=event.image_order,
+                    index=0,
+                    answering=event.attacker,
+                    budgets=event.budgets,
+                    anchor=None,
+                    phase=DuelPhase.DECLARED,
+                ),
             )
         case _:
             raise NotImplementedError(type(event).__name__)

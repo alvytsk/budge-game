@@ -6,12 +6,15 @@ from podvinsya.domain.actions import (
     Command,
     CreateMatch,
     DealBoard,
+    DeclareAttack,
     StartMatch,
 )
 from podvinsya.domain.board import validate_board
+from podvinsya.domain.budgets import Budgets
 from podvinsya.domain.context import DecisionContext
 from podvinsya.domain.errors import Rejected, RejectionReason
 from podvinsya.domain.events import (
+    AttackDeclared,
     BoardDealt,
     Event,
     MatchCreated,
@@ -19,6 +22,7 @@ from podvinsya.domain.events import (
     PlayerAdded,
     SecretAssigned,
 )
+from podvinsya.domain.rules import legal_targets, starting_budget_ms
 from podvinsya.domain.state import MatchState, MatchStatus
 
 
@@ -34,6 +38,8 @@ def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[E
             return _deal_board(state, ctx)
         case StartMatch():
             return _start_match(state)
+        case DeclareAttack():
+            return _declare_attack(state, command, ctx)
         case _:
             raise NotImplementedError(type(command).__name__)
 
@@ -124,3 +130,50 @@ def _start_match(state: MatchState) -> tuple[Event, ...]:
     if len(state.groups) != state.board.cell_count:
         raise Rejected(RejectionReason.DEAL_INVALID)
     return (MatchStarted(turn_order=tuple(p.id for p in state.players)),)
+
+
+def _require_running(state: MatchState) -> None:
+    if state.status is not MatchStatus.RUNNING:
+        raise Rejected(RejectionReason.WRONG_STATUS)
+
+
+def _declare_attack(
+    state: MatchState, command: DeclareAttack, ctx: DecisionContext
+) -> tuple[Event, ...]:
+    _require_running(state)
+    if state.duel is not None:
+        raise Rejected(RejectionReason.DUEL_IN_PROGRESS)
+    if (
+        command.attacking_group not in state.groups
+        or command.defending_group not in state.groups
+    ):
+        raise Rejected(RejectionReason.UNKNOWN_GROUP)
+
+    attacking = state.groups[command.attacking_group]
+    defending = state.groups[command.defending_group]
+    if attacking.owner != state.current_player():
+        raise Rejected(RejectionReason.NOT_YOUR_TURN)
+    if defending.owner == attacking.owner:
+        raise Rejected(RejectionReason.TARGET_IS_YOURS)
+    if command.defending_group not in legal_targets(state, command.attacking_group):
+        raise Rejected(RejectionReason.NOT_ADJACENT)
+    if not ctx.image_order:
+        raise Rejected(RejectionReason.IMAGES_EXHAUSTED)
+
+    budgets = Budgets.of(
+        {
+            attacking.owner: starting_budget_ms(attacking, state.settings),
+            defending.owner: starting_budget_ms(defending, state.settings),
+        }
+    )
+    return (
+        AttackDeclared(
+            attacker=attacking.owner,
+            defender=defending.owner,
+            attacking_group=attacking.id,
+            defending_group=defending.id,
+            category=defending.category,
+            image_order=ctx.image_order,
+            budgets=budgets,
+        ),
+    )

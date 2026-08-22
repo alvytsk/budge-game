@@ -10,6 +10,7 @@ from podvinsya.domain.actions import (
     Command,
     CreateMatch,
     DealBoard,
+    DeclareAttack,
     StartMatch,
 )
 from podvinsya.domain.board import BoardSize
@@ -17,13 +18,15 @@ from podvinsya.domain.context import DealPlan, DealtCell, DecisionContext
 from podvinsya.domain.decide import decide
 from podvinsya.domain.evolve import fold
 from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, GroupId, MatchId, PlayerId
+from podvinsya.domain.ids import CategoryId, GroupId, ImageId, MatchId, PlayerId
+from podvinsya.domain.rules import legal_targets
 from podvinsya.domain.settings import MatchSettings
 from podvinsya.domain.state import MatchState
 
 BASE_TIME = datetime(2026, 8, 22, 12, 0, 0, tzinfo=UTC)
 COLOURS = ("#e5484d", "#3b82f6", "#22c55e", "#a855f7")
 BOARDS = {2: BoardSize(3, 4), 3: BoardSize(3, 6), 4: BoardSize(4, 6)}
+IMAGE_POOL: tuple[ImageId, ...] = tuple(ImageId(uuid4()) for _ in range(40))
 
 
 def at(seconds: float) -> datetime:
@@ -134,3 +137,25 @@ def build_running_state(player_count: int = 4) -> tuple[MatchState, tuple[Player
 @pytest.fixture
 def running_state() -> tuple[MatchState, tuple[PlayerId, ...]]:
     return build_running_state(4)
+
+
+def build_declared_state() -> tuple[MatchState, tuple[PlayerId, ...], GroupId, GroupId]:
+    state, players = build_running_state(4)
+    attacker_id = state.current_player()
+    attacking = next(
+        g
+        for g in state.groups.values()
+        if g.owner == attacker_id and legal_targets(state, g.id)
+    )
+    defending_id = sorted(legal_targets(state, attacking.id))[0]
+    state = apply(
+        state,
+        DeclareAttack(attacking_group=attacking.id, defending_group=defending_id),
+        image_order=IMAGE_POOL,
+    )
+    return state, players, attacking.id, defending_id
+
+
+@pytest.fixture
+def declared_state() -> tuple[MatchState, tuple[PlayerId, ...], GroupId, GroupId]:
+    return build_declared_state()
