@@ -11,6 +11,7 @@ caller act on an outcome the room has not seen yet.
 
 import asyncio
 import logging
+from collections.abc import Callable
 
 from podvinsya.domain.actions import Command, ExpireTimer
 from podvinsya.domain.evolve import fold
@@ -18,12 +19,20 @@ from podvinsya.domain.events import Event
 from podvinsya.domain.ids import MatchId
 from podvinsya.domain.state import MatchState
 from podvinsya.runtime.commit import CommitPath
-from podvinsya.runtime.errors import Quarantined
-from podvinsya.runtime.origins import Accepted, Failed, NoOp, QueuedCommand, Rejected
-from podvinsya.runtime.scheduler import DeadlineScheduler
+from podvinsya.runtime.origins import (
+    Accepted,
+    Failed,
+    NoOp,
+    QueuedCommand,
+    Rejected,
+    SystemOrigin,
+)
+from podvinsya.runtime.scheduler import Callback, DeadlineScheduler
 from podvinsya.services.ports import Broadcaster, Origin, RuntimeCode
 
 logger = logging.getLogger(__name__)
+
+_QUARANTINED_MESSAGE = "this match is quarantined"
 
 
 class MatchRuntime:
@@ -57,14 +66,17 @@ class MatchRuntime:
         """Mint this command's identity (§5.1: always here, for every
         command, without exception) and queue it for the consumer.
 
-        A match that has already been quarantined refuses outright: §6's
-        `Quarantined` is a state that "stops consuming its queue and
-        refuses new commands", and queuing one anyway would just be a
-        second, slower way to hang the caller -- the consumer that would
-        eventually resolve it has already stopped looking.
+        §6.2 names quarantine as one of the four ways an origin is
+        resolved -- alongside no-op, rejection and success -- so a match
+        that has already been quarantined resolves the origin with
+        `QUARANTINED` immediately, the same way `_consume` resolves a
+        command that was already queued when quarantine struck. Raising
+        instead would give a caller two different error idioms for the
+        one outcome, chosen by nothing but arrival-time luck.
         """
         if self._quarantined:
-            raise Quarantined(f"match {self._match_id} is quarantined")
+            origin.resolve_failed(RuntimeCode.QUARANTINED, _QUARANTINED_MESSAGE)
+            return
         self._queue.put_nowait(QueuedCommand.issue(command, origin))
 
     async def run(self) -> None:
@@ -85,7 +97,7 @@ class MatchRuntime:
 
     async def _consume(self, queued: QueuedCommand) -> None:
         if self._quarantined:
-            queued.origin.resolve_failed(RuntimeCode.QUARANTINED, "this match is quarantined")
+            queued.origin.resolve_failed(RuntimeCode.QUARANTINED, _QUARANTINED_MESSAGE)
             return
         if self._is_stale_timer(queued.command):
             # §4.3: the identifier is what makes cancellation races
@@ -152,4 +164,34 @@ class MatchRuntime:
                 queued = self._queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
-            queued.origin.resolve_failed(RuntimeCode.QUARANTINED, "this match is quarantined")
+            queued.origin.resolve_failed(RuntimeCode.QUARANTINED, _QUARANTINED_MESSAGE)
+
+
+def wire_deadline_fire(submit: Callable[[Command, Origin], None]) -> Callback:
+    """Build the `fire` callback that connects a `DeadlineScheduler` back
+    to a `MatchRuntime`'s queue.
+
+    `MatchRuntime.__init__` takes an already-built scheduler, so this is
+    the pattern a caller must use to assemble the two: define `fire`
+    wrapped around a not-yet-constructed runtime's `submit` (a small
+    forwarding closure, or a one-element list filled in right after the
+    runtime is built, breaks the construction cycle), pass `fire` into
+    `DeadlineScheduler(clock, fire)`, then build the runtime.
+
+    `DeadlineScheduler._sleep_and_fire` awaits `fire` directly, so
+    anything it raises becomes an exception on the scheduler's own
+    background task -- an exception asyncio logs through its default
+    exception handler, never as a `warnings`-module warning, so it is
+    invisible to a suite that leans on `pytest -W error` for pristine
+    output. Catching everything here and logging it is what keeps a
+    stale-timer race, or any other submission failure, from silently
+    killing that task.
+    """
+
+    async def fire(deadline_id: int) -> None:
+        try:
+            submit(ExpireTimer(deadline_id=deadline_id), SystemOrigin("scheduler"))
+        except Exception:
+            logger.exception("deadline fire failed")
+
+    return fire

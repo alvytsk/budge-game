@@ -47,9 +47,8 @@ from podvinsya.domain.state import MatchState, MatchStatus, Player
 from podvinsya.domain.timing import deadline_of
 from podvinsya.runtime import match as match_module
 from podvinsya.runtime.commit import CommitPath
-from podvinsya.runtime.errors import Quarantined
 from podvinsya.runtime.materialiser import Materialiser
-from podvinsya.runtime.match import MatchRuntime
+from podvinsya.runtime.match import MatchRuntime, wire_deadline_fire
 from podvinsya.runtime.origins import (
     Accepted,
     CommandOutcome,
@@ -58,10 +57,9 @@ from podvinsya.runtime.origins import (
     NoOp,
     QueuedCommand,
     Rejected,
-    SystemOrigin,
 )
 from podvinsya.runtime.scheduler import DeadlineScheduler
-from podvinsya.services.ports import Reconciliation, RuntimeCode, Transaction
+from podvinsya.services.ports import Origin, Reconciliation, RuntimeCode, Transaction
 from support.fakes import BreakingBroadcaster, FakeCategoryBank, FakeClock, RecordingBroadcaster
 from support.streams import BASE_TIME, Recorded, build_rich_stream
 
@@ -443,18 +441,13 @@ async def test_a_stale_expire_timer_is_dropped_as_a_no_op() -> None:
 async def test_a_current_expire_timer_is_applied() -> None:
     """The other half: the identity check must not swallow the real one.
 
-    Wired the realistic way, unlike the stale-timer test above: the
-    scheduler's own `fire` submits the `ExpireTimer` back into this
-    runtime's queue, exactly as a future `MatchManager` will connect the
-    two, and `run()` is what actually consumes it. `fire` can only be
-    defined after `runtime` exists -- the constructor takes an
+    Wired the realistic way, unlike the stale-timer test above: `fire`,
+    built by `wire_deadline_fire` -- the same helper a future
+    `MatchManager` will use -- submits the `ExpireTimer` back into this
+    runtime's queue, and `run()` is what actually consumes it. `fire` can
+    only be constructed after `runtime` exists (the constructor takes an
     already-built scheduler, so the two are necessarily assembled in that
-    order -- and it wraps `submit` in try/except: `_sleep_and_fire` awaits
-    `fire` directly, so anything `fire` raises becomes an exception on the
-    scheduler's own background task. asyncio only logs an unretrieved
-    task exception; it never becomes a `warnings`-module warning, so
-    `pytest -W error` -- which this suite otherwise leans on for pristine
-    output -- would not catch a `fire` that let one escape.
+    order), hence the one-element `runtime_box` breaking the cycle.
     """
     recorded = build_rich_stream()
     state = _state_after(recorded, DuelStarted)
@@ -464,14 +457,7 @@ async def test_a_current_expire_timer_is_applied() -> None:
 
     clock = FakeClock(BASE_TIME)
     runtime_box: list[MatchRuntime] = []
-
-    async def fire(deadline_id: int) -> None:
-        try:
-            runtime_box[0].submit(ExpireTimer(deadline_id=deadline_id), SystemOrigin("scheduler"))
-        except Quarantined:
-            logging.getLogger(__name__).info("a stale fire found the match already dead")
-        except Exception:
-            logging.getLogger(__name__).exception("deadline fire failed")
+    fire = wire_deadline_fire(lambda command, origin: runtime_box[0].submit(command, origin))
 
     scheduler = DeadlineScheduler(clock, fire)
     commit = CommitPath(_RecordingUoW(), _materialiser(clock), clock, Random(0))
@@ -488,6 +474,40 @@ async def test_a_current_expire_timer_is_applied() -> None:
 
         assert runtime.state.duel is None, "an on-time expiry must resolve the duel"
         assert len(broadcaster.frames) == 1
+
+
+async def test_a_fire_that_raises_is_logged_not_left_to_kill_the_schedulers_task(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Task 5's sharp edge, carried forward into the first live `fire`.
+
+    `DeadlineScheduler._sleep_and_fire` awaits `fire` directly, so
+    anything it raises becomes an exception on the scheduler's own
+    background task -- and asyncio only logs an unretrieved task
+    exception through its default exception handler, never as a
+    `warnings`-module warning, so `pytest -W error` (which this suite
+    leans on everywhere else for pristine output) cannot see one escape
+    here. `wire_deadline_fire`'s try/except is the only thing standing
+    between that and a silently lost failure, so this drives a genuine
+    raise through the `submit` it wraps and asserts on the log record
+    produced -- the one observable that actually distinguishes "caught
+    and logged" from "would have raised, but this particular test never
+    happened to trigger it": a bare "fire didn't raise" assertion would
+    be true whether the except clause existed or not.
+    """
+
+    def _raising_submit(command: Command, origin: Origin) -> None:
+        raise RuntimeError("submit blew up")
+
+    fire = wire_deadline_fire(_raising_submit)
+
+    with caplog.at_level(logging.ERROR, logger="podvinsya.runtime.match"):
+        await fire(1)  # must not raise -- if it does, the test fails right here
+
+    assert "deadline fire failed" in caplog.text
+    assert any(record.exc_info is not None for record in caplog.records), (
+        "the log record should carry the exception, not just a bare message"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -591,15 +611,24 @@ async def test_a_content_shortfall_does_not_quarantine() -> None:
 
 async def test_a_quarantined_match_refuses_everything_afterwards() -> None:
     """Including commands already sitting in the queue: each is resolved
-    with QUARANTINED rather than left to hang."""
+    with QUARANTINED rather than left to hang.
+
+    §6.2 names quarantine as one of the four ways an origin is resolved,
+    alongside no-op, rejection and success -- so a command that was
+    already queued when quarantine struck (drained by `_quarantine`) and
+    one submitted afterwards (refused synchronously by `submit`) must
+    both reach their caller as `Failed(QUARANTINED, ...)` through the
+    exact same channel: `origin.result()`. Two different idioms for the
+    one outcome, chosen by nothing but arrival-time luck, is the bug this
+    test exists to catch.
+    """
     state = _fresh_state()
     clock = FakeClock(BASE_TIME)
     commit = CommitPath(_RecordingUoW(), _RaisingMaterialiser(clock), clock, Random(0))
     runtime = MatchRuntime(state.id, state, commit, _inert_scheduler(clock), RecordingBroadcaster())
 
-    pending1, pending2 = FutureOrigin(), FutureOrigin()
-    runtime.submit(AddPlayer(player_id=PlayerId(uuid4()), name="A", colour="#000"), pending1)
-    runtime.submit(AddPlayer(player_id=PlayerId(uuid4()), name="B", colour="#111"), pending2)
+    pending = FutureOrigin()
+    runtime.submit(AddPlayer(player_id=PlayerId(uuid4()), name="A", colour="#000"), pending)
 
     failing = QueuedCommand.issue(
         CreateMatch(board=_BOARD, settings=_SETTINGS, player_count=_PLAYER_COUNT), FutureOrigin()
@@ -607,15 +636,15 @@ async def test_a_quarantined_match_refuses_everything_afterwards() -> None:
     await runtime._consume(failing)
     assert runtime.quarantined
 
-    outcome1 = await asyncio.wait_for(pending1.result(), timeout=2)
-    outcome2 = await asyncio.wait_for(pending2.result(), timeout=2)
-    assert outcome1 == Failed(RuntimeCode.QUARANTINED, "this match is quarantined")
-    assert outcome2 == Failed(RuntimeCode.QUARANTINED, "this match is quarantined")
+    already_queued = await asyncio.wait_for(pending.result(), timeout=2)
 
-    with pytest.raises(Quarantined):
-        runtime.submit(
-            AddPlayer(player_id=PlayerId(uuid4()), name="C", colour="#222"), FutureOrigin()
-        )
+    submitted_after = FutureOrigin()
+    runtime.submit(AddPlayer(player_id=PlayerId(uuid4()), name="C", colour="#222"), submitted_after)
+    after_quarantine = await asyncio.wait_for(submitted_after.result(), timeout=2)
+
+    expected = Failed(RuntimeCode.QUARANTINED, "this match is quarantined")
+    assert already_queued == expected
+    assert after_quarantine == expected
 
 
 # --------------------------------------------------------------------------
