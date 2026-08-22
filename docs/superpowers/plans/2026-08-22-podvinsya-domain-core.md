@@ -187,7 +187,8 @@ def test_connectivity() -> None:
         (2, 6, 2, RejectionReason.BOARD_INVALID),
         (6, 2, 2, RejectionReason.BOARD_INVALID),
         (6, 7, 2, RejectionReason.BOARD_INVALID),
-        (3, 4, 5, RejectionReason.BOARD_NOT_DIVISIBLE),
+        (3, 4, 5, RejectionReason.PLAYER_COUNT_INVALID),
+        (3, 4, 0, RejectionReason.PLAYER_COUNT_INVALID),
         (3, 5, 2, RejectionReason.BOARD_NOT_DIVISIBLE),
     ],
 )
@@ -339,6 +340,8 @@ def validate_board(board: BoardSize, player_count: int) -> None:
     if board.cell_count % player_count != 0:
         raise Rejected(RejectionReason.BOARD_NOT_DIVISIBLE)
 ```
+
+Порядок проверок в `validate_board` существенен и должен остаться таким: сначала геометрия, затем допустимость числа игроков, и только потом делимость. Пять игроков недопустимы независимо от поля, и сообщать про них «поле не делится» — вводить ведущего в заблуждение. Этот же порядок делает деление на ноль недостижимым: `player_count = 0` отсеивается проверкой диапазона до того, как дело дойдёт до `%`. Переставлять проверки, чтобы делимость шла первой, нельзя — это потребует отдельного стража от деления на ноль, существующего только ради перестановки.
 
 Обрати внимание: `is_connected` намеренно не берёт `BoardSize`. Связность определяется только соседством самих клеток, и группа не может выйти за поле, потому что её клетки в него уже входят.
 
