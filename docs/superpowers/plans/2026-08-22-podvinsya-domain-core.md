@@ -2544,7 +2544,7 @@ git commit -m "feat(domain): start duel, anchor-based deadline, clamped elapsed 
 
 **Interfaces:**
 - Consumes: `JudgeCorrect`, `AnswerAccepted`, `timing`.
-- Produces: приватный хелпер `_charge_and_reanchor(duel, now) -> tuple[Budgets, int]` в `decide.py`, используемый задачами 11 и 12.
+- Produces: приватные хелперы `_charge(duel, now) -> tuple[Budgets, int]` и `_require_live_duel(state) -> Duel` в `decide.py`. Оба вызываются задачами 11 и 12, поэтому их имена и сигнатуры — контракт, а не локальный выбор.
 
 - [ ] **Step 1: Написать падающий тест**
 
