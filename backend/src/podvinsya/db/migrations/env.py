@@ -17,7 +17,14 @@ import podvinsya.db.models  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # `disable_existing_loggers` defaults to True, which silently disables
+    # every logger already alive in the process that this file's config
+    # does not name — including any application logger created before a
+    # migration runs in-process (as the test suite's `migrated_schema`
+    # fixture does). §10 keeps migrations a standalone step in production,
+    # but nothing about *this* file should reach out and turn off logging
+    # that has nothing to do with migrating a schema.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 
