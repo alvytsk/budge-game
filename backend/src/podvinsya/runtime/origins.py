@@ -66,24 +66,10 @@ class SystemOrigin:
         # A server-issued command being rejected means the server's own
         # model of the match disagreed with the domain's. That is a bug
         # worth finding, and silence is how it stays unfound.
-        self._warn("%s command rejected: %s", self._label, reason.value)
+        logger.warning("%s command rejected: %s", self._label, reason.value)
 
     def resolve_failed(self, code: RuntimeCode, message: str) -> None:
-        self._warn("%s command failed: %s — %s", self._label, code.value, message)
-
-    @staticmethod
-    def _warn(message: str, *args: object) -> None:
-        # `logging.config.fileConfig` — which Alembic's `env.py` calls, in
-        # process, whenever a migration runs programmatically — disables by
-        # default every logger that already exists and is not named in its
-        # config file. This module's logger is created at import time and
-        # is not named in `alembic.ini`, so a migration run anywhere in the
-        # process (a boot-time upgrade, a test session that exercises the
-        # db layer before this one) would otherwise silence it permanently.
-        # A warning this module emits is not optional, so undo that here
-        # rather than trust that nothing else in the process ever migrates.
-        logger.disabled = False
-        logger.warning(message, *args)
+        logger.warning("%s command failed: %s — %s", self._label, code.value, message)
 
 
 class FutureOrigin:
