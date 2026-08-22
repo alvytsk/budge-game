@@ -4,6 +4,7 @@ tests would exercise two different schemas and a migration bug could only be
 found in production."""
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from alembic import command
@@ -73,6 +74,28 @@ async def test_the_migrate_command_brings_an_empty_database_to_head(
 
     await asyncio.to_thread(command.downgrade, alembic_config(DATABASE_URL), "base")
     monkeypatch.setenv("PODVINSYA_DATABASE_URL", DATABASE_URL)
+    assert await asyncio.to_thread(main, ["migrate"]) == 0
+    async with engine.connect() as connection:
+        tables = await connection.run_sync(lambda sync: set(inspect(sync).get_table_names()))
+    assert "match_events" in tables
+
+
+async def test_the_migrate_command_works_from_any_working_directory(
+    migrated_schema: None,
+    engine: AsyncEngine,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """`alembic.ini`'s `script_location` is a relative path, and Alembic
+    resolves it against the *invocation* directory, not against the ini
+    file's own location. An operator applying migrations as a separate step
+    (§10) is not guaranteed to be standing in `backend/` — `podvinsya
+    migrate` must reach head regardless of the current working directory."""
+    from podvinsya.cli import main
+
+    await asyncio.to_thread(command.downgrade, alembic_config(DATABASE_URL), "base")
+    monkeypatch.setenv("PODVINSYA_DATABASE_URL", DATABASE_URL)
+    monkeypatch.chdir(tmp_path)
     assert await asyncio.to_thread(main, ["migrate"]) == 0
     async with engine.connect() as connection:
         tables = await connection.run_sync(lambda sync: set(inspect(sync).get_table_names()))
