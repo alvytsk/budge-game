@@ -33,3 +33,13 @@ class NaiveDatetime(EventStreamCorrupt):
     There is no correct instant to recover, so the codec refuses rather than
     guessing a zone. Raised with a dotted path to the offending field.
     """
+
+
+class ConcurrentModification(Exception):
+    """`append`'s optimistic UPDATE matched zero rows.
+
+    Raised with `(match_id, expected_last_seq)`. Someone else advanced this
+    match's `last_seq` past what this attempt's `decide()` saw, so the
+    runtime quarantines rather than retrying: a retry would append events
+    decided against state that is no longer current.
+    """

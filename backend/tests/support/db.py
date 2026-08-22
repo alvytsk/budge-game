@@ -8,10 +8,13 @@ a test file can import it without depending on how pytest happens to have
 named the conftest's package.
 """
 
+import asyncio
 import os
 from pathlib import Path
 
 from alembic.config import Config
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 TEST_DATABASE_URL = "postgresql+asyncpg://podvinsya:podvinsya@127.0.0.1:5434/podvinsya_test"
 
@@ -28,3 +31,49 @@ def alembic_config(url: str) -> Config:
     config = Config(str(ALEMBIC_INI))
     config.set_main_option("sqlalchemy.url", url)
     return config
+
+
+async def wait_until_a_backend_is_blocked_on(
+    sessions: async_sessionmaker[AsyncSession], relation: str, *, timeout_s: float = 5.0
+) -> None:
+    """Poll `pg_locks` from a third connection until PostgreSQL itself
+    reports a backend blocked on a lock while running a statement that names
+    `relation`.
+
+    An `asyncio.Event` set before issuing the conflicting statement is not
+    enough: `begin()` crosses an await boundary of its own, and the first
+    side's commit can land before the second side's statement is even
+    dispatched. Asking the database directly is what makes the contention
+    deterministic.
+
+    This does not filter on `pg_locks.relation`: the contention here blocks
+    on a `transactionid` wait, not a relation-level lock — the relation-level
+    intent locks do not conflict and are granted to both sides immediately.
+    So it joins `pg_locks` (NOT granted) to `pg_stat_activity` on `pid` and
+    matches the blocked backend's in-flight query text instead.
+
+    A premature return cannot produce a false green: without the barrier the
+    two sides simply interleave less often, and both paths converge on the
+    same observable outcome — the UPDATE matching zero rows. `timeout_s` is
+    a bound against a hung test, not the synchronization mechanism.
+    """
+    loop = asyncio.get_event_loop()
+    deadline = loop.time() + timeout_s
+    async with sessions() as session:
+        while True:
+            blocked = (
+                await session.execute(
+                    text(
+                        "SELECT count(*) FROM pg_locks l "
+                        "JOIN pg_stat_activity a ON a.pid = l.pid "
+                        "WHERE NOT l.granted AND a.query ILIKE '%' || :relation || '%'"
+                    ),
+                    {"relation": relation},
+                )
+            ).scalar_one()
+            if blocked:
+                return
+            if loop.time() > deadline:
+                raise AssertionError(
+                    f"timed out waiting for a backend to block on a lock against {relation!r}"
+                )
