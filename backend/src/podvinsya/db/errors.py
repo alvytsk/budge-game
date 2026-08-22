@@ -43,3 +43,11 @@ class ConcurrentModification(Exception):
     runtime quarantines rather than retrying: a retry would append events
     decided against state that is no longer current.
     """
+
+
+class MatchNotFound(Exception):
+    """`load` was given a match id with no log behind it.
+
+    Distinct from an empty or corrupt stream: a match that was never created
+    is a caller mistake, not a data problem.
+    """
