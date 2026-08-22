@@ -146,5 +146,7 @@ async def test_deleting_a_match_takes_its_log_and_players_with_it(
     async with sessions() as session, session.begin():
         await session.execute(text("DELETE FROM matches WHERE id = :id"), {"id": match.id})
     async with sessions() as session:
-        left = (await session.execute(select(MatchEventRow.seq))).scalars().all()
-    assert left == []
+        left_events = (await session.execute(select(MatchEventRow.seq))).scalars().all()
+        left_players = (await session.execute(select(MatchPlayer.player_id))).scalars().all()
+    assert left_events == []
+    assert left_players == []

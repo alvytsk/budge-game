@@ -90,3 +90,4 @@ async def wait_until_a_backend_is_blocked_on(
                 raise AssertionError(
                     f"timed out waiting for a backend to block on a lock against {relation!r}"
                 )
+            await asyncio.sleep(0.01)

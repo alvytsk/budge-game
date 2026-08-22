@@ -1,6 +1,3 @@
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -18,12 +15,3 @@ def sessionmaker_for(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     # context exits, and a lazy refresh at that point would be I/O against a
     # transaction that is already gone.
     return async_sessionmaker(engine, expire_on_commit=False)
-
-
-@asynccontextmanager
-async def engine_for(url: str) -> AsyncIterator[AsyncEngine]:
-    engine = create_engine(url)
-    try:
-        yield engine
-    finally:
-        await engine.dispose()

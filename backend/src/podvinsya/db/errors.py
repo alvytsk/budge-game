@@ -50,9 +50,10 @@ class ConcurrentModification(Exception):
     """`append`'s optimistic UPDATE matched zero rows.
 
     Raised with `(match_id, expected_last_seq)`. Someone else advanced this
-    match's `last_seq` past what this attempt's `decide()` saw, so the
-    runtime quarantines rather than retrying: a retry would append events
-    decided against state that is no longer current.
+    match's `last_seq` past what this attempt's `decide()` saw. A retry
+    would append events decided against state that is no longer current —
+    what the runtime should do about that (quarantine, re-decide, something
+    else) is a policy question this layer leaves to the runtime plan.
     """
 
 

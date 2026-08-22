@@ -128,7 +128,12 @@ async def test_a_log_that_does_not_begin_with_genesis_is_corrupt(
         )
     with pytest.raises(EventStreamCorrupt) as excinfo:
         await MatchRepository(sessions).load(match_id)
-    assert "MatchCreated" in str(excinfo.value)
+    # The message always contains the literal "not MatchCreated", so
+    # asserting on that alone would hold even if the interpolated offending
+    # type name were wrong or missing. Assert on the offending type itself —
+    # the row above was planted as duel.started — to prove the
+    # interpolation actually works.
+    assert "DuelStarted" in str(excinfo.value)
 
 
 async def test_a_row_with_a_malformed_payload_is_corrupt_not_a_pydantic_error(

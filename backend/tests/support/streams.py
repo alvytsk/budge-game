@@ -18,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 from itertools import count
 from uuid import UUID, uuid4
 
+from podvinsya.domain import check_invariants
 from podvinsya.domain.actions import (
     AddPlayer,
     AssignSecret,
@@ -142,6 +143,11 @@ class _Recorder:
         produced = decide(self.state, command, ctx)
         self.events.extend(produced)
         self.state = fold(self.state, produced)
+        # A second oracle for free: every persistence test stands on a
+        # stream built here, so a stream that drifts into an illegal board
+        # state fails at its source rather than as a confusing downstream
+        # assertion somewhere else in the suite.
+        check_invariants(self.state)
 
     def snapshot(self) -> None:
         """Record the duel as it stands immediately before a judging event."""

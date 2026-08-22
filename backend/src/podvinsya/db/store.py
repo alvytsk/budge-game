@@ -79,8 +79,13 @@ class TransactionContext:
                     payload=payload,
                 )
             )
+        # apply_events flushes at its own end, which is also the end of
+        # this method's writes: the MatchEventRow rows added above are
+        # still pending at that point, and one flush() call flushes every
+        # pending object on the session, not just the ones apply_events
+        # itself added. A second flush() here would be a no-op repeated for
+        # no reason, so it is not duplicated.
         await apply_events(self.session, match_id, events)
-        await self.session.flush()
 
 
 class Reconciliation(StrEnum):
@@ -136,6 +141,13 @@ class UnitOfWork:
         if not rows:
             return Reconciliation.ABSENT
         expected_seqs = list(range(expected_last_seq + 1, expected_last_seq + 1 + len(events)))
+        # The row count is the third of the docstring's three checks, but
+        # there is no separate comparison for it: Python's list equality
+        # already fails on a length mismatch before it would compare any
+        # element, so a batch with the wrong number of rows is caught here
+        # as a side effect. That is correct today, but silent — an edit that
+        # made this comparison length-insensitive (e.g. comparing as sets)
+        # would reopen the gap without any test noticing.
         if [row.seq for row in rows] != expected_seqs:
             return Reconciliation.DIVERGED
         if [row.type for row in rows] != [WIRE_NAMES[type(event)] for event in events]:

@@ -84,6 +84,12 @@ def _walk(value: Any, path: str) -> Any:
     if isinstance(value, frozenset):
         return frozenset(_walk(item, f"{path}{{}}") for item in value)
     if isinstance(value, Mapping):
+        # Unreachable today: no event field is a mapping — `Budgets.entries`
+        # is deliberately a tuple of pairs, precisely so it does not need
+        # this branch. Kept for the same reason the walk is structural
+        # rather than a field list — a future mapping field falls into a
+        # branch that already knows how to walk it — but it is, right now,
+        # the only untested guard in this module.
         return {key: _walk(item, f"{path}[{key!r}]") for key, item in value.items()}
     if isinstance(value, list | set):
         raise TypeError(
