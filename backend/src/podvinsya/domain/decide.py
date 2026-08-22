@@ -331,7 +331,10 @@ def _undo(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
             budgets=entry.budgets,
             answering=entry.answering,
             image_index=entry.image_index,
-            anchor=ctx.now,
+            # A paused duel stays paused: spec 4.1 defines anchor is None as
+            # the pause, so re-anchoring here would restart the clock behind
+            # the room's back. PassUsed already models the same thing.
+            anchor=None if duel.paused else ctx.now,
         ),
     )
 

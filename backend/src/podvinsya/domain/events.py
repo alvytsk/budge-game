@@ -88,7 +88,7 @@ class JudgementUndone:
     budgets: Budgets
     answering: PlayerId
     image_index: int
-    anchor: datetime
+    anchor: datetime | None
 
 
 @dataclass(frozen=True, slots=True)

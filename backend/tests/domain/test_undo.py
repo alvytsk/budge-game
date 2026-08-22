@@ -1,6 +1,6 @@
 import pytest
 
-from podvinsya.domain.actions import JudgeCorrect, JudgePass, UndoLastJudgement
+from podvinsya.domain.actions import JudgeCorrect, JudgePass, PauseDuel, UndoLastJudgement
 from podvinsya.domain.context import JournalEntry
 from podvinsya.domain.errors import Rejected, RejectionReason
 
@@ -97,3 +97,17 @@ def test_undo_without_a_duel_is_rejected() -> None:
     with pytest.raises(Rejected) as excinfo:
         apply(state, UndoLastJudgement(), now=at(3))
     assert excinfo.value.reason is RejectionReason.NO_DUEL
+
+
+def test_undoing_while_paused_leaves_the_duel_paused() -> None:
+    """Spec 4.1: anchor is None *is* the pause. Undo must not restart the clock."""
+    state, _, _, _ = build_duel_state()
+    snapshot = _snapshot(state, seq=state.seq)
+    state = apply(state, JudgeCorrect(), now=at(3))
+    state = apply(state, PauseDuel(), now=at(5))
+    state = apply(state, UndoLastJudgement(), now=at(9), duel_journal=(snapshot,))
+
+    duel = state.duel
+    assert duel is not None
+    assert duel.paused is True
+    assert duel.anchor is None
