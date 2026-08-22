@@ -62,12 +62,16 @@ def test_connectivity() -> None:
         (3, 5, 2, RejectionReason.BOARD_NOT_DIVISIBLE),
     ],
 )
-def test_invalid_boards_are_rejected(width: int, height: int, players: int, reason: RejectionReason) -> None:
+def test_invalid_boards_are_rejected(
+    width: int, height: int, players: int, reason: RejectionReason
+) -> None:
     with pytest.raises(Rejected) as excinfo:
         validate_board(BoardSize(width=width, height=height), players)
     assert excinfo.value.reason is reason
 
 
-@pytest.mark.parametrize(("width", "height", "players"), [(3, 4, 2), (3, 6, 3), (4, 6, 4), (6, 6, 4)])
+@pytest.mark.parametrize(
+    ("width", "height", "players"), [(3, 4, 2), (3, 6, 3), (4, 6, 4), (6, 6, 4)]
+)
 def test_default_boards_are_valid(width: int, height: int, players: int) -> None:
     validate_board(BoardSize(width=width, height=height), players)

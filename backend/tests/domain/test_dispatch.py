@@ -22,14 +22,16 @@ def test_create_match_emits_match_created() -> None:
     board = BoardSize(width=4, height=6)
     state = create_initial_state(match_id, board, MatchSettings())
 
-    events = decide(state, CreateMatch(board=board, settings=MatchSettings(), player_count=4), DecisionContext(now=NOW))
+    command = CreateMatch(board=board, settings=MatchSettings(), player_count=4)
+    events = decide(state, command, DecisionContext(now=NOW))
 
     assert events == (MatchCreated(board=board, settings=MatchSettings(), player_count=4),)
 
 
 def test_evolve_increments_seq_for_every_event() -> None:
     state = create_initial_state(MatchId(uuid4()), BoardSize(4, 6), MatchSettings())
-    evolved = evolve(state, MatchCreated(board=BoardSize(4, 6), settings=MatchSettings(), player_count=4))
+    created = MatchCreated(board=BoardSize(4, 6), settings=MatchSettings(), player_count=4)
+    evolved = evolve(state, created)
     assert evolved.seq == 1
     assert evolved.status is MatchStatus.SETUP
     assert evolved.player_count == 4
@@ -37,7 +39,8 @@ def test_evolve_increments_seq_for_every_event() -> None:
 
 def test_fold_applies_events_in_order() -> None:
     state = create_initial_state(MatchId(uuid4()), BoardSize(4, 6), MatchSettings())
-    folded = fold(state, [MatchCreated(board=BoardSize(4, 6), settings=MatchSettings(), player_count=4)])
+    created = MatchCreated(board=BoardSize(4, 6), settings=MatchSettings(), player_count=4)
+    folded = fold(state, [created])
     assert folded.seq == 1
 
 
