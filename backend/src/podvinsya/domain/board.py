@@ -68,7 +68,7 @@ def validate_board(board: BoardSize, player_count: int) -> None:
         raise Rejected(RejectionReason.BOARD_INVALID)
     if board.cell_count > MAX_CELLS:
         raise Rejected(RejectionReason.BOARD_INVALID)
-    if player_count > 0 and board.cell_count % player_count != 0:
-        raise Rejected(RejectionReason.BOARD_NOT_DIVISIBLE)
     if player_count < 2 or player_count > 4:
         raise Rejected(RejectionReason.PLAYER_COUNT_INVALID)
+    if board.cell_count % player_count != 0:
+        raise Rejected(RejectionReason.BOARD_NOT_DIVISIBLE)

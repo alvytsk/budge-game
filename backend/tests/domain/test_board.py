@@ -57,7 +57,8 @@ def test_connectivity() -> None:
         (2, 6, 2, RejectionReason.BOARD_INVALID),
         (6, 2, 2, RejectionReason.BOARD_INVALID),
         (6, 7, 2, RejectionReason.BOARD_INVALID),
-        (3, 4, 5, RejectionReason.BOARD_NOT_DIVISIBLE),
+        (3, 4, 5, RejectionReason.PLAYER_COUNT_INVALID),
+        (3, 4, 0, RejectionReason.PLAYER_COUNT_INVALID),
         (3, 5, 2, RejectionReason.BOARD_NOT_DIVISIBLE),
     ],
 )
