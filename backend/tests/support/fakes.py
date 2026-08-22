@@ -31,8 +31,20 @@ class FakeClock:
         if when <= self._now:
             return
         waiter = asyncio.Event()
-        self._sleepers.append((when, waiter))
-        await waiter.wait()
+        entry = (when, waiter)
+        self._sleepers.append(entry)
+        try:
+            await waiter.wait()
+        finally:
+            # The normal wake path (advance_to) already removed this entry
+            # before setting the event. A cancelled sleeper never gets that
+            # far -- CancelledError comes in through `waiter.wait()`
+            # directly -- so without this, `pending()` would keep counting
+            # a task that a scheduler has already cancelled, and a test
+            # asserting "the task is gone" after cancel() would see a
+            # sleeper that is not actually there.
+            if entry in self._sleepers:
+                self._sleepers.remove(entry)
 
     async def advance_to(self, when: datetime) -> None:
         """Move time forward and wake everything that was due by then."""
