@@ -305,6 +305,11 @@ def _judge_correct(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]
 
 def _pause_duel(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
     duel = _require_live_duel(state)
+    # Spec 4.2 is universal: past the deadline the clock wins whatever command
+    # arrived. Without this a late pause would park a duel the answerer had
+    # already lost, at zero, with no DuelResolved anywhere in the log.
+    if is_expired(duel, ctx.now):
+        return _resolve(state, duel, loser=duel.answering)
     _, charged = _charge(duel, ctx.now)
     return (DuelPaused(charged_ms=charged),)
 
@@ -322,6 +327,12 @@ def _undo(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
     duel = _require_duel(state)
     if duel.phase is not DuelPhase.RUNNING:
         raise Rejected(RejectionReason.DUEL_NOT_RUNNING)
+    # Spec 4.2 again, and 3.7 already concedes that undo cannot recover a duel
+    # that has ended. A pause sets the anchor to None and so makes is_expired
+    # false, which keeps the host's pause-then-undo route open -- that is what
+    # 3.7 means by naming pause the tool for edge moments.
+    if is_expired(duel, ctx.now):
+        return _resolve(state, duel, loser=duel.answering)
     if not ctx.duel_journal:
         raise Rejected(RejectionReason.NOTHING_TO_UNDO)
     entry = ctx.duel_journal[-1]

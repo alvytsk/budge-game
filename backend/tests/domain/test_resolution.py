@@ -1,10 +1,16 @@
 from dataclasses import replace
 
-from podvinsya.domain.actions import ExpireTimer, JudgeCorrect, JudgePass, PauseDuel
+from podvinsya.domain.actions import (
+    ExpireTimer,
+    JudgeCorrect,
+    JudgePass,
+    PauseDuel,
+    UndoLastJudgement,
+)
 from podvinsya.domain.board import is_connected
-from podvinsya.domain.context import DecisionContext
+from podvinsya.domain.context import DecisionContext, JournalEntry
 from podvinsya.domain.decide import decide
-from podvinsya.domain.events import DuelResolved, PassUsed
+from podvinsya.domain.events import DuelPaused, DuelResolved, JudgementUndone, PassUsed
 
 from .conftest import apply, at, build_declared_state, build_duel_state
 
@@ -156,3 +162,65 @@ def test_expire_timer_on_a_paused_duel_is_ignored() -> None:
 def test_expire_timer_on_a_declared_duel_is_ignored() -> None:
     state, _, _, _ = build_declared_state()
     assert decide(state, ExpireTimer(deadline_id=0), DecisionContext(now=at(600))) == ()
+
+
+def test_a_pause_arriving_after_the_deadline_resolves_as_expiry() -> None:
+    """Spec 4.2 is universal. A late pause must not park a duel already lost."""
+    state, _, attacking, _ = build_duel_state()
+    duel = state.duel
+    assert duel is not None
+    late = duel.budgets.get(duel.answering) / 1000 + 5
+
+    events = decide(state, PauseDuel(), DecisionContext(now=at(late)))
+
+    assert not any(isinstance(e, DuelPaused) for e in events)
+    resolved = next(e for e in events if isinstance(e, DuelResolved))
+    assert resolved.loser == duel.answering
+    assert resolved.winner == duel.opponent_of(duel.answering)
+    state = apply(state, PauseDuel(), now=at(late))
+    assert state.duel is None
+    assert state.groups[attacking].owner == duel.defender
+
+
+def test_an_undo_arriving_after_the_deadline_resolves_as_expiry() -> None:
+    state, _, _, _ = build_duel_state()
+    duel = state.duel
+    assert duel is not None
+    journal = (
+        JournalEntry(
+            seq=state.seq,
+            budgets=duel.budgets,
+            answering=duel.answering,
+            image_index=duel.index,
+        ),
+    )
+    late = duel.budgets.get(duel.answering) / 1000 + 5
+
+    events = decide(state, UndoLastJudgement(), DecisionContext(now=at(late), duel_journal=journal))
+
+    assert not any(isinstance(e, JudgementUndone) for e in events)
+    resolved = next(e for e in events if isinstance(e, DuelResolved))
+    assert resolved.loser == duel.answering
+
+
+def test_undo_still_works_once_the_host_has_paused_a_late_duel() -> None:
+    """Pause clears the anchor, so is_expired is false and 3.7's route stays open."""
+    state, _, _, _ = build_duel_state()
+    duel = state.duel
+    assert duel is not None
+    journal = (
+        JournalEntry(
+            seq=state.seq,
+            budgets=duel.budgets,
+            answering=duel.answering,
+            image_index=duel.index,
+        ),
+    )
+    state = apply(state, JudgeCorrect(), now=at(3))
+    state = apply(state, PauseDuel(), now=at(5))
+    state = apply(state, UndoLastJudgement(), now=at(9_999), duel_journal=journal)
+
+    after = state.duel
+    assert after is not None
+    assert after.paused is True
+    assert after.index == duel.index
