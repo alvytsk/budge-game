@@ -1,8 +1,10 @@
-from podvinsya.domain.actions import AddPlayer, AssignSecret, Command, CreateMatch
+from collections import Counter
+
+from podvinsya.domain.actions import AddPlayer, AssignSecret, Command, CreateMatch, DealBoard
 from podvinsya.domain.board import validate_board
 from podvinsya.domain.context import DecisionContext
 from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.events import Event, MatchCreated, PlayerAdded, SecretAssigned
+from podvinsya.domain.events import BoardDealt, Event, MatchCreated, PlayerAdded, SecretAssigned
 from podvinsya.domain.state import MatchState, MatchStatus
 
 
@@ -14,6 +16,8 @@ def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[E
             return _add_player(state, command)
         case AssignSecret():
             return _assign_secret(state, command)
+        case DealBoard():
+            return _deal_board(state, ctx)
         case _:
             raise NotImplementedError(type(command).__name__)
 
@@ -55,3 +59,45 @@ def _assign_secret(state: MatchState, command: AssignSecret) -> tuple[Event, ...
     if state.secrets.get(command.player_id) == command.category:
         return ()
     return (SecretAssigned(command.player_id, command.category),)
+
+
+def _deal_board(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
+    _require_setup(state)
+    if len(state.players) != state.player_count:
+        raise Rejected(RejectionReason.PLAYER_COUNT_INVALID)
+    if any(p.id not in state.secrets for p in state.players):
+        raise Rejected(RejectionReason.SECRET_MISSING)
+    if ctx.deal is None:
+        raise Rejected(RejectionReason.DEAL_INVALID)
+
+    plan = ctx.deal
+    cells = [dealt.cell for dealt in plan.cells]
+    if sorted(cells) != sorted(state.board.cells()):
+        raise Rejected(RejectionReason.DEAL_INVALID)
+
+    categories = [dealt.category for dealt in plan.cells]
+    if len(set(categories)) != len(categories):
+        raise Rejected(RejectionReason.DEAL_INVALID)
+
+    group_ids = [dealt.group_id for dealt in plan.cells]
+    if len(set(group_ids)) != len(group_ids):
+        raise Rejected(RejectionReason.DEAL_INVALID)
+
+    per_player = state.board.cell_count // state.player_count
+    owners = Counter(dealt.owner for dealt in plan.cells)
+    if set(owners) != {p.id for p in state.players} or set(owners.values()) != {per_player}:
+        raise Rejected(RejectionReason.DEAL_INVALID)
+
+    secret_owner = {category: owner for owner, category in state.secrets.items()}
+    for dealt in plan.cells:
+        expected_owner = secret_owner.get(dealt.category)
+        if expected_owner is not None:
+            if dealt.owner != expected_owner or dealt.revealed:
+                raise Rejected(RejectionReason.DEAL_INVALID)
+        elif not dealt.revealed:
+            raise Rejected(RejectionReason.DEAL_INVALID)
+    dealt_categories = {d.category for d in plan.cells}
+    if len(dealt_categories & set(state.secrets.values())) != len(state.secrets):
+        raise Rejected(RejectionReason.DEAL_INVALID)
+
+    return (BoardDealt(cells=plan.cells),)
