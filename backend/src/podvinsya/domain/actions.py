@@ -73,6 +73,13 @@ class UndoLastJudgement:
 
 @dataclass(frozen=True, slots=True)
 class ExpireTimer:
+    # The domain ignores this. It cannot check it: Duel does not record which
+    # seq set its anchor, so there is nothing here to compare against. Nor does
+    # it need to -- spec 4.2 makes the clock authoritative, so a stale timer is
+    # already harmless: decide resolves only if now has actually passed the
+    # deadline, whatever identifier arrived with the command. Honouring
+    # deadline_id (spec 4.3) is the runtime's job, where the scheduler knows
+    # which task it cancelled.
     deadline_id: int
 
 
