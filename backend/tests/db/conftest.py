@@ -19,16 +19,18 @@ build the session-scoped engine, and the fast lane would quietly require
 PostgreSQL.
 """
 
+import asyncio
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from alembic import command
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from podvinsya.db.engine import create_engine, sessionmaker_for
-from support.db import DATABASE_URL
+from support.db import DATABASE_URL, alembic_config
 
 THIS_DIR = Path(__file__).parent
 
@@ -92,6 +94,35 @@ async def engine() -> AsyncIterator[AsyncEngine]:
     await eng.dispose()
 
 
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def migrated_schema(engine: AsyncEngine) -> None:
+    """Build the schema exactly once per session by running the migration —
+    never `Base.metadata.create_all`. Using the migration is what keeps
+    `alembic check` meaningful."""
+    # Two statements, not one: asyncpg's prepared-statement protocol rejects
+    # multiple commands in a single execute().
+    async with engine.begin() as connection:
+        await connection.execute(text("DROP SCHEMA public CASCADE"))
+        await connection.execute(text("CREATE SCHEMA public"))
+    # `command.upgrade` ends in `env.py`'s `asyncio.run(...)`, which cannot be
+    # called from inside a running loop — so it runs on its own thread.
+    await asyncio.to_thread(command.upgrade, alembic_config(DATABASE_URL), "head")
+
+
 @pytest_asyncio.fixture(loop_scope="session")
-async def sessions(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+async def clean_db(migrated_schema: None, engine: AsyncEngine) -> AsyncIterator[None]:
+    # Truncate BEFORE the test, not after: truncating on the way out leaves
+    # the database dirty for any test that does not request this fixture, and
+    # that dirt surfaces as a failure unrelated to whatever ran next.
+    async with engine.begin() as connection:
+        await connection.execute(
+            text("TRUNCATE TABLE match_events, match_players, matches RESTART IDENTITY CASCADE")
+        )
+    yield
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def sessions(
+    migrated_schema: None, engine: AsyncEngine
+) -> async_sessionmaker[AsyncSession]:
     return sessionmaker_for(engine)
