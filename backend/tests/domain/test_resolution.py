@@ -1,9 +1,12 @@
 from dataclasses import replace
 
-from podvinsya.domain.actions import ExpireTimer, JudgeCorrect
+from podvinsya.domain.actions import ExpireTimer, JudgeCorrect, JudgePass, PauseDuel
 from podvinsya.domain.board import is_connected
+from podvinsya.domain.context import DecisionContext
+from podvinsya.domain.decide import decide
+from podvinsya.domain.events import DuelResolved, PassUsed
 
-from .conftest import apply, at, build_duel_state
+from .conftest import apply, at, build_declared_state, build_duel_state
 
 
 def _force_loss(state, loser):  # type: ignore[no-untyped-def]
@@ -109,3 +112,42 @@ def test_expire_timer_without_a_duel_is_ignored() -> None:
 
     state, _ = build_running_state(4)
     assert decide(state, ExpireTimer(deadline_id=7), DecisionContext(now=BASE_TIME)) == ()
+
+
+def test_a_late_pass_resolves_without_recording_the_pass() -> None:
+    state, _, _, _ = build_duel_state()
+    duel = state.duel
+    assert duel is not None
+    late = duel.budgets.get(duel.answering) / 1000 + 5
+
+    events = decide(state, JudgePass(), DecisionContext(now=at(late)))
+
+    # Without the expiry check in _judge_pass the duel still resolves, because the
+    # clamped charge zeroes the budget and the penalty keeps it there. What differs is
+    # the log: a PassUsed would be recorded for a pass played after the player had
+    # already lost. The log is the source of truth and undo walks it, so that entry
+    # must not exist.
+    assert not any(isinstance(e, PassUsed) for e in events), (
+        "a pass arriving after the deadline must not enter the log as a played pass"
+    )
+    assert any(isinstance(e, DuelResolved) for e in events)
+
+
+def test_expire_timer_before_the_deadline_is_ignored() -> None:
+    state, _, _, _ = build_duel_state()
+    assert decide(state, ExpireTimer(deadline_id=0), DecisionContext(now=at(1))) == ()
+
+
+def test_expire_timer_on_a_paused_duel_is_ignored() -> None:
+    state, _, _, _ = build_duel_state()
+    state = apply(state, PauseDuel(), now=at(5))
+
+    # The runtime cancels a deadline task on pause, but a task that already fired can
+    # still arrive. Losing a duel to a stale timer while the host has the game frozen
+    # is the worst failure this system could have on stage.
+    assert decide(state, ExpireTimer(deadline_id=0), DecisionContext(now=at(600))) == ()
+
+
+def test_expire_timer_on_a_declared_duel_is_ignored() -> None:
+    state, _, _, _ = build_declared_state()
+    assert decide(state, ExpireTimer(deadline_id=0), DecisionContext(now=at(600))) == ()
