@@ -22,6 +22,7 @@
 - Ограничения поля из спеки §2.1: `W ≥ 3`, `H ≥ 3`, `W·H ≤ 36`, `W·H` делится на число игроков нацело.
 - Все имена в коде английские, все сообщения и комментарии — по-английски. Русский остаётся в документации и в пользовательском интерфейсе, который в этом плане не затрагивается.
 - mypy запускается со `--strict` и должен проходить чисто после каждой задачи.
+- `ruff check` должен проходить чисто после каждой задачи, и правило `E501` включено — предел строки в 100 символов проверяется, а не только декларируется.
 
 ---
 
@@ -119,7 +120,12 @@ packages = ["podvinsya"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "E501"]
 ```
+
+`E501` is selected deliberately. Ruff's default rule set omits it, so `line-length` alone configures only the formatter and `ruff check` never enforces it — a declared constraint that nothing checks. Adding it to the default four makes the stated limit real without pulling in isort, pyupgrade or bugbear, whose findings are a separate decision.
 
 Создать пустые `backend/src/podvinsya/__init__.py` и `backend/src/podvinsya/domain/__init__.py`.
 
@@ -192,13 +198,17 @@ def test_connectivity() -> None:
         (3, 5, 2, RejectionReason.BOARD_NOT_DIVISIBLE),
     ],
 )
-def test_invalid_boards_are_rejected(width: int, height: int, players: int, reason: RejectionReason) -> None:
+def test_invalid_boards_are_rejected(
+    width: int, height: int, players: int, reason: RejectionReason
+) -> None:
     with pytest.raises(Rejected) as excinfo:
         validate_board(BoardSize(width=width, height=height), players)
     assert excinfo.value.reason is reason
 
 
-@pytest.mark.parametrize(("width", "height", "players"), [(3, 4, 2), (3, 6, 3), (4, 6, 4), (6, 6, 4)])
+@pytest.mark.parametrize(
+    ("width", "height", "players"), [(3, 4, 2), (3, 6, 3), (4, 6, 4), (6, 6, 4)]
+)
 def test_default_boards_are_valid(width: int, height: int, players: int) -> None:
     validate_board(BoardSize(width=width, height=height), players)
 ```
@@ -686,14 +696,16 @@ def test_create_match_emits_match_created() -> None:
     board = BoardSize(width=4, height=6)
     state = create_initial_state(match_id, board, MatchSettings())
 
-    events = decide(state, CreateMatch(board=board, settings=MatchSettings(), player_count=4), DecisionContext(now=NOW))
+    command = CreateMatch(board=board, settings=MatchSettings(), player_count=4)
+    events = decide(state, command, DecisionContext(now=NOW))
 
     assert events == (MatchCreated(board=board, settings=MatchSettings(), player_count=4),)
 
 
 def test_evolve_increments_seq_for_every_event() -> None:
     state = create_initial_state(MatchId(uuid4()), BoardSize(4, 6), MatchSettings())
-    evolved = evolve(state, MatchCreated(board=BoardSize(4, 6), settings=MatchSettings(), player_count=4))
+    created = MatchCreated(board=BoardSize(4, 6), settings=MatchSettings(), player_count=4)
+    evolved = evolve(state, created)
     assert evolved.seq == 1
     assert evolved.status is MatchStatus.SETUP
     assert evolved.player_count == 4
@@ -701,7 +713,8 @@ def test_evolve_increments_seq_for_every_event() -> None:
 
 def test_fold_applies_events_in_order() -> None:
     state = create_initial_state(MatchId(uuid4()), BoardSize(4, 6), MatchSettings())
-    folded = fold(state, [MatchCreated(board=BoardSize(4, 6), settings=MatchSettings(), player_count=4)])
+    created = MatchCreated(board=BoardSize(4, 6), settings=MatchSettings(), player_count=4)
+    folded = fold(state, [created])
     assert folded.seq == 1
 
 
@@ -1117,7 +1130,13 @@ def at(seconds: float) -> datetime:
     return BASE_TIME + timedelta(seconds=seconds)
 
 
-def apply(state: MatchState, command: Command, *, now: datetime = BASE_TIME, **ctx_kwargs: object) -> MatchState:
+def apply(
+    state: MatchState,
+    command: Command,
+    *,
+    now: datetime = BASE_TIME,
+    **ctx_kwargs: object,
+) -> MatchState:
     ctx = DecisionContext(now=now, **ctx_kwargs)  # type: ignore[arg-type]
     return fold(state, decide(state, command, ctx))
 
@@ -1132,10 +1151,15 @@ def build_setup_state(player_count: int = 4) -> tuple[MatchState, tuple[PlayerId
     """A match with all players added and all secrets assigned, built through decide/evolve."""
     board = BOARDS[player_count]
     state = create_initial_state(MatchId(uuid4()), board, MatchSettings())
-    state = apply(state, CreateMatch(board=board, settings=MatchSettings(), player_count=player_count))
+    state = apply(
+        state, CreateMatch(board=board, settings=MatchSettings(), player_count=player_count)
+    )
     players = tuple(PlayerId(uuid4()) for _ in range(player_count))
     for index, player_id in enumerate(players):
-        state = apply(state, AddPlayer(player_id=player_id, name=f"P{index + 1}", colour=COLOURS[index]))
+        state = apply(
+            state,
+            AddPlayer(player_id=player_id, name=f"P{index + 1}", colour=COLOURS[index]),
+        )
         state = apply(state, AssignSecret(player_id=player_id, category=CategoryId(uuid4())))
     return state, players
 
@@ -1183,7 +1207,9 @@ def test_adding_the_same_player_twice_is_rejected(created_state: MatchState) -> 
 def test_adding_more_players_than_declared_is_rejected(created_state: MatchState) -> None:
     state = created_state
     for index in range(4):
-        state = apply(state, AddPlayer(player_id=PlayerId(uuid4()), name=f"P{index}", colour="#fff"))
+        state = apply(
+            state, AddPlayer(player_id=PlayerId(uuid4()), name=f"P{index}", colour="#fff")
+        )
     with pytest.raises(Rejected) as excinfo:
         apply(state, AddPlayer(player_id=PlayerId(uuid4()), name="fifth", colour="#000"))
     assert excinfo.value.reason is RejectionReason.PLAYER_COUNT_INVALID
@@ -1199,7 +1225,10 @@ def test_secret_is_bound_to_its_owner(created_state: MatchState) -> None:
 
 def test_secret_for_unknown_player_is_rejected(created_state: MatchState) -> None:
     with pytest.raises(Rejected) as excinfo:
-        apply(created_state, AssignSecret(player_id=PlayerId(uuid4()), category=CategoryId(uuid4())))
+        apply(
+            created_state,
+            AssignSecret(player_id=PlayerId(uuid4()), category=CategoryId(uuid4())),
+        )
     assert excinfo.value.reason is RejectionReason.UNKNOWN_PLAYER
 
 
@@ -1487,7 +1516,13 @@ def test_deal_with_a_secret_on_the_wrong_owner_is_rejected() -> None:
     state, players = build_setup_state(4)
     plan = make_deal(state.board, players, dict(state.secrets))
     stolen = tuple(
-        DealtCell(c.cell, players[(players.index(c.owner) + 1) % len(players)], c.category, c.group_id, c.revealed)
+        DealtCell(
+            c.cell,
+            players[(players.index(c.owner) + 1) % len(players)],
+            c.category,
+            c.group_id,
+            c.revealed,
+        )
         if c.category in state.secrets.values() and c.category == state.secrets[players[0]]
         else c
         for c in plan.cells
@@ -3189,7 +3224,9 @@ def test_a_finished_match_refuses_further_attacks() -> None:
         for gid, g in state.groups.items()
     }
     players_tuple = tuple(replace(p, eliminated=p.id in bystanders) for p in state.players)
-    state = _leave_only(replace(state, groups=groups, players=players_tuple), duel.defender, defending)
+    state = _leave_only(
+        replace(state, groups=groups, players=players_tuple), duel.defender, defending
+    )
     aimed = replace(duel, answering=duel.defender,
                     budgets=duel.budgets.with_value(duel.defender, 1_000))
     state = apply(replace(state, duel=aimed), ExpireTimer(deadline_id=0), now=at(2))
