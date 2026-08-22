@@ -1233,11 +1233,19 @@ class Materialiser:
 
 
 def _snapshot(state: MatchState) -> JournalEntry:
-    """The duel as it stood immediately before one judging event."""
+    """The duel as it stood immediately before one judging event.
+
+    `budgets`, `answering` and `image_index` describe the state *before* the
+    judgement — that is what an undo restores. `seq` is the exception: it
+    identifies the judgement itself, because `decide` writes it through as
+    `JudgementUndone.undone_seq`, and an event's persisted seq is its
+    one-based position in the log. This state has not been folded with that
+    event yet, so its own seq is one short of it.
+    """
     duel = state.duel
     assert duel is not None, "a judging event outside a duel is a corrupt log"
     return JournalEntry(
-        seq=state.seq,
+        seq=state.seq + 1,
         budgets=duel.budgets,
         answering=duel.answering,
         image_index=duel.index,
