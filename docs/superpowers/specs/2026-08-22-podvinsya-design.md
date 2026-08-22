@@ -320,8 +320,10 @@ anchor is None  ⇔  пауза
 match_events(match_id, seq, type, payload jsonb,
              operation_id, schema_version, occurred_at)
              UNIQUE (match_id, seq)
-             UNIQUE (match_id, operation_id)
+             INDEX  (match_id, operation_id)
 ```
+
+`(match_id, operation_id)` — индекс, а не уникальность. Одна команда порождает до четырёх событий (`JudgePass` → `PassUsed` + `DuelResolved` + `PlayerEliminated` + `MatchWon`), и все они несут `operation_id` своей команды: уникальность отвергала бы собственную пачку на второй строке. Идемпотентность держат оптимистичная проверка `expected_last_seq` и реконсиляция §6.3, которая и рассчитана на несколько строк с одним `operation_id`.
 
 Лог — единственный источник истины; состояние в памяти — выбрасываемый кэш. `schema_version` и апкастеры с самого начала: лог должен пережить любой рефакторинг, а запрет на переименование полей для этого слишком тесен.
 
