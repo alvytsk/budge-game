@@ -6,12 +6,14 @@ cycle can be transcribed from the spec without adaptation.
 
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from enum import StrEnum
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, update
+from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from podvinsya.db.codec import encode
+from podvinsya.db.codec.registry import WIRE_NAMES
 from podvinsya.db.errors import ConcurrentModification
 from podvinsya.db.models import Match, MatchEventRow
 from podvinsya.domain.events import Event
@@ -75,6 +77,19 @@ class TransactionContext:
         await self.session.flush()
 
 
+class Reconciliation(StrEnum):
+    """What the log says about a batch whose commit outcome is unknown."""
+
+    MATCHED = "matched"
+    """The batch is durable. Fold it into memory and carry on."""
+
+    ABSENT = "absent"
+    """Nothing carries this operation_id. The commit did not land; retry."""
+
+    DIVERGED = "diverged"
+    """Something else is there. Quarantine — there is no "almost matched"."""
+
+
 class UnitOfWork:
     """Opens transactions. Nothing outside a `begin()` block writes."""
 
@@ -85,3 +100,38 @@ class UnitOfWork:
     async def begin(self) -> AsyncIterator[TransactionContext]:
         async with self._sessions() as session, session.begin():
             yield TransactionContext(session)
+
+    async def reconcile(
+        self,
+        match_id: MatchId,
+        operation_id: str,
+        *,
+        expected_last_seq: int,
+        events: Sequence[Event],
+    ) -> Reconciliation:
+        """Compare the batch itself against what the log holds.
+
+        Not "does a row with this operation_id exist" — the exact seq range,
+        the row count, and the ordered wire types, all three (§6.3). A
+        partially applied batch, a batch at the wrong position, or a batch
+        of different events is a divergence, and divergence is a quarantine.
+        """
+        async with self._sessions() as session:
+            rows = (
+                await session.execute(
+                    select(MatchEventRow.seq, MatchEventRow.type)
+                    .where(
+                        MatchEventRow.match_id == match_id,
+                        MatchEventRow.operation_id == operation_id,
+                    )
+                    .order_by(MatchEventRow.seq)
+                )
+            ).all()
+        if not rows:
+            return Reconciliation.ABSENT
+        expected_seqs = list(range(expected_last_seq + 1, expected_last_seq + 1 + len(events)))
+        if [row.seq for row in rows] != expected_seqs:
+            return Reconciliation.DIVERGED
+        if [row.type for row in rows] != [WIRE_NAMES[type(event)] for event in events]:
+            return Reconciliation.DIVERGED
+        return Reconciliation.MATCHED
