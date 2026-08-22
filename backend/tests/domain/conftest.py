@@ -4,7 +4,14 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import AddPlayer, AssignSecret, Command, CreateMatch, DealBoard
+from podvinsya.domain.actions import (
+    AddPlayer,
+    AssignSecret,
+    Command,
+    CreateMatch,
+    DealBoard,
+    StartMatch,
+)
 from podvinsya.domain.board import BoardSize
 from podvinsya.domain.context import DealPlan, DealtCell, DecisionContext
 from podvinsya.domain.decide import decide
@@ -117,3 +124,13 @@ def build_dealt_state(player_count: int = 4) -> tuple[MatchState, tuple[PlayerId
 @pytest.fixture
 def dealt_state() -> tuple[MatchState, tuple[PlayerId, ...]]:
     return build_dealt_state(4)
+
+
+def build_running_state(player_count: int = 4) -> tuple[MatchState, tuple[PlayerId, ...]]:
+    state, players = build_dealt_state(player_count)
+    return apply(state, StartMatch()), players
+
+
+@pytest.fixture
+def running_state() -> tuple[MatchState, tuple[PlayerId, ...]]:
+    return build_running_state(4)

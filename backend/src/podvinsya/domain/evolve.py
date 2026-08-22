@@ -1,8 +1,15 @@
 from collections.abc import Iterable
 from dataclasses import replace
 
-from podvinsya.domain.events import BoardDealt, Event, MatchCreated, PlayerAdded, SecretAssigned
-from podvinsya.domain.state import Group, MatchState, Player
+from podvinsya.domain.events import (
+    BoardDealt,
+    Event,
+    MatchCreated,
+    MatchStarted,
+    PlayerAdded,
+    SecretAssigned,
+)
+from podvinsya.domain.state import Group, MatchState, MatchStatus, Player
 
 
 def evolve(state: MatchState, event: Event) -> MatchState:
@@ -41,6 +48,14 @@ def evolve(state: MatchState, event: Event) -> MatchState:
                     for dealt in event.cells
                 },
                 played_categories=frozenset(),
+            )
+        case MatchStarted():
+            evolved = replace(
+                state,
+                status=MatchStatus.RUNNING,
+                turn_order=event.turn_order,
+                turn_index=0,
+                round_no=1,
             )
         case _:
             raise NotImplementedError(type(event).__name__)

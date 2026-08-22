@@ -1,10 +1,24 @@
 from collections import Counter
 
-from podvinsya.domain.actions import AddPlayer, AssignSecret, Command, CreateMatch, DealBoard
+from podvinsya.domain.actions import (
+    AddPlayer,
+    AssignSecret,
+    Command,
+    CreateMatch,
+    DealBoard,
+    StartMatch,
+)
 from podvinsya.domain.board import validate_board
 from podvinsya.domain.context import DecisionContext
 from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.events import BoardDealt, Event, MatchCreated, PlayerAdded, SecretAssigned
+from podvinsya.domain.events import (
+    BoardDealt,
+    Event,
+    MatchCreated,
+    MatchStarted,
+    PlayerAdded,
+    SecretAssigned,
+)
 from podvinsya.domain.state import MatchState, MatchStatus
 
 
@@ -18,6 +32,8 @@ def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[E
             return _assign_secret(state, command)
         case DealBoard():
             return _deal_board(state, ctx)
+        case StartMatch():
+            return _start_match(state)
         case _:
             raise NotImplementedError(type(command).__name__)
 
@@ -101,3 +117,10 @@ def _deal_board(state: MatchState, ctx: DecisionContext) -> tuple[Event, ...]:
         raise Rejected(RejectionReason.DEAL_INVALID)
 
     return (BoardDealt(cells=plan.cells),)
+
+
+def _start_match(state: MatchState) -> tuple[Event, ...]:
+    _require_setup(state)
+    if len(state.groups) != state.board.cell_count:
+        raise Rejected(RejectionReason.DEAL_INVALID)
+    return (MatchStarted(turn_order=tuple(p.id for p in state.players)),)
