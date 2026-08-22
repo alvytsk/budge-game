@@ -272,6 +272,35 @@ async def test_the_journal_holds_one_entry_per_judgement_of_this_duel(
     assert second.image_index == 1
 
 
+async def test_a_journal_entrys_seq_names_the_judgement_it_records(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """`_undo` copies `entry.seq` verbatim into `JudgementUndone.undone_seq`,
+    an append-only field. It must name the judging event itself -- its
+    actual position in the persisted log -- not the event immediately
+    before it. Every other journal assertion in this module is relative
+    (`>=` a boundary, `<` a count), so none of them can see an absolute
+    off-by-one here; this one reads the real persisted seq of each judging
+    event and checks the journal against it directly."""
+    recorded = build_rich_stream()
+    cut = next(i for i, e in enumerate(recorded.events) if isinstance(e, JudgementUndone))
+    state = await _persisted_prefix(sessions, recorded, cut)
+
+    journal = (
+        await _materialiser(sessions).build(state, UndoLastJudgement(), _tx())
+    ).duel_journal
+
+    # seq is one-based over the persisted prefix, in the same order it was
+    # written: MatchRepository.create gives the first event seq 1, and each
+    # later TransactionContext.append call assigns the next seq in turn.
+    judging_seqs = [
+        index + 1
+        for index, event in enumerate(recorded.events[:cut])
+        if isinstance(event, AnswerAccepted | PassUsed)
+    ]
+    assert [entry.seq for entry in journal] == judging_seqs
+
+
 async def test_the_journal_never_reaches_into_the_previous_duel(
     clean_db: None, sessions: async_sessionmaker[AsyncSession]
 ) -> None:

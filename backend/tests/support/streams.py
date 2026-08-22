@@ -150,12 +150,18 @@ class _Recorder:
         check_invariants(self.state)
 
     def snapshot(self) -> None:
-        """Record the duel as it stands immediately before a judging event."""
+        """Record the duel as it stands immediately before a judging event,
+        tagged with that judging event's own seq (`self.state.seq + 1`: the
+        judging event has not been folded yet, and `evolve` assigns seq by
+        incrementing once per event with genesis at seq 1). This mirrors
+        `podvinsya.runtime.materialiser._snapshot` exactly -- both replay
+        from a pre-judgement state and both must report the judgement's own
+        position, not the position of whatever preceded it."""
         duel = self.state.duel
         assert duel is not None
         self.journal.append(
             JournalEntry(
-                seq=self.state.seq,
+                seq=self.state.seq + 1,
                 budgets=duel.budgets,
                 answering=duel.answering,
                 image_index=duel.index,

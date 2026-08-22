@@ -94,6 +94,11 @@ class Materialiser:
         chain of undos walks backwards one judgement at a time instead of
         rewinding the same one twice.
 
+        Each entry's `seq` names the judging event itself, not the event
+        before it: `_undo` copies it verbatim into `JudgementUndone.undone_seq`,
+        an append-only field, so getting this wrong here would mean every
+        undo this system ever records names the wrong event, permanently.
+
         The whole log is replayed rather than kept in memory: a match is a
         few dozen events, this runs only for `UndoLastJudgement`, and a
         cached journal would be one more thing that can disagree with the
@@ -168,11 +173,20 @@ class Materialiser:
 
 
 def _snapshot(state: MatchState) -> JournalEntry:
-    """The duel as it stood immediately before one judging event."""
+    """The duel as it stood immediately before one judging event, tagged
+    with that judging event's own seq.
+
+    `state` is the replay *before* folding the judging event, so
+    `state.seq` is the seq of whatever came before it. `evolve` assigns
+    seq by incrementing once per event and genesis persists at seq 1, so
+    the judging event about to be folded lands at `state.seq + 1` — that is
+    the value undo must report, since it is what actually gets undone, not
+    the event that merely preceded it.
+    """
     duel = state.duel
     assert duel is not None, "a judging event outside a duel is a corrupt log"
     return JournalEntry(
-        seq=state.seq,
+        seq=state.seq + 1,
         budgets=duel.budgets,
         answering=duel.answering,
         image_index=duel.index,

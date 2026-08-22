@@ -283,7 +283,7 @@
     "type": "duel.judgement_undone",
     "schema_version": 1,
     "payload": {
-      "undone_seq": 10,
+      "undone_seq": 11,
       "budgets": {
         "entries": [
           [
