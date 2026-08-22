@@ -1742,13 +1742,20 @@ def test_next_turn_skips_eliminated_players() -> None:
 def test_next_turn_falls_back_when_every_player_is_eliminated() -> None:
     state, _ = build_dealt_state(4)
     state = apply(state, StartMatch())
+
+    # The cursor is deliberately moved off (0, 1) first. Left at its starting value,
+    # this assertion could not tell "returned the cursor unchanged" apart from a
+    # fallback that returned hardcoded zeros — both would be (0, 1).
     wiped = replace(
-        state, players=tuple(replace(p, eliminated=True) for p in state.players)
+        state,
+        turn_index=2,
+        round_no=7,
+        players=tuple(replace(p, eliminated=True) for p in state.players),
     )
 
     # The bounded loop finds nobody and falls through. This must return the cursor
     # unchanged — neither spinning forever nor raising. Nothing else pins that.
-    assert next_turn(wiped) == (wiped.turn_index, wiped.round_no)
+    assert next_turn(wiped) == (2, 7)
 ```
 
 - [ ] **Step 2: Убедиться, что тест падает**
