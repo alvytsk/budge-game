@@ -778,7 +778,7 @@ git add -A && git commit -m "docs: rename budge to budge throughout"
 
 The rename is mechanical, so the review is not about whether the code is right — it is about whether anything is now passing for the wrong reason.
 
-- [ ] **Step 1: Prove the vacuous-pass guards still bite**
+- [x] **Step 1: Prove the vacuous-pass guards still bite**
 
 R2's three guards are the reason this plan is eight tasks. Confirm each fails when its target is wrong, then revert.
 
@@ -800,7 +800,7 @@ git checkout -- tests/runtime/test_watchdog.py
 
 Expected: all three **non-zero** — exit **2**, in fact, because the guards run at module scope and pytest reports a collection error rather than a test failure. Any that exits 0 was passing vacuously the whole time — write the guard that catches it and report it prominently.
 
-- [ ] **Step 2: Prove the import ban is still enforced**
+- [x] **Step 2: Prove the import ban is still enforced**
 
 The stage socket's import guard is ruling 12 from the API plan. It should fail if the ban is violated, not merely if a name is wrong:
 
@@ -814,7 +814,7 @@ git checkout -- src/budge/api/routes/stage_ws.py
 
 Expected: exit **1**. If the import line does not typecheck, use whatever name `budge.runtime` actually exports — the point is that *some* forbidden import fails the test.
 
-- [ ] **Step 3: Prove the CLI is really renamed**
+- [x] **Step 3: Prove the CLI is really renamed**
 
 ```bash
 which budge; echo "which=$?"
@@ -824,7 +824,7 @@ command -v podvinsya && echo "STALE SHIM STILL PRESENT" || echo "ok: old command
 
 Expected: `budge` resolves, its usage line reads `usage: budge`, and `podvinsya` is not found. A lingering shim in `.venv/bin` is not a failure of the rename but it will let a stale invoker keep working, hiding a missed one — remove it.
 
-- [ ] **Step 4: Prove the generated contract matches its generator**
+- [x] **Step 4: Prove the generated contract matches its generator**
 
 ```bash
 cd backend && budge export-types --check; echo "exit=$?"
@@ -833,7 +833,7 @@ head -3 ../frontend/src/shared/api/contracts.ts
 
 Expected: exit 0, and the header naming `budge export-types`.
 
-- [ ] **Step 5: Run everything, including the front end**
+- [x] **Step 5: Run everything, including the front end**
 
 ```bash
 cd backend && pytest -q; echo "pytest=$?"
@@ -846,7 +846,7 @@ pnpm test; echo "test=$?"
 
 Expected: all 0, and the backend test count identical to before Task 1. A changed count means a file stopped being collected.
 
-- [ ] **Step 6: Prove the stack still comes up**
+- [x] **Step 6: Prove the stack still comes up**
 
 The rename touched `compose.yaml`, `.env.example` and the Dockerfile, and nothing in either test suite exercises those.
 
@@ -867,7 +867,7 @@ docker compose down -v
 
 Expected: `migrate` exited 0, `api` healthy, `/health` reporting `ok` for both checks, and the drill running under its new command name. Note the local `.env` is not committed, so its prefix has to be updated by hand — that is the one place the rename cannot reach and an operator will hit the same thing.
 
-- [ ] **Step 7: Commit anything the review added**
+- [x] **Step 7: Commit anything the review added**
 
 ```bash
 git status --porcelain

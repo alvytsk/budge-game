@@ -11,6 +11,12 @@ DOMAIN = pathlib.Path(__file__).resolve().parents[2] / "src" / "budge" / "domain
 # instead, loudly, before the walk that is supposed to be the test.
 assert DOMAIN.is_dir(), f"the domain package is not at {DOMAIN}"
 
+# `is_dir()` is not enough on its own. A directory that exists but holds no
+# modules makes `_module_files()` empty, and pytest *skips* an empty
+# parametrize rather than failing it -- both purity tests then report green
+# having checked nothing at all. Hold that floor here too.
+assert list(DOMAIN.glob("*.py")), f"no domain modules to walk under {DOMAIN}"
+
 FORBIDDEN_MODULES = {
     "asyncio", "random", "secrets", "time", "os", "socket", "pathlib",
     "sqlalchemy", "fastapi", "httpx", "requests",
