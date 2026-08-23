@@ -18,7 +18,7 @@ from budge.api.settings import ApiSettings
 from budge.domain.ids import MatchId
 from budge.services.ports import Clock
 
-SESSION_COOKIE = "podvinsya_session"
+SESSION_COOKIE = "budge_session"
 
 
 @dataclass(frozen=True, slots=True)

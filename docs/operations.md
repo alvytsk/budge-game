@@ -93,3 +93,11 @@ echo -n 'the new password' | docker compose run --rm --no-deps api budge hash-pa
 Put the output in `.env` and `docker compose up -d api`. Existing sessions
 survive: they are signed with `BUDGE_SECRET_KEY`, which has not
 changed. Changing *that* invalidates every session and every stage link.
+
+## If you are restoring a deployment older than the budge rename
+
+Objects were stored in a bucket called `podvinsya-media`, and the default
+is now `budge-media`. Either set `BUDGE_S3_BUCKET=podvinsya-media` in
+`.env`, or copy the objects across before starting `api`. A mismatch here
+does not error — every picture simply 404s, and the game comes back
+looking empty.

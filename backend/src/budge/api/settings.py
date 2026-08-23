@@ -29,7 +29,7 @@ class ApiSettings(Settings):
     s3_endpoint: str
     s3_access_key: str
     s3_secret_key: str
-    s3_bucket: str = "podvinsya-media"
+    s3_bucket: str = "budge-media"
     s3_region: str = "us-east-1"
 
     # Twenty megabytes. A photograph off a phone is two to five; a scan of

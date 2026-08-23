@@ -112,7 +112,7 @@ def build_app(settings: ApiSettings) -> FastAPI:
             await manager.shutdown()
             await engine.dispose()
 
-    app = FastAPI(title="Podvinsya", lifespan=lifespan)
+    app = FastAPI(title="budge", lifespan=lifespan)
     app.include_router(session.router)
     app.include_router(matches.router)
     app.include_router(library.router)

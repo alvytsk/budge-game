@@ -66,7 +66,7 @@ async def test_logging_out_clears_the_cookie_without_a_valid_session(
         response = await client.delete("/api/session")
 
     assert response.status_code == 204
-    assert 'podvinsya_session=""' in response.headers["set-cookie"] or "Max-Age=0" in (
+    assert 'budge_session=""' in response.headers["set-cookie"] or "Max-Age=0" in (
         response.headers["set-cookie"]
     )
 

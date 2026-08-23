@@ -638,18 +638,18 @@ Three strings a person actually sees or a deployment actually carries.
 - Modify: `backend/tests/api/test_session_routes.py`
 - Modify: `docs/operations.md` (from the infra plan)
 
-- [ ] **Step 1: The OpenAPI title**
+- [x] **Step 1: The OpenAPI title**
 
 `backend/src/budge/api/app.py:115` — `FastAPI(title="Podvinsya", ...)` → `title="budge"`. This is what a reader sees at `/docs`.
 
-- [ ] **Step 2: The session cookie — R6**
+- [x] **Step 2: The session cookie — R6**
 
 `backend/src/budge/api/principal.py:21` — `SESSION_COOKIE = "podvinsya_session"` → `"budge_session"`.
 `backend/tests/api/test_session_routes.py:69` asserts on the literal `'podvinsya_session=""'` in a `Set-Cookie` header; update it.
 
 Note what this does: a browser holding the old cookie keeps sending it, the server no longer looks for it, and the operator silently lands on the login screen. There are no live sessions, so the cost is zero today — but say so in the commit message, because it is the kind of change that is confusing when it happens to someone.
 
-- [ ] **Step 3: The S3 bucket default — R5**
+- [x] **Step 3: The S3 bucket default — R5**
 
 `backend/src/budge/api/settings.py:32` — `s3_bucket: str = "podvinsya-media"` → `"budge-media"`.
 
@@ -665,7 +665,7 @@ does not error — every picture simply 404s, and the game comes back
 looking empty.
 ```
 
-- [ ] **Step 4: Green everything and commit**
+- [x] **Step 4: Green everything and commit**
 
 ```bash
 cd backend && pytest -q; echo "pytest=$?"
