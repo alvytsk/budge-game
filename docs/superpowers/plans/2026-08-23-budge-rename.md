@@ -43,6 +43,14 @@
 
 ## Rulings
 
+> **`grep` here is ugrep, not GNU grep.** It prints paths without a leading
+> `./`, so an anchor like `'^./docs/...'` matches nothing and the exclusion
+> silently fails open. Every exclusion in this plan is written without the
+> anchor; if a sweep returns lines you expected to be filtered, check which
+> `grep` is on PATH before changing the pattern. `/usr/bin/grep` is GNU 3.11
+> if you want the anchored form.
+
+
 **R1 — Ordered by coupling, not by file type.** A repo-wide `sed -i 's/podvinsya/budge/g'` would rename the package, the test-only override variables, the Postgres role and the session cookie in one commit. If anything then failed, there would be no green checkpoint between "before" and "1500 lines later". Each task below moves one coupled set completely and leaves the suite green.
 
 **R2 — Three tests can pass *vacuously* after a partial rename, and they are guarded before anything moves.** This is the most important ruling here, because each of these tests exists to enforce a ruling from an earlier plan, and a rename that silently disables one removes the enforcement while leaving a green tick:
@@ -477,7 +485,7 @@ cd .. && git add -A && git commit -m "refactor: rename the CLI to budge, and reg
 
 ```bash
 grep -rn 'podvinsya \(serve\|migrate\|backup\|export-types\|hash-password\|restore-drill\)' \
-  --include='*' . 2>/dev/null | grep -v node_modules | grep -v '^./docs/superpowers/plans' \
+  --include='*' . 2>/dev/null | grep -v node_modules | grep -v 'docs/superpowers/plans' \
   || echo "ok: every invoker renamed"
 ```
 
@@ -531,7 +539,7 @@ Expected: both lines, now `BUDGE_TEST_DATABASE_URL` and `BUDGE_TEST_S3_ENDPOINT`
 - [ ] **Step 3: Confirm nothing anywhere still sets the old prefix**
 
 ```bash
-grep -rn 'PODVINSYA_' . 2>/dev/null | grep -v node_modules | grep -v '^./docs/superpowers/plans' \
+grep -rn 'PODVINSYA_' . 2>/dev/null | grep -v node_modules | grep -v 'docs/superpowers/plans' \
   || echo "ok: no PODVINSYA_ variable remains"
 ```
 
