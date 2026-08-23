@@ -10,11 +10,12 @@ duel that has not started both have no deadline *legitimately* -- but
 exactly «дуэль в фазе RUNNING, паузы нет, дедлайн не запланирован»: an
 armed, unpaused duel whose scheduler currently tracks no deadline id.
 
-`MatchRuntime` does not expose the `DeadlineScheduler` it consumes commands
-back through -- nothing else needs it, and it stays private. Whoever builds
-a match's runtime and scheduler together (the manager) is the one place
-that holds both, so it is what hands the watchdog `WatchedMatch` pairs
-rather than bare runtimes.
+`MatchRuntime` keeps the `DeadlineScheduler` it consumes commands back
+through private, exposing it only through its own read-only `scheduler`
+property -- nothing but the manager (task 9), the one place that builds a
+match's runtime and scheduler together, ever needs it, and that property is
+what lets the manager hand the watchdog `WatchedMatch` pairs rather than
+bare runtimes.
 """
 
 import logging

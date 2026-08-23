@@ -18,7 +18,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import MatchRepository
+from podvinsya.db.repository import LoadedMatch, MatchRepository
 from podvinsya.db.store import UnitOfWork
 from podvinsya.domain.actions import AddPlayer, Command, ResumeDuel
 from podvinsya.domain.context import DecisionContext
@@ -28,11 +28,11 @@ from podvinsya.domain.evolve import fold
 from podvinsya.domain.genesis import create_initial_state
 from podvinsya.domain.ids import MatchId, PlayerId
 from podvinsya.domain.state import MatchState
-from podvinsya.runtime.errors import MatchAlreadyRunning
+from podvinsya.runtime.errors import ManagerShuttingDown, MatchAlreadyRunning
 from podvinsya.runtime.manager import MatchManager
 from podvinsya.runtime.materialiser import Materialiser
 from podvinsya.runtime.origins import Accepted, Failed, FutureOrigin, Rejected
-from podvinsya.services.ports import RuntimeCode, Transaction
+from podvinsya.services.ports import MatchRepositoryPort, RuntimeCode, Transaction
 from support.fakes import FakeCategoryBank, FakeClock, RecordingBroadcaster
 from support.streams import BASE_TIME, Recorded, build_rich_stream
 
@@ -142,6 +142,36 @@ class _BlockingMaterialiser(Materialiser):
         self._entered.set()
         await self._released.wait()
         return await super().build(state, command, tx, at=at)
+
+
+class _BlockingRepository:
+    """Wraps a real `MatchRepositoryPort` and blocks `load` -- the first,
+    and for a match with nothing to pause the *only*, real await inside
+    `recover` -- until the test lets it through by setting `released`. This
+    is what parks `MatchManager.start` genuinely mid-`recover`, holding
+    `_start_lock` the whole time, the same way `_BlockingMaterialiser`
+    parks a command mid-`_consume`."""
+
+    def __init__(
+        self,
+        delegate: MatchRepositoryPort,
+        entered: asyncio.Event,
+        released: asyncio.Event,
+    ) -> None:
+        self._delegate = delegate
+        self._entered = entered
+        self._released = released
+
+    async def create(self, match_id: MatchId, event: MatchCreated, *, operation_id: str) -> None:
+        return await self._delegate.create(match_id, event, operation_id=operation_id)
+
+    async def read_events(self, match_id: MatchId) -> tuple[Event, ...]:
+        return await self._delegate.read_events(match_id)
+
+    async def load(self, match_id: MatchId) -> LoadedMatch:
+        self._entered.set()
+        await self._released.wait()
+        return await self._delegate.load(match_id)
 
 
 # --------------------------------------------------------------------------
@@ -332,3 +362,62 @@ async def test_shutdown_resolves_whoever_was_still_waiting(
     assert isinstance(outcome, Failed), (
         "shutdown must resolve the waiting caller instead of leaving it parked forever"
     )
+
+
+async def test_a_start_racing_shutdown_never_leaks_its_consumer(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """`start` awaits real I/O (`recover`) before it ever registers a
+    runtime. If `shutdown` ran concurrently without waiting its turn, it
+    could snapshot the registry and tear everything down *before* that
+    registration happens -- leaving the freshly created consumer task (and
+    possibly the watchdog task, also created inside that same registration
+    step) running forever, with nothing left to ever cancel it.
+
+    `shutdown` must instead block behind an in-flight `start` and account
+    for whatever it just registered.
+    """
+    recorded = build_rich_stream()
+    prefix = await _persisted_prefix(sessions, recorded, _cut_after(recorded, MatchCreated))
+
+    clock = FakeClock(BASE_TIME)
+    entered = asyncio.Event()
+    released = asyncio.Event()
+    repository = _BlockingRepository(MatchRepository(sessions), entered, released)
+    manager = MatchManager(
+        repository,
+        UnitOfWork(sessions),
+        lambda: Materialiser(clock, MatchRepository(sessions), FakeCategoryBank(), Random(0)),
+        RecordingBroadcaster(),
+        clock,
+    )
+
+    tasks_before = asyncio.all_tasks()
+    start_task = asyncio.create_task(manager.start(prefix.id))
+    await asyncio.wait_for(entered.wait(), timeout=2)
+    # start() is now genuinely parked inside recover()'s repository.load,
+    # holding _start_lock for as long as it stays parked there.
+
+    shutdown_task = asyncio.create_task(manager.shutdown())
+    await asyncio.sleep(0)
+    assert not shutdown_task.done(), (
+        "shutdown must block behind the in-flight start, not race past it"
+    )
+
+    released.set()
+    await asyncio.wait_for(start_task, timeout=2)
+    await asyncio.wait_for(shutdown_task, timeout=2)
+
+    # asyncio.all_tasks() only ever reports tasks that have not finished --
+    # start_task and shutdown_task are excluded automatically, since both
+    # were just awaited to completion above. Anything left in the diff is
+    # a task start() created (its consumer, and/or the watchdog it lazily
+    # spins up) that shutdown() never learned about and so never cancelled.
+    leaked = asyncio.all_tasks() - tasks_before
+    assert leaked == set(), f"start()'s own tasks must not outlive shutdown(): {leaked}"
+
+    # The other half of the same fix: a start() that begins strictly after
+    # shutdown() has already run gets a definite refusal, not a runtime
+    # that would look alive while nothing consumes its queue.
+    with pytest.raises(ManagerShuttingDown):
+        await manager.start(prefix.id)

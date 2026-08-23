@@ -22,6 +22,26 @@ whole lifetime, so serialising that rare transition costs nothing once
 matches are running, and a single lock is the plain way to give
 `MatchAlreadyRunning`'s own guard a registry it does not have to race
 against.
+
+`shutdown` takes the very same lock, for the very same reason, against a
+different race: `start` awaits real I/O (`recover`) while holding it, so a
+`shutdown` that did not wait its turn could snapshot `self._live` and tear
+everything down *before* an in-flight `start` ever registers its runtime --
+leaving that runtime's consumer task, and possibly the watchdog task
+`start` also lazily creates, running forever with nothing left to cancel
+them. Sharing the lock forces one of two orderings, never a third: either
+`shutdown` runs first and `start` (which checks `self._closed` the instant
+it acquires the lock) never calls `recover` at all, or an in-flight `start`
+finishes registering first and `shutdown`, unblocked immediately after,
+finds that registration in its snapshot and tears it down like any other.
+The second case does mean a `start` racing a concurrent `shutdown` and
+winning that race still returns a `MatchRuntime` to its caller -- one that
+`shutdown` stops moments later. That caller has no way to know this except
+by trying to `submit` against it afterwards and getting `KeyError`, the
+same as for any match id this manager has never heard of; there is no
+window in which anything about it is left running unaccounted for, which is
+the guarantee that matters. A `start` that begins strictly after `shutdown`
+raises `ManagerShuttingDown` instead, and never touches `recover`.
 """
 
 import asyncio
@@ -34,7 +54,7 @@ from random import Random
 
 from podvinsya.domain.actions import Command
 from podvinsya.domain.ids import MatchId
-from podvinsya.runtime.errors import MatchAlreadyRunning
+from podvinsya.runtime.errors import ManagerShuttingDown, MatchAlreadyRunning
 from podvinsya.runtime.materialiser import Materialiser
 from podvinsya.runtime.match import MatchRuntime
 from podvinsya.runtime.origins import CommandOutcome, FutureOrigin
@@ -95,6 +115,7 @@ class MatchManager:
         self._watchdog_interval = watchdog_interval
         self._live: dict[MatchId, _Live] = {}
         self._start_lock = asyncio.Lock()
+        self._closed = False
         # Built lazily, on the first call to `start`, rather than here: a
         # bare `MatchManager(...)` has no side effects, and
         # `asyncio.create_task` needs a running loop that construction time
@@ -106,10 +127,16 @@ class MatchManager:
         return live.runtime if live is not None else None
 
     async def start(self, match_id: MatchId) -> MatchRuntime:
-        """Recover `match_id` and start consuming its queue. A second call
-        for a match already live raises `MatchAlreadyRunning` -- see the
-        module docstring."""
+        """Recover `match_id` and start consuming its queue.
+
+        Raises `MatchAlreadyRunning` for a match already live, and
+        `ManagerShuttingDown` if `shutdown` has already begun -- see the
+        module docstring for why both checks, and `recover` itself, run
+        under the same lock `shutdown` takes.
+        """
         async with self._start_lock:
+            if self._closed:
+                raise ManagerShuttingDown(f"cannot start {match_id}: the manager is shutting down")
             if match_id in self._live:
                 raise MatchAlreadyRunning(f"{match_id} is already running")
             return await self._start_locked(match_id)
@@ -145,25 +172,34 @@ class MatchManager:
         command that happens to finish on its own in the narrow window
         between the two costs nothing -- the caller already has an answer,
         and the real one is simply discarded.
+
+        Held under `self._start_lock` for its entire body, not just the
+        registry snapshot: see the module docstring for why sharing the
+        lock with `start` is what stops an in-flight `start` from
+        registering a runtime this method has no way to know about and so
+        no way to tear down.
         """
-        watchdog_task, self._watchdog_task = self._watchdog_task, None
-        if watchdog_task is not None:
-            watchdog_task.cancel()
+        async with self._start_lock:
+            self._closed = True
 
-        live_matches = list(self._live.values())
-        self._live.clear()
-        for live in live_matches:
-            for origin in live.pending:
-                origin.resolve_failed(RuntimeCode.INTERNAL, _SHUTDOWN_MESSAGE)
-            live.runtime.stop()
-            live.consumer.cancel()
+            watchdog_task, self._watchdog_task = self._watchdog_task, None
+            if watchdog_task is not None:
+                watchdog_task.cancel()
 
-        if watchdog_task is not None:
-            with suppress(asyncio.CancelledError):
-                await watchdog_task
-        for live in live_matches:
-            with suppress(asyncio.CancelledError):
-                await live.consumer
+            live_matches = list(self._live.values())
+            self._live.clear()
+            for live in live_matches:
+                for origin in live.pending:
+                    origin.resolve_failed(RuntimeCode.INTERNAL, _SHUTDOWN_MESSAGE)
+                live.runtime.stop()
+                live.consumer.cancel()
+
+            if watchdog_task is not None:
+                with suppress(asyncio.CancelledError):
+                    await watchdog_task
+            for live in live_matches:
+                with suppress(asyncio.CancelledError):
+                    await live.consumer
 
     def _watched_matches(self) -> Iterable[WatchedMatch]:
         """The live callable `Watchdog` (task 8) sweeps: called once per
