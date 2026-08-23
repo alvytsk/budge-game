@@ -34,8 +34,9 @@ from podvinsya.domain.state import DuelPhase, MatchState
 from podvinsya.runtime.match import MatchRuntime
 from podvinsya.runtime.materialiser import Materialiser
 from podvinsya.runtime.recovery import recover
+from support import streams
 from support.fakes import FakeCategoryBank, FakeClock, RecordingBroadcaster
-from support.streams import BASE_TIME, Recorded, build_rich_stream
+from support.streams import BASE_TIME, Recorded, build_rich_stream, deterministic_uuid4
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
@@ -106,6 +107,12 @@ def _cut_after_duel_started_with_headroom(recorded: Recorded, minimum_ms: int) -
     budget: the naive (no-anchor-override) mutant pauses with a reduced
     budget rather than expiring the duel outright, so a test built on this
     cut fails on the budgets themselves, not on the duel disappearing.
+
+    Which groups merge, and so how much headroom any duel in `recorded`
+    actually has, depends on `sorted(legal_targets(...))` over random
+    `GroupId`s -- the caller must pin `streams.uuid4` (via
+    `deterministic_uuid4`) before building `recorded` for this to be
+    reproducible rather than occasionally raising below.
     """
     genesis = recorded.events[0]
     assert isinstance(genesis, MatchCreated)
@@ -167,12 +174,30 @@ async def test_a_match_mid_duel_comes_back_paused(
 
 
 async def test_the_outage_is_charged_to_nobody(
-    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+    clean_db: None, sessions: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The heart of §4.4. Persist a duel with an anchor, recover it a full
     minute of wall-time later, and assert both remainders are exactly what
     the log said before the crash. If this fails, a player loses a duel
     because a container restarted.
+
+    Needs a duel whose answering player holds more than sixty seconds of
+    budget, so that a full-minute overcharge reduces it instead of
+    exhausting it outright -- `build_rich_stream`'s event-type *shape* is
+    deterministic (Task 3 pins it), but *which* groups merge, and so how
+    much bonus time (§2.5) any given duel carries, depends on
+    `sorted(legal_targets(...))` over randomly generated `GroupId`s, so it
+    varies run to run. `deterministic_uuid4` is pinned here -- the same way
+    `tests/codec/test_codec.py` pins it for its own reproducibility need --
+    to make the headroom this test needs reproducible. It is not generous:
+    across every duel this pinned stream produces, the most any answering
+    player ever holds is 61,000ms -- `_cut_after_duel_started_with_headroom`
+    raises loudly if a future change to the stream or the base budget ever
+    makes that unreachable, rather than silently falling back to a
+    different duel with a different margin. A minute-long outage against it
+    leaves exactly 1,000ms of headroom -- enough that the duel does not
+    expire, thin enough that the failure this test exists to catch cannot
+    hide behind a different one.
 
     Kills on: dropping the `at=duel.anchor` override in `_pause_at_anchor`
     (deciding the pause at `clock.now()` instead). The clock here reads a
@@ -181,8 +206,9 @@ async def test_the_outage_is_charged_to_nobody(
     that mutant still produces a paused duel -- just one whose budgets
     come back sixty seconds short of `before` rather than identical to it.
     """
+    monkeypatch.setattr(streams, "uuid4", deterministic_uuid4())
     recorded = build_rich_stream()
-    cut = _cut_after_duel_started_with_headroom(recorded, minimum_ms=65_000)
+    cut = _cut_after_duel_started_with_headroom(recorded, minimum_ms=61_000)
     prefix = await _persisted_prefix(sessions, recorded, cut)
     assert prefix.duel is not None and prefix.duel.anchor is not None
     before = prefix.duel.budgets

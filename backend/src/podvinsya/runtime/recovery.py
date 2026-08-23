@@ -33,29 +33,56 @@ actually gets, wired with the ordinary, wall-clock-reading materialiser for
 every command it processes from here on.
 """
 
-import logging
+from collections.abc import Sequence
 from datetime import datetime
 from random import Random
 
 from podvinsya.domain.actions import Command, PauseDuel
 from podvinsya.domain.context import DecisionContext
+from podvinsya.domain.errors import RejectionReason
+from podvinsya.domain.events import Event
 from podvinsya.domain.evolve import fold
 from podvinsya.domain.ids import MatchId
 from podvinsya.domain.state import DuelPhase, MatchState
 from podvinsya.runtime.commit import CommitPath
 from podvinsya.runtime.materialiser import Materialiser
 from podvinsya.runtime.match import MatchRuntime, wire_deadline_fire
-from podvinsya.runtime.origins import Accepted, QueuedCommand, SystemOrigin
+from podvinsya.runtime.origins import Accepted, QueuedCommand
 from podvinsya.runtime.scheduler import DeadlineScheduler
 from podvinsya.services.ports import (
     Broadcaster,
     Clock,
     MatchRepositoryPort,
+    RuntimeCode,
     Transaction,
     UnitOfWorkPort,
 )
 
-logger = logging.getLogger(__name__)
+
+class _UnresolvedOrigin:
+    """Satisfies `QueuedCommand.issue`'s `Origin` parameter without being
+    one in any real sense.
+
+    `CommitPath.run` -- unlike `MatchRuntime._consume` -- never calls any
+    method on the origin it is handed; only `_consume` resolves one, and
+    this path never reaches `_consume`. So nothing constructed here is
+    ever resolved, and nothing here ever logs: the `RuntimeError` raised
+    by `_pause_at_anchor` below is the only signal a caller gets if the
+    pause is not accepted. Every method is a no-op for that reason, not as
+    a shortcut.
+    """
+
+    def resolve_ok(self, events: Sequence[Event]) -> None:
+        return None
+
+    def resolve_noop(self) -> None:
+        return None
+
+    def resolve_rejected(self, reason: RejectionReason) -> None:
+        return None
+
+    def resolve_failed(self, code: RuntimeCode, message: str) -> None:
+        return None
 
 
 class _AnchoredMaterialiser(Materialiser):
@@ -109,23 +136,23 @@ async def _pause_at_anchor(
     """Run one `PauseDuel` through a throwaway commit path, decided as of
     the duel's own anchor, and return the state it folds to.
 
-    `SystemOrigin` is the right origin for this: nobody is waiting on a
-    future, and a rejection here -- which `_needs_pausing` above should
-    make impossible -- is exactly the "the server's own model was wrong"
-    bug `SystemOrigin.resolve_rejected` is built to surface, not to hide
-    behind a raised exception this module would otherwise have to invent a
-    reason to swallow.
+    This calls `CommitPath.run` directly rather than going through
+    `MatchRuntime._consume`, so no origin is ever resolved on this path --
+    `QueuedCommand.issue` still needs one, and `_UnresolvedOrigin` is
+    exactly that: an inert placeholder, not a real destination for the
+    outcome. The raise below is the only signal.
     """
     duel = state.duel
     assert duel is not None and duel.anchor is not None, "_needs_pausing already checked this"
     anchored = _AnchoredMaterialiser(materialiser, duel.anchor)
     commit_path = CommitPath(uow, anchored, clock, random)
-    queued = QueuedCommand.issue(PauseDuel(), SystemOrigin("recovery"))
+    queued = QueuedCommand.issue(PauseDuel(), _UnresolvedOrigin())
     outcome = await commit_path.run(state, queued)
     if not isinstance(outcome, Accepted):
-        # SystemOrigin already logged the specifics; a caller that cannot
-        # even pause a duel it just loaded should not be handed a runtime
-        # that claims to be recovered.
+        # Nothing upstream of this raise has recorded or logged the
+        # outcome -- see _UnresolvedOrigin -- so this message, carrying
+        # the outcome itself, is the only record a caller ever gets that
+        # a duel this recovery just loaded could not be paused.
         raise RuntimeError(f"recovery could not pause {state.id}: {outcome!r}")
     return fold(state, outcome.events)
 
