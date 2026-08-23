@@ -12,7 +12,12 @@ projections were designed against exactly that answer.
 import logging
 
 from podvinsya.domain.ids import CategoryId, ImageId
-from podvinsya.services.ports import ContentDescription, ContentDirectory
+from podvinsya.services.ports import (
+    ContentDescription,
+    ContentDirectory,
+    ContentExhausted,
+    Transaction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,4 +81,30 @@ class CachingContentDirectory:
                 for image in images
                 if image in self._image_answers
             },
+        )
+
+
+class UnavailableCategories:
+    """The `CategoryBank` plan 6 has not written yet.
+
+    Every draw raises `ContentExhausted`, which §6.3 already routes as an
+    ordinary rejection rather than a quarantine — so a `DealBoard` against
+    a server with no library refuses cleanly and the operator is told
+    plainly (§8: «рантайм отдаёт ведущему явную ошибку»). Raising anything
+    else here would take the match off the air for a content gap §8 calls
+    an administrator's problem.
+    """
+
+    async def draw_categories(
+        self, tx: Transaction, count: int, *, exclude: frozenset[CategoryId]
+    ) -> tuple[CategoryId, ...]:
+        raise ContentExhausted(
+            f"asked for {count} categories: no content library is configured (plan 6)"
+        )
+
+    async def draw_images(
+        self, tx: Transaction, category: CategoryId, count: int
+    ) -> tuple[ImageId, ...]:
+        raise ContentExhausted(
+            f"asked for {count} images of {category}: no content library is configured (plan 6)"
         )
