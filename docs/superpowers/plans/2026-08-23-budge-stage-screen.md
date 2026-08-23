@@ -586,7 +586,7 @@ The transport of §7.2 and the timing correction of §7.3. No rendering — ever
   - `remainingAt(timing: TimingFrame, playerId: string, serverNowMs: number): number`
   - `FakeSocket`, `fakeSocketFactory()`, `stageFrame(overrides)` from `testing/`
 
-- [ ] **Step 1: Write `frontend/src/shared/config/endpoints.ts`**
+- [x] **Step 1: Write `frontend/src/shared/config/endpoints.ts`**
 
 Same-origin and relative, because Caddy serves the app and the API from one origin in production (§10) and the Vite proxy does the same in development.
 
@@ -601,7 +601,7 @@ export function mediaUrl(digest: string): string {
 }
 ```
 
-- [ ] **Step 2: Write `frontend/testing/fake-socket.ts`**
+- [x] **Step 2: Write `frontend/testing/fake-socket.ts`**
 
 ```ts
 export interface SocketLike {
@@ -660,7 +660,7 @@ export function fakeSocketFactory(): { factory: SocketFactory; sockets: FakeSock
 }
 ```
 
-- [ ] **Step 3: Write `frontend/testing/frames.ts`**
+- [x] **Step 3: Write `frontend/testing/frames.ts`**
 
 Every test in Tasks 2–6 builds its frames here, so a contract change breaks one file rather than thirty.
 
@@ -758,7 +758,7 @@ export function stageFrame(overrides: Partial<StageFrame> = {}): StageFrame {
 }
 ```
 
-- [ ] **Step 4: Write the failing socket test — `frontend/src/shared/api/stage-socket.test.ts`**
+- [x] **Step 4: Write the failing socket test — `frontend/src/shared/api/stage-socket.test.ts`**
 
 ```ts
 import { describe, expect, it, vi } from "vitest";
@@ -830,7 +830,7 @@ describe("connectStage", () => {
 });
 ```
 
-- [ ] **Step 5: Run it and watch it fail**
+- [x] **Step 5: Run it and watch it fail**
 
 ```bash
 cd frontend && pnpm vitest run src/shared/api/stage-socket.test.ts
@@ -838,7 +838,7 @@ cd frontend && pnpm vitest run src/shared/api/stage-socket.test.ts
 
 Expected: FAIL — `Failed to resolve import "./stage-socket"`.
 
-- [ ] **Step 6: Write `frontend/src/shared/api/stage-socket.ts`**
+- [x] **Step 6: Write `frontend/src/shared/api/stage-socket.ts`**
 
 ```ts
 import type { StageFrame } from "./contracts";
@@ -923,7 +923,7 @@ export function connectStage({ url, onFrame, onStatus, factory }: StageConnectio
 }
 ```
 
-- [ ] **Step 7: Run the test and watch it pass**
+- [x] **Step 7: Run the test and watch it pass**
 
 ```bash
 cd frontend && pnpm vitest run src/shared/api/stage-socket.test.ts
@@ -931,7 +931,7 @@ cd frontend && pnpm vitest run src/shared/api/stage-socket.test.ts
 
 Expected: PASS, 4 tests.
 
-- [ ] **Step 8: Write the failing timing test — `frontend/src/entities/duel/model/timing.test.ts`**
+- [x] **Step 8: Write the failing timing test — `frontend/src/entities/duel/model/timing.test.ts`**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -987,11 +987,11 @@ describe("remainingAt", () => {
 });
 ```
 
-- [ ] **Step 9: Run it and watch it fail**
+- [x] **Step 9: Run it and watch it fail**
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 10: Write `frontend/src/entities/duel/model/timing.ts`**
+- [x] **Step 10: Write `frontend/src/entities/duel/model/timing.ts`**
 
 ```ts
 import type { TimingFrame } from "@/shared/api/contracts";
@@ -1013,17 +1013,17 @@ export function remainingAt(timing: TimingFrame, player: string, serverNowMs: nu
 }
 ```
 
-- [ ] **Step 11: Write `frontend/src/entities/duel/index.ts`**
+- [x] **Step 11: Write `frontend/src/entities/duel/index.ts`**
 
 ```ts
 export { remainingAt } from "./model/timing";
 ```
 
-- [ ] **Step 12: Run the timing test and watch it pass**
+- [x] **Step 12: Run the timing test and watch it pass**
 
 Expected: PASS, 7 tests.
 
-- [ ] **Step 13: Write the failing clock test — `frontend/src/shared/lib/use-server-clock.test.ts`**
+- [x] **Step 13: Write the failing clock test — `frontend/src/shared/lib/use-server-clock.test.ts`**
 
 ```ts
 import { renderHook } from "@testing-library/react";
@@ -1066,9 +1066,9 @@ describe("useServerClock", () => {
 });
 ```
 
-- [ ] **Step 14: Run it and watch it fail**
+- [x] **Step 14: Run it and watch it fail**
 
-- [ ] **Step 15: Write `frontend/src/shared/lib/use-server-clock.ts`**
+- [x] **Step 15: Write `frontend/src/shared/lib/use-server-clock.ts`**
 
 ```ts
 import { useRef } from "react";
@@ -1095,11 +1095,11 @@ export function useServerClock(serverNow: string | null): () => number {
 }
 ```
 
-- [ ] **Step 16: Run it and watch it pass**
+- [x] **Step 16: Run it and watch it pass**
 
 Expected: PASS, 4 tests.
 
-- [ ] **Step 17: Write `frontend/src/shared/lib/use-animation-frame.ts`**
+- [x] **Step 17: Write `frontend/src/shared/lib/use-animation-frame.ts`**
 
 No test of its own: it has no logic beyond starting and stopping the loop, and it is exercised through the timer widget in Task 4.
 
@@ -1130,7 +1130,7 @@ export function useAnimationFrame(active: boolean): number {
 }
 ```
 
-- [ ] **Step 18: Write the failing hook test — `frontend/src/shared/lib/use-stage-frame.test.tsx`**
+- [x] **Step 18: Write the failing hook test — `frontend/src/shared/lib/use-stage-frame.test.tsx`**
 
 ```tsx
 import { act, renderHook } from "@testing-library/react";
@@ -1182,9 +1182,9 @@ describe("useStageFrame", () => {
 });
 ```
 
-- [ ] **Step 19: Run it and watch it fail**
+- [x] **Step 19: Run it and watch it fail**
 
-- [ ] **Step 20: Write `frontend/src/shared/lib/use-stage-frame.ts`**
+- [x] **Step 20: Write `frontend/src/shared/lib/use-stage-frame.ts`**
 
 ```ts
 import { useEffect, useState } from "react";
@@ -1220,7 +1220,7 @@ export function useStageFrame(token: string, factory?: SocketFactory): StageFeed
 }
 ```
 
-- [ ] **Step 21: Run the whole suite and the checks**
+- [x] **Step 21: Run the whole suite and the checks**
 
 ```bash
 cd frontend && pnpm test && pnpm check
@@ -1228,7 +1228,7 @@ cd frontend && pnpm test && pnpm check
 
 Expected: all green.
 
-- [ ] **Step 22: Commit**
+- [x] **Step 22: Commit**
 
 ```bash
 cd .. && git add frontend
