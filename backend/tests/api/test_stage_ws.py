@@ -9,6 +9,7 @@ rather than a property somebody has to keep remembering.
 
 import ast
 import asyncio
+import importlib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,13 @@ BOARD = {"width": 3, "height": 4}
 # importable from the stage's module.
 FORBIDDEN_IMPORTS = ("CommandGateway", "MatchManager", "MatchLifecycle", "Services")
 FORBIDDEN_MODULES = ("podvinsya.domain.actions", "podvinsya.runtime")
+
+# These are strings, and the guard they feed matches nothing if they name
+# modules that do not exist -- so it would pass vacuously through exactly
+# the rename most likely to invalidate it. Ruling 12 is what this test
+# holds; import the modules to prove they are still there to be forbidden.
+for _forbidden in FORBIDDEN_MODULES:
+    importlib.import_module(_forbidden)
 
 
 def test_the_stage_module_imports_no_way_to_submit_a_command() -> None:

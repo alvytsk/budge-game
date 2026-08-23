@@ -4,6 +4,13 @@ import pathlib
 import pytest
 
 DOMAIN = pathlib.Path(__file__).resolve().parents[2] / "src" / "podvinsya" / "domain"
+
+# The path is spelled out rather than derived from an import, so a rename
+# of the package would leave this pointing at a directory that no longer
+# exists -- and `iterdir()` on nothing walks nothing and passes. Fail here
+# instead, loudly, before the walk that is supposed to be the test.
+assert DOMAIN.is_dir(), f"the domain package is not at {DOMAIN}"
+
 FORBIDDEN_MODULES = {
     "asyncio", "random", "secrets", "time", "os", "socket", "pathlib",
     "sqlalchemy", "fastapi", "httpx", "requests",

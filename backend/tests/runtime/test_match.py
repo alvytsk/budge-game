@@ -15,6 +15,7 @@ No test here touches a database, so none of them carry
 """
 
 import asyncio
+import importlib
 import logging
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager, suppress
@@ -64,6 +65,13 @@ from podvinsya.runtime.scheduler import DeadlineScheduler
 from podvinsya.services.ports import Origin, Reconciliation, RuntimeCode, Transaction
 from support.fakes import BreakingBroadcaster, FakeCategoryBank, FakeClock, RecordingBroadcaster
 from support.streams import BASE_TIME, Recorded, build_rich_stream
+
+# The logger name below is a string, and `caplog.at_level` accepts any
+# string: a name that no module produces captures nothing and the
+# assertion then fails with an empty-records message that reads like a
+# behaviour change. Import the module that owns the logger instead, so a
+# rename that orphans the name fails here and says why.
+importlib.import_module("podvinsya.runtime.match")
 
 _BOARD = BoardSize(3, 4)
 _SETTINGS = MatchSettings()

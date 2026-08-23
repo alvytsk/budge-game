@@ -230,7 +230,7 @@ The directory, 703 import lines, the packaging metadata, and the four tests that
 - Modify: every file with a `podvinsya` import (55 source, 77 test)
 - Modify: `backend/tests/domain/test_purity.py`, `backend/tests/api/test_stage_ws.py`, `backend/tests/runtime/test_watchdog.py`, `backend/tests/runtime/test_match.py`, `backend/tests/db/test_migrations.py`
 
-- [ ] **Step 1: Guard the three tests that could pass vacuously — BEFORE anything moves**
+- [x] **Step 1: Guard the three tests that could pass vacuously — BEFORE anything moves**
 
 R2. Each of these currently enforces a ruling from an earlier plan by naming a module or path as a string. Add the assertion that the target exists, run the suite, and confirm it is still green *now* — that is what proves the guard is correct before the rename can invalidate it.
 
@@ -270,7 +270,7 @@ importlib.import_module("podvinsya.runtime.watchdog")
 
 In `test_match.py` the module is `podvinsya.runtime.match`.
 
-- [ ] **Step 2: Run the suite and confirm the guards pass before the rename**
+- [x] **Step 2: Run the suite and confirm the guards pass before the rename**
 
 ```bash
 cd backend && pytest -q; echo "pytest=$?"
@@ -278,7 +278,7 @@ cd backend && pytest -q; echo "pytest=$?"
 
 Expected: green, same test count as before. If a guard fails now, it has found a pre-existing bug — stop and report it rather than renaming around it.
 
-- [ ] **Step 3: Commit the guards on their own**
+- [x] **Step 3: Commit the guards on their own**
 
 They are the safety net for everything after, and they must be provably green *before* the move.
 
