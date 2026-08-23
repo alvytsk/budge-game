@@ -35,7 +35,13 @@ _T = TypeVar("_T")
 
 # Codes that mean "there is no such object", as opposed to "the store did
 # not answer". `HeadObject` reports the first as a bare 404.
-_ABSENT = frozenset({"NoSuchKey", "404", "NoSuchBucket"})
+#
+# `NoSuchBucket` is deliberately absent from this set. A bucket that is not
+# there is a misconfigured deployment or an outage, not a picture nobody
+# uploaded — folding it in would make every fetch a quiet 404 on a node
+# pointed at the wrong bucket, and the operator would go looking for the
+# pictures in the library.
+_ABSENT = frozenset({"NoSuchKey", "404"})
 
 # One retry, briefly. A store that is down stays down for longer than a
 # request should wait, and §10 gives the health check the job of noticing —
@@ -75,9 +81,19 @@ class S3MediaStore:
         try:
             self._client.head_object(Bucket=self._bucket, Key=digest)
         except ClientError as error:
-            if _code_of(error) in _ABSENT:
-                return False
-            raise
+            if _code_of(error) not in _ABSENT:
+                raise
+            # `HeadObject` has no response body, so a missing bucket and a
+            # missing object both arrive as a bare 404 — unlike
+            # `GetObject`, which names `NoSuchBucket`. Confirming the
+            # bucket on the miss path is what keeps those two apart, and
+            # it is the difference between telling the operator "no media
+            # has been uploaded under that digest" and telling them the
+            # store is unavailable. It costs one HEAD, and only ever on a
+            # miss.
+            if not self._blocking_healthy():
+                raise
+            return False
         return True
 
     def _blocking_get(self, digest: str) -> bytes | None:

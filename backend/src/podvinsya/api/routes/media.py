@@ -61,13 +61,7 @@ async def upload(request: Request) -> UploadedMediaBody:
     chose, and two different pictures could then claim one address.
     """
     settings = _settings(request)
-    data = await request.body()
-
-    if len(data) > settings.max_upload_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=f"at most {settings.max_upload_bytes} bytes",
-        )
+    data = await _read_capped(request, settings.max_upload_bytes)
 
     content_type = sniff(data)
     if content_type is None:
@@ -127,6 +121,37 @@ async def fetch(digest: str, request: Request) -> Response:
             "X-Content-Type-Options": "nosniff",
         },
     )
+
+
+async def _read_capped(request: Request, limit: int) -> bytes:
+    """Read the body, stopping the moment it passes `limit`.
+
+    `await request.body()` would buffer the whole thing first and check
+    afterwards, which makes the limit a statement about what is stored
+    rather than about what is read — a mis-sent video would be pulled
+    entirely into the memory of a process that is running a live show
+    before anything refused it.
+
+    The declared `Content-Length` is checked first as a cheap refusal for
+    an honest client, and the streaming cap is what actually holds: a
+    header can be absent, or wrong.
+    """
+    too_large = HTTPException(
+        status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=f"at most {limit} bytes"
+    )
+
+    declared = request.headers.get("content-length")
+    if declared is not None and declared.isdigit() and int(declared) > limit:
+        raise too_large
+
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > limit:
+            raise too_large
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _not_found() -> HTTPException:

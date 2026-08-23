@@ -161,3 +161,27 @@ async def test_a_second_store_sees_what_the_first_wrote(
         bucket=S3_BUCKET,
     )
     assert await fresh.get(digest) == PNG
+
+
+async def test_a_bucket_that_does_not_exist_is_unavailable_not_absent(
+    s3_bucket: None,
+) -> None:
+    """A bucket that is not there is a misconfigured deployment or an
+    outage, never a picture nobody uploaded.
+
+    Kills on: putting `NoSuchBucket` in the "absent" set — a node pointed
+    at the wrong bucket would answer every fetch with a quiet 404, report
+    itself unhealthy only through `head_bucket`, and send the operator
+    looking for the pictures in the library."""
+    misconfigured = S3MediaStore(
+        endpoint=S3_ENDPOINT,
+        access_key=S3_ACCESS_KEY,
+        secret_key=S3_SECRET_KEY,
+        bucket="a-bucket-that-was-never-created",
+    )
+
+    with pytest.raises(MediaUnavailable):
+        await misconfigured.get(digest_of(PNG))
+    with pytest.raises(MediaUnavailable):
+        await misconfigured.exists(digest_of(PNG))
+    assert await misconfigured.healthy() is False

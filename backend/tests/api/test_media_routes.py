@@ -10,9 +10,11 @@ from typing import Any
 
 import pytest
 from fastapi import FastAPI
+from starlette.types import Message, Scope
 
 from api.conftest import TEST_PASSWORD, running_app
 from podvinsya.api.app import build_app
+from podvinsya.api.principal import SESSION_COOKIE
 from podvinsya.api.settings import ApiSettings
 from podvinsya.media.digest import digest_of
 from support.media import InMemoryMediaStore
@@ -276,3 +278,92 @@ async def test_an_empty_upload_is_refused(api_settings: ApiSettings) -> None:
         with_fake_store(app, InMemoryMediaStore())
         await log_in(client)
         assert (await client.post("/api/media", content=b"")).status_code == 415
+
+
+async def test_an_oversized_body_stops_being_read_at_the_cap(
+    api_settings: ApiSettings,
+) -> None:
+    """The limit is about what is *read*, not only about what is stored.
+
+    Driven through raw ASGI so the chunks the application actually pulls
+    can be counted: an upload that is refused only after `request.body()`
+    has assembled it consumes every chunk, and a mis-sent video would be
+    pulled entirely into the memory of a process running a live show before
+    anything refused it.
+
+    Kills on: `await request.body()` followed by a length check — the
+    status would still be 413, and the whole body would still have been
+    read."""
+    settings = api_settings.model_copy(update={"max_upload_bytes": 4096})
+    app = build_app(settings)
+    store = InMemoryMediaStore()
+
+    chunk = b"\x89PNG\r\n\x1a\x0a" + b"\x00" * 1024
+    total_chunks = 200
+    sent = 0
+    sent_messages: list[Message] = []
+
+    async def receive() -> Message:
+        nonlocal sent
+        if sent < total_chunks:
+            sent += 1
+            return {
+                "type": "http.request",
+                "body": chunk,
+                "more_body": sent < total_chunks,
+            }
+        return {"type": "http.disconnect"}
+
+    async def send(message: Message) -> None:
+        sent_messages.append(message)
+
+    async with running_app(app) as client:
+        with_fake_store(app, store)
+        await log_in(client)
+        cookie = client.cookies.get(SESSION_COOKIE)
+        assert cookie is not None
+
+        scope: Scope = {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/api/media",
+            "raw_path": b"/api/media",
+            "query_string": b"",
+            "root_path": "",
+            # No content-length: only the streaming cap can stop this.
+            "headers": [
+                (b"host", b"testserver"),
+                (b"cookie", f"{SESSION_COOKIE}={cookie}".encode()),
+            ],
+            "client": ("127.0.0.1", 51000),
+            "server": ("testserver", 80),
+            "state": {},
+        }
+        await app(scope, receive, send)
+
+    status_message = next(m for m in sent_messages if m["type"] == "http.response.start")
+    assert status_message["status"] == 413
+    assert store.objects == {}
+    # The cap is 4096 and each chunk is 1032, so five chunks pass it. A
+    # route that buffered first would have pulled all two hundred.
+    assert sent <= 10, f"the application read {sent} chunks before refusing"
+
+
+async def test_a_declared_length_past_the_limit_is_refused_up_front(
+    api_settings: ApiSettings,
+) -> None:
+    """The cheap refusal for an honest client.
+
+    Kills on: dropping the header check — correct either way, but every
+    oversized upload would then be read to the cap before being refused."""
+    settings = api_settings.model_copy(update={"max_upload_bytes": 16})
+    app = build_app(settings)
+    async with running_app(app) as client:
+        with_fake_store(app, InMemoryMediaStore())
+        await log_in(client)
+        response = await client.post("/api/media", content=PNG)
+
+    assert response.status_code == 413
