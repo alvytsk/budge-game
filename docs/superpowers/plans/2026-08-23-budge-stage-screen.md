@@ -8,14 +8,14 @@
 
 **Tech Stack:** pnpm 11.22.0 · Vite 8 · React 19 · TypeScript 5.9 (strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`) · Biome 2.5 (lint + format) · Steiger + `@feature-sliced/steiger-plugin` (FSD enforcement) · TanStack Router (file-based, `autoCodeSplitting`) · Tailwind v4 via `@tailwindcss/vite` · Vitest + jsdom + Testing Library + jest-dom. Lifted verbatim from `~/projects/sandbox/triviador/frontend`.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md` — §9.1, §9.3 primarily; §7.1–7.6 for the transport and the projection; §11 for what the tests must hold.
+**Spec:** `docs/superpowers/specs/2026-08-22-budge-design.md` — §9.1, §9.3 primarily; §7.1–7.6 for the transport and the projection; §11 for what the tests must hold.
 
 ## Global Constraints
 
-- **Naming.** The product is **budge**. The npm package is `budge-frontend`; the HTML title, the README and every identifier a reader meets say "budge". Do not introduce the word "Podvinsya" into anything under `frontend/`. The Python package on the server is still named `podvinsya` — that rename is out of scope for this plan, and the two names meet only in the generation header of `contracts.ts`, which this plan does not touch.
+- **Naming.** The product is **budge**. The npm package is `budge-frontend`; the HTML title, the README and every identifier a reader meets say "budge". Do not introduce the word "budge" into anything under `frontend/`. The Python package on the server is still named `budge` — that rename is out of scope for this plan, and the two names meet only in the generation header of `contracts.ts`, which this plan does not touch.
 - **User-facing copy is Russian**, matching the spec. «Секрет», «Пауза», «Победа». The display font must therefore carry a Cyrillic subset — this rules out triviador's Bebas Neue.
 - **Package manager is pnpm**, pinned by `"packageManager": "pnpm@11.22.0"`. Never run `npm` or `yarn` in `frontend/`.
-- **`frontend/src/shared/api/contracts.ts` is generated and committed.** Never hand-edit it. It is produced by `cd backend && podvinsya export-types` and CI fails on divergence. Everything in this plan consumes it as the single source of truth for frame shapes.
+- **`frontend/src/shared/api/contracts.ts` is generated and committed.** Never hand-edit it. It is produced by `cd backend && budge export-types` and CI fails on divergence. Everything in this plan consumes it as the single source of truth for frame shapes.
 - **All work happens on branch `feature/stage`**, already created off `main`. Never commit to `main`.
 - **`pnpm check` must be green at every commit** — that is `biome check . && tsc --noEmit && steiger ./src`. So must `pnpm test`.
 - **Biome, not ESLint/Prettier.** Two-space indent, print width 100, `noExplicitAny: error`.
@@ -319,7 +319,7 @@ if (!globalThis.URL.createObjectURL) {
 }
 ```
 
-Both generated files are excluded: `routeTree.gen.ts` is written by the router plugin and `contracts.ts` by `podvinsya export-types`. Formatting either would put the formatter and the generator into a fight that CI loses.
+Both generated files are excluded: `routeTree.gen.ts` is written by the router plugin and `contracts.ts` by `budge export-types`. Formatting either would put the formatter and the generator into a fight that CI loses.
 
 - [x] **Step 8: Write `frontend/steiger.config.ts`**
 
@@ -521,10 +521,10 @@ pnpm build        # tsc + vite build
 
 | File | Written by |
 | --- | --- |
-| `src/shared/api/contracts.ts` | `cd backend && podvinsya export-types` |
+| `src/shared/api/contracts.ts` | `cd backend && budge export-types` |
 | `src/app/routes/routeTree.gen.ts` | the TanStack Router Vite plugin |
 
-CI runs `podvinsya export-types --check`, so a server model changed
+CI runs `budge export-types --check`, so a server model changed
 without regenerating fails the build rather than reaching the front end as
 a type that quietly disagrees with the server (§7.6, §11).
 ```
@@ -2566,5 +2566,5 @@ If the pass found nothing, there is nothing to commit; say so rather than making
 - `.github/workflows/ci.yml` has a `frontend` job that runs all three.
 - `/stage/:token` renders §9.1's three beats plus the pause plaque and the endgame frame, driven only by the frame the socket delivered.
 - No module under `src/` outside `shared/api/` knows the socket exists; no module outside `entities/match/model/beat.ts` decides which beat is showing.
-- The word "Podvinsya" does not appear anywhere under `frontend/` except in the generation header of `contracts.ts`.
+- The word "budge" does not appear anywhere under `frontend/` except in the generation header of `contracts.ts`.
 - The branch `feature/stage` is left local — unpushed and unmerged — per the standing constraint.

@@ -8,14 +8,14 @@
 
 **Tech Stack:** Python 3.12, asyncio, SQLAlchemy 2.0 (async) over the persistence layer built in plan 2, pytest + pytest-asyncio.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md` — §6 is this plan's mandate; §4.2, §4.3 and §4.4 bound its time model, and §3.4/§3.5/§3.7 say what the materialiser owes the domain.
+**Spec:** `docs/superpowers/specs/2026-08-22-budge-design.md` — §6 is this plan's mandate; §4.2, §4.3 and §4.4 bound its time model, and §3.4/§3.5/§3.7 say what the materialiser owes the domain.
 
-**Branch:** `feature/runtime`, cut from `feature/persistence` (commit `043bd42`), which is not yet merged to `main`. Everything under `src/podvinsya/db/` is that branch's work and is not modified here.
+**Branch:** `feature/runtime`, cut from `feature/persistence` (commit `043bd42`), which is not yet merged to `main`. Everything under `src/budge/db/` is that branch's work and is not modified here.
 
 ## Global Constraints
 
-- Python `>=3.12`. `mypy --strict` clean over `src/podvinsya` and `tests`; `ruff check` clean with `select = ["E4", "E7", "E9", "F", "E501"]` and `line-length = 100`.
-- Dependency direction is one-way: `api → services → domain`, with `runtime` and `db` as service-layer implementations. **No file under `src/podvinsya/domain/` or `src/podvinsya/db/` is modified by this plan.**
+- Python `>=3.12`. `mypy --strict` clean over `src/budge` and `tests`; `ruff check` clean with `select = ["E4", "E7", "E9", "F", "E501"]` and `line-length = 100`.
+- Dependency direction is one-way: `api → services → domain`, with `runtime` and `db` as service-layer implementations. **No file under `src/budge/domain/` or `src/budge/db/` is modified by this plan.**
 - «Все capability объявлены как `Protocol` в `services/ports.py`; реализаций под `services/` нет.» (§6.1) The protocols live there; the classes satisfying them live under `runtime/` and `db/`.
 - «`sleep_until`, а не `sleep`» (§6.1) — no test waits on wall-clock time, and a fake clock never has to reconstruct an absolute deadline the runtime already computed.
 - «`publish` синхронный и принимает доменные объекты.» (§6.1) It projects and `put_nowait`s: no `await`, no blocking I/O, no exception escaping. A test enforces that, not the signature.
@@ -44,19 +44,19 @@
 ## File Structure
 
 ```
-backend/src/podvinsya/services/__init__.py       create
-backend/src/podvinsya/services/ports.py          create  every capability, as Protocol
-backend/src/podvinsya/runtime/__init__.py        create
-backend/src/podvinsya/runtime/errors.py          create  Quarantined and friends
-backend/src/podvinsya/runtime/clock.py           create  SystemClock
-backend/src/podvinsya/runtime/origins.py         create  CommandOutcome, SystemOrigin, FutureOrigin
-backend/src/podvinsya/runtime/materialiser.py    create  a DecisionContext out of the world
-backend/src/podvinsya/runtime/commit.py          create  one attempt, retries, reconciliation
-backend/src/podvinsya/runtime/scheduler.py       create  the deadline task
-backend/src/podvinsya/runtime/match.py           create  MatchRuntime: the queue and the cycle
-backend/src/podvinsya/runtime/recovery.py        create  load, then pause what was running
-backend/src/podvinsya/runtime/watchdog.py        create  the missing-deadline sweep
-backend/src/podvinsya/runtime/manager.py         create  MatchManager: lifecycle
+backend/src/budge/services/__init__.py       create
+backend/src/budge/services/ports.py          create  every capability, as Protocol
+backend/src/budge/runtime/__init__.py        create
+backend/src/budge/runtime/errors.py          create  Quarantined and friends
+backend/src/budge/runtime/clock.py           create  SystemClock
+backend/src/budge/runtime/origins.py         create  CommandOutcome, SystemOrigin, FutureOrigin
+backend/src/budge/runtime/materialiser.py    create  a DecisionContext out of the world
+backend/src/budge/runtime/commit.py          create  one attempt, retries, reconciliation
+backend/src/budge/runtime/scheduler.py       create  the deadline task
+backend/src/budge/runtime/match.py           create  MatchRuntime: the queue and the cycle
+backend/src/budge/runtime/recovery.py        create  load, then pause what was running
+backend/src/budge/runtime/watchdog.py        create  the missing-deadline sweep
+backend/src/budge/runtime/manager.py         create  MatchManager: lifecycle
 backend/tests/support/fakes.py                   create  clock, broadcaster, bank doubles
 backend/tests/runtime/                           create  one module per task
 ```
@@ -68,13 +68,13 @@ backend/tests/runtime/                           create  one module per task
 Nothing runs yet. This task declares every capability the loop will need and supplies the one implementation that has no dependencies of its own, plus the fakes every later task's tests are built on.
 
 **Files:**
-- Create: `backend/src/podvinsya/services/__init__.py`, `backend/src/podvinsya/services/ports.py`
-- Create: `backend/src/podvinsya/runtime/__init__.py`, `backend/src/podvinsya/runtime/clock.py`
+- Create: `backend/src/budge/services/__init__.py`, `backend/src/budge/services/ports.py`
+- Create: `backend/src/budge/runtime/__init__.py`, `backend/src/budge/runtime/clock.py`
 - Create: `backend/tests/support/fakes.py`
 - Test: `backend/tests/runtime/test_ports.py`, `backend/tests/runtime/test_clock.py`
 
 **Interfaces:**
-- Consumes: `podvinsya.domain` (state, events, ids, errors), and — as value types only — `podvinsya.db.store.Reconciliation` and `podvinsya.db.repository.LoadedMatch`.
+- Consumes: `budge.domain` (state, events, ids, errors), and — as value types only — `budge.db.store.Reconciliation` and `budge.db.repository.LoadedMatch`.
 - Produces: `Clock`, `Broadcaster`, `Origin`, `RuntimeCode`, `Transaction`, `UnitOfWorkPort`, `MatchRepositoryPort`, `CategoryBank` (all in `services.ports`); `SystemClock`; and the fakes `FakeClock`, `RecordingBroadcaster`, `FakeCategoryBank`.
 
 **A ruling this task rests on.** `services/ports.py` imports two names from `db/`: `Reconciliation` (a three-valued `StrEnum`) and `LoadedMatch` (a frozen pair of a state and an int). Both are *data*, not capability, and importing them does not invert the dependency the layering rule guards against — no service code calls into `db` because of it. The alternative, re-declaring both under `services` and mapping between them at every boundary, buys purity on paper and costs a translation nobody would maintain. If a later plan wants the seam clean, moving those two declarations is a one-line change.
@@ -95,10 +95,10 @@ at type-check time rather than in a test run.
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.runtime.clock import SystemClock
-from podvinsya.services.ports import (
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.runtime.clock import SystemClock
+from budge.services.ports import (
     Broadcaster,
     CategoryBank,
     Clock,
@@ -140,7 +140,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from podvinsya.runtime.clock import SystemClock
+from budge.runtime.clock import SystemClock
 from support.fakes import FakeClock
 
 NOW = datetime(2026, 8, 23, 12, 0, tzinfo=UTC)
@@ -220,7 +220,7 @@ async def test_advancing_past_several_deadlines_wakes_all_of_them() -> None:
 - [ ] **Step 3: Run both and watch them fail**
 
 Run: `cd backend && .venv/bin/python -m pytest tests/runtime -v`
-Expected: `ModuleNotFoundError` for `podvinsya.services.ports` and `support.fakes`.
+Expected: `ModuleNotFoundError` for `budge.services.ports` and `support.fakes`.
 
 - [ ] **Step 4: Write `services/ports.py`**
 
@@ -243,13 +243,13 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
-from podvinsya.db.repository import LoadedMatch
-from podvinsya.db.store import Reconciliation
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.errors import RejectionReason
-from podvinsya.domain.events import Event, MatchCreated
-from podvinsya.domain.ids import CategoryId, ImageId, MatchId, PlayerId
-from podvinsya.domain.state import MatchState
+from budge.db.repository import LoadedMatch
+from budge.db.store import Reconciliation
+from budge.domain.board import BoardSize
+from budge.domain.errors import RejectionReason
+from budge.domain.events import Event, MatchCreated
+from budge.domain.ids import CategoryId, ImageId, MatchId, PlayerId
+from budge.domain.state import MatchState
 
 
 class Clock(Protocol):
@@ -420,10 +420,10 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from podvinsya.domain.events import Event
-from podvinsya.domain.ids import CategoryId, ImageId, MatchId
-from podvinsya.domain.state import MatchState
-from podvinsya.services.ports import ContentExhausted
+from budge.domain.events import Event
+from budge.domain.ids import CategoryId, ImageId, MatchId
+from budge.domain.state import MatchState
+from budge.services.ports import ContentExhausted
 
 
 class FakeClock:
@@ -553,7 +553,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from podvinsya.db.engine import create_engine, sessionmaker_for
+from budge.db.engine import create_engine, sessionmaker_for
 from support.db import DATABASE_URL
 ```
 
@@ -569,7 +569,7 @@ Run the whole suite: `.venv/bin/python -m pytest` — 290 existing plus the new 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add backend/src/podvinsya/services backend/src/podvinsya/runtime backend/tests
+git add backend/src/budge/services backend/src/budge/runtime backend/tests
 git commit -m "Declare the runtime's ports and the clock behind them"
 ```
 
@@ -578,7 +578,7 @@ git commit -m "Declare the runtime's ports and the clock behind them"
 ### Task 2: Origins and the command envelope
 
 **Files:**
-- Create: `backend/src/podvinsya/runtime/origins.py`
+- Create: `backend/src/budge/runtime/origins.py`
 - Test: `backend/tests/runtime/test_origins.py`
 
 **Interfaces:**
@@ -597,9 +597,9 @@ import asyncio
 
 import pytest
 
-from podvinsya.domain.actions import PauseDuel
-from podvinsya.domain.errors import RejectionReason
-from podvinsya.runtime.origins import (
+from budge.domain.actions import PauseDuel
+from budge.domain.errors import RejectionReason
+from budge.runtime.origins import (
     Accepted,
     Failed,
     FutureOrigin,
@@ -608,7 +608,7 @@ from podvinsya.runtime.origins import (
     Rejected,
     SystemOrigin,
 )
-from podvinsya.services.ports import RuntimeCode
+from budge.services.ports import RuntimeCode
 
 
 async def test_a_future_origin_hands_its_caller_the_events() -> None:
@@ -692,7 +692,7 @@ def test_the_envelope_carries_the_command_and_its_origin_unchanged() -> None:
 - [ ] **Step 2: Run and watch it fail**
 
 Run: `cd backend && .venv/bin/python -m pytest tests/runtime/test_origins.py -v`
-Expected: `ModuleNotFoundError: No module named 'podvinsya.runtime.origins'`.
+Expected: `ModuleNotFoundError: No module named 'budge.runtime.origins'`.
 
 - [ ] **Step 3: Write `runtime/origins.py`**
 
@@ -714,10 +714,10 @@ from dataclasses import dataclass
 from collections.abc import Sequence
 from uuid import uuid4
 
-from podvinsya.domain.actions import Command
-from podvinsya.domain.errors import RejectionReason
-from podvinsya.domain.events import Event
-from podvinsya.services.ports import Origin, RuntimeCode
+from budge.domain.actions import Command
+from budge.domain.errors import RejectionReason
+from budge.domain.events import Event
+from budge.services.ports import Origin, RuntimeCode
 
 logger = logging.getLogger(__name__)
 
@@ -840,7 +840,7 @@ class QueuedCommand:
 Run: `.venv/bin/python -m pytest tests/runtime -v`, then `.venv/bin/mypy` and `.venv/bin/ruff check .`.
 
 ```bash
-git add backend/src/podvinsya/runtime/origins.py backend/tests/runtime/test_origins.py
+git add backend/src/budge/runtime/origins.py backend/tests/runtime/test_origins.py
 git commit -m "Tell exactly one waiter, exactly once, without ever raising"
 ```
 
@@ -851,7 +851,7 @@ git commit -m "Tell exactly one waiter, exactly once, without ever raising"
 Every non-deterministic input the domain needs arrives as a value on a `DecisionContext`. This task is what produces those values: the clock reading, the deal, the image pack, and the duel journal. It is the single most consequential task in this plan, because the rule that **undo never crosses into the previous duel** is enforced here and nowhere else — the domain reads the journal it is handed and trusts it.
 
 **Files:**
-- Create: `backend/src/podvinsya/runtime/materialiser.py`
+- Create: `backend/src/budge/runtime/materialiser.py`
 - Test: `backend/tests/runtime/test_materialiser.py`
 
 **Interfaces:**
@@ -877,15 +877,15 @@ from random import Random
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.actions import DealBoard, DeclareAttack, PauseDuel, UndoLastJudgement
-from podvinsya.domain.decide import decide
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.events import AnswerAccepted, DuelStarted, PassUsed
-from podvinsya.domain.state import MatchStatus
-from podvinsya.runtime.materialiser import IMAGE_PACK_SIZE, Materialiser
-from podvinsya.services.ports import ContentExhausted
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.actions import DealBoard, DeclareAttack, PauseDuel, UndoLastJudgement
+from budge.domain.decide import decide
+from budge.domain.evolve import fold
+from budge.domain.events import AnswerAccepted, DuelStarted, PassUsed
+from budge.domain.state import MatchStatus
+from budge.runtime.materialiser import IMAGE_PACK_SIZE, Materialiser
+from budge.services.ports import ContentExhausted
 from support.fakes import FakeCategoryBank, FakeClock
 from support.streams import build_rich_stream
 
@@ -1057,7 +1057,7 @@ async def test_two_deals_from_the_same_state_differ(
 
 - [ ] **Step 2: Run and watch it fail**
 
-Expected: `ModuleNotFoundError: No module named 'podvinsya.runtime.materialiser'`.
+Expected: `ModuleNotFoundError: No module named 'budge.runtime.materialiser'`.
 
 - [ ] **Step 3: Write `runtime/materialiser.py`**
 
@@ -1079,21 +1079,21 @@ from dataclasses import dataclass
 from random import Random
 from uuid import uuid4
 
-from podvinsya.domain.actions import Command, DealBoard, DeclareAttack, UndoLastJudgement
-from podvinsya.domain.board import Cell
-from podvinsya.domain.context import DealPlan, DealtCell, DecisionContext, JournalEntry
-from podvinsya.domain.events import (
+from budge.domain.actions import Command, DealBoard, DeclareAttack, UndoLastJudgement
+from budge.domain.board import Cell
+from budge.domain.context import DealPlan, DealtCell, DecisionContext, JournalEntry
+from budge.domain.events import (
     AnswerAccepted,
     DuelStarted,
     Event,
     JudgementUndone,
     PassUsed,
 )
-from podvinsya.domain.evolve import evolve
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, GroupId, PlayerId
-from podvinsya.domain.state import MatchState
-from podvinsya.services.ports import (
+from budge.domain.evolve import evolve
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import CategoryId, GroupId, PlayerId
+from budge.domain.state import MatchState
+from budge.services.ports import (
     CategoryBank,
     Clock,
     MatchRepositoryPort,
@@ -1263,7 +1263,7 @@ Run: `.venv/bin/python -m pytest tests/runtime -v`, then the full suite, `.venv/
 - [ ] **Step 5: Commit**
 
 ```bash
-git add backend/src/podvinsya/runtime/materialiser.py backend/tests/runtime/test_materialiser.py
+git add backend/src/budge/runtime/materialiser.py backend/tests/runtime/test_materialiser.py
 git commit -m "Resolve every non-deterministic input into a value"
 ```
 
@@ -1274,7 +1274,7 @@ git commit -m "Resolve every non-deterministic input into a value"
 This is §6.3's failure-policy table made executable. Everything above it — the queue, the scheduler, the manager — assumes that a command either landed in the log or provably did not, and this is what decides which.
 
 **Files:**
-- Create: `backend/src/podvinsya/runtime/errors.py`, `backend/src/podvinsya/runtime/commit.py`
+- Create: `backend/src/budge/runtime/errors.py`, `backend/src/budge/runtime/commit.py`
 - Test: `backend/tests/runtime/test_commit.py`
 
 **Interfaces:**
@@ -1539,7 +1539,7 @@ Fix that last string — it is deliberately mangled here so nobody pastes it wit
 - [ ] **Step 5: Run, type-check, lint, commit**
 
 ```bash
-git add backend/src/podvinsya/runtime backend/tests/runtime/test_commit.py
+git add backend/src/budge/runtime backend/tests/runtime/test_commit.py
 git commit -m "Classify every way one attempt can end"
 ```
 
@@ -1548,7 +1548,7 @@ git commit -m "Classify every way one attempt can end"
 ### Task 5: The deadline scheduler
 
 **Files:**
-- Create: `backend/src/podvinsya/runtime/scheduler.py`
+- Create: `backend/src/budge/runtime/scheduler.py`
 - Test: `backend/tests/runtime/test_scheduler.py`
 
 **Interfaces:**
@@ -1641,7 +1641,7 @@ The `deadline_id` for a state is `state.seq` — the seq after the event that se
 - [ ] **Step 4: Run, type-check, lint, commit**
 
 ```bash
-git add backend/src/podvinsya/runtime/scheduler.py backend/tests/runtime/test_scheduler.py
+git add backend/src/budge/runtime/scheduler.py backend/tests/runtime/test_scheduler.py
 git commit -m "Sleep until the deadline, and make a stale timer harmless"
 ```
 
@@ -1652,7 +1652,7 @@ git commit -m "Sleep until the deadline, and make a stale timer harmless"
 §6.2's loop, transcribed. Everything before this task exists to make these twenty lines both correct and dull.
 
 **Files:**
-- Create: `backend/src/podvinsya/runtime/match.py`
+- Create: `backend/src/budge/runtime/match.py`
 - Test: `backend/tests/runtime/test_match.py`
 
 **Interfaces:**
@@ -1815,7 +1815,7 @@ git commit -m "Run one match: one queue, one consumer, one deadline"
 ### Task 7: Recovery
 
 **Files:**
-- Create: `backend/src/podvinsya/runtime/recovery.py`
+- Create: `backend/src/budge/runtime/recovery.py`
 - Test: `backend/tests/runtime/test_recovery.py`
 
 **Interfaces:**
@@ -1876,7 +1876,7 @@ git commit -m "Come back paused, charging the outage to nobody"
 ### Task 8: The watchdog
 
 **Files:**
-- Create: `backend/src/podvinsya/runtime/watchdog.py`
+- Create: `backend/src/budge/runtime/watchdog.py`
 - Test: `backend/tests/runtime/test_watchdog.py`
 
 **§4.3's exact condition:** «Сторожевой таймер ловит не отсутствие дедлайна, а условие „дуэль в фазе RUNNING, паузы нет, дедлайн не запланирован“.» A pause is a legitimate absent deadline; the fault is an armed duel with no timer, which is what a cancelled-but-not-recreated task leaves behind.
@@ -1927,7 +1927,7 @@ git commit -m "Catch an armed duel with no timer"
 ### Task 9: The manager
 
 **Files:**
-- Create: `backend/src/podvinsya/runtime/manager.py`
+- Create: `backend/src/budge/runtime/manager.py`
 - Test: `backend/tests/runtime/test_manager.py`
 
 **Interfaces:** `MatchManager(repository, uow, materialiser_factory, broadcaster, clock)` with `async def start(match_id)`, `async def submit(match_id, command) -> CommandOutcome`, `async def shutdown()`, and `runtime_for(match_id)`.

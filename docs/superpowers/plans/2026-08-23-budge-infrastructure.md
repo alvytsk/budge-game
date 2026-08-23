@@ -4,20 +4,20 @@
 
 **Goal:** Ship §10 — the deployable stack. Images for both halves, a Docker Compose file that brings up PostgreSQL, an S3-compatible store, the API and Caddy, migrations as a separate step before the app starts, and scheduled backups **with restore drills that actually restore**.
 
-**Architecture:** One `compose.yaml` at the repository root. The frontend is built at image-build time into static files that Caddy serves; Caddy also proxies `/api` and `/ws` to the API, so every URL the browser sees is same-origin — which is what the front end already assumes. Migrations run as a one-shot service the API waits on. Backups and drills are two new subcommands of the existing `podvinsya` CLI rather than shell scripts, because the drill has to import the domain to do its job honestly (I2).
+**Architecture:** One `compose.yaml` at the repository root. The frontend is built at image-build time into static files that Caddy serves; Caddy also proxies `/api` and `/ws` to the API, so every URL the browser sees is same-origin — which is what the front end already assumes. Migrations run as a one-shot service the API waits on. Backups and drills are two new subcommands of the existing `budge` CLI rather than shell scripts, because the drill has to import the domain to do its job honestly (I2).
 
 **Tech Stack:** Docker Compose, Caddy 2, `postgres:16-alpine`, `minio/minio`, `python:3.12-slim`, `node:22-alpine` (frontend build stage only), `pg_dump`/`pg_restore` from `postgresql-client`.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md` — §10 primarily; §1.1 for the deployment profile (LAN-only, no TLS); §5.3 and §7.6 for what the media store holds; §11 for what the tests must hold.
+**Spec:** `docs/superpowers/specs/2026-08-22-budge-design.md` — §10 primarily; §1.1 for the deployment profile (LAN-only, no TLS); §5.3 and §7.6 for what the media store holds; §11 for what the tests must hold.
 
 **Predecessors:** `docs/superpowers/plans/2026-08-23-budge-stage-screen.md` and `...-budge-host-console.md`, complete on `feature/stage` and `feature/host`. This plan builds on `feature/host` and needs the frontend to exist.
 
 ## Global Constraints
 
-- **Naming.** The product is **budge**. New files, service names, image names, volume names and documentation say "budge". The Python package, its CLI (`podvinsya`) and its environment prefix (`PODVINSYA_`) are still named `podvinsya` — renaming them is the **next** plan and is out of scope here. Where this plan must invoke the CLI or set an environment variable, it uses the existing `podvinsya` / `PODVINSYA_` names; where it names something new, it says budge.
+- **Naming.** The product is **budge**. New files, service names, image names, volume names and documentation say "budge". The Python package, its CLI (`budge`) and its environment prefix (`BUDGE_`) are still named `budge` — renaming them is the **next** plan and is out of scope here. Where this plan must invoke the CLI or set an environment variable, it uses the existing `budge` / `BUDGE_` names; where it names something new, it says budge.
 - **§1.1 is the deployment profile: an isolated LAN, no TLS, `COOKIE_SECURE=false`.** Caddy must therefore serve plain HTTP and must **not** attempt automatic HTTPS (I7). Do not add TLS "just in case" — the session cookie is deliberately not `Secure`, and a `Secure` cookie over plain HTTP is never sent back, so the operator simply cannot log in.
 - **Migrations run as a separate step before the application starts, never at import** (§10). The API service must not run migrations itself.
-- **No secret has a default.** `PODVINSYA_SECRET_KEY`, `PODVINSYA_HOST_PASSWORD`, the database password and the S3 credentials all come from the environment. Compose reads them from a `.env` file that is **not** committed; `.env.example` is committed and holds no real values.
+- **No secret has a default.** `BUDGE_SECRET_KEY`, `BUDGE_HOST_PASSWORD`, the database password and the S3 credentials all come from the environment. Compose reads them from a `.env` file that is **not** committed; `.env.example` is committed and holds no real values.
 - **All work happens on branch `feature/infra`**, created off `feature/host`. Never commit to `main`.
 - **`backend/compose.test.yaml` is the test stack and is not touched by this plan** beyond what Task 3 and 4 need for their own tests. The new production stack is a separate file at the repository root.
 - The backend test suite must stay green: `cd backend && pytest`. It currently passes with PostgreSQL on `127.0.0.1:5434` and MinIO on `127.0.0.1:9002` from `backend/compose.test.yaml`.
@@ -31,16 +31,16 @@ Do not rebuild these.
 
 | Thing | Where |
 | --- | --- |
-| `podvinsya migrate [--revision]` | `backend/src/podvinsya/cli.py` |
-| `podvinsya serve [--host] [--port]` | same; imports FastAPI lazily so `migrate` need not |
-| `podvinsya hash-password` (reads stdin) | same |
-| `podvinsya export-types [--check]` | same |
-| `GET /health` returning `{"status", "checks": {"database", "storage"}}`, 200 or 503 | `backend/src/podvinsya/api/app.py` — §10's healthcheck, already done |
-| `Settings` (`database_url`, no default) | `backend/src/podvinsya/config.py` |
-| `ApiSettings` (adds `secret_key`, `host_password`, `s3_*`, …) | `backend/src/podvinsya/api/settings.py` |
-| `fold(state, events)` | `backend/src/podvinsya/domain/evolve.py` |
-| `MatchRepository.read_events(match_id)` | `backend/src/podvinsya/db/repository.py` |
-| `S3MediaStore` | `backend/src/podvinsya/media/s3.py` |
+| `budge migrate [--revision]` | `backend/src/budge/cli.py` |
+| `budge serve [--host] [--port]` | same; imports FastAPI lazily so `migrate` need not |
+| `budge hash-password` (reads stdin) | same |
+| `budge export-types [--check]` | same |
+| `GET /health` returning `{"status", "checks": {"database", "storage"}}`, 200 or 503 | `backend/src/budge/api/app.py` — §10's healthcheck, already done |
+| `Settings` (`database_url`, no default) | `backend/src/budge/config.py` |
+| `ApiSettings` (adds `secret_key`, `host_password`, `s3_*`, …) | `backend/src/budge/api/settings.py` |
+| `fold(state, events)` | `backend/src/budge/domain/evolve.py` |
+| `MatchRepository.read_events(match_id)` | `backend/src/budge/db/repository.py` |
+| `S3MediaStore` | `backend/src/budge/media/s3.py` |
 | Test fixtures for a real database and a real bucket | `backend/tests/db/conftest.py`, `backend/tests/support/db.py` |
 
 ---
@@ -56,7 +56,7 @@ backend/.dockerignore
 frontend/Dockerfile                   builds the SPA, output copied by Caddy's image
 frontend/.dockerignore
 docs/operations.md                    bring-up, backups, restoring for real
-backend/src/podvinsya/backup/
+backend/src/budge/backup/
   __init__.py
   paths.py                            where a backup lives, and how it is named
   dump.py                             take a backup: database + media
@@ -81,13 +81,13 @@ backend/tests/backup/
 
 **I4 — `pg_dump --format=custom`, restored with `pg_restore`.** Not a SQL text file: the custom format is compressed, carries a table of contents, and makes `pg_restore` refuse a truncated archive rather than replaying the first half of it into a database that then looks plausible. *Cost if wrong:* a partial backup restores partially and silently.
 
-**I5 — The API image carries `postgresql-client`, and the backup runs from that image.** This is forced by I2: the drill must import `podvinsya.domain` to fold, and it must run `pg_restore`. Two images would mean either shipping the domain into a database-tools image or shelling out from Python to a container that has the tools — both worse. *Cost if wrong:* the API image is a few megabytes larger and carries binaries the API itself never calls.
+**I5 — The API image carries `postgresql-client`, and the backup runs from that image.** This is forced by I2: the drill must import `budge.domain` to fold, and it must run `pg_restore`. Two images would mean either shipping the domain into a database-tools image or shelling out from Python to a container that has the tools — both worse. *Cost if wrong:* the API image is a few megabytes larger and carries binaries the API itself never calls.
 
 **I6 — Media is mirrored into one shared content-addressed directory, not copied per backup.** A digest names its bytes (§7.6), so a blob never changes and never needs a second copy. Each dump gets a sidecar manifest naming the digests it references, which is what makes I3's cross-check exact without duplicating gigabytes per run. Nothing ever deletes from the mirror: §5.3 deletes content only softly, and an old dump must stay restorable. *Cost if wrong:* backups grow with the whole library each night instead of with the night's additions.
 
 **I7 — Caddy serves plain HTTP with automatic HTTPS turned off.** §1.1 puts this on an isolated network with no TLS and `COOKIE_SECURE=false`. Caddy's default is to provision certificates for any site address that looks like a domain, which on a LAN with no public DNS means it hangs retrying ACME while serving nothing. The site address is written `http://` and `auto_https off` is set explicitly. *Cost if wrong:* the stack comes up and the operator cannot reach it, with the reason buried in Caddy's logs.
 
-**I8 — Migrations are a one-shot compose service the API waits on.** §10: «Миграции применяются отдельным шагом до старта приложения». `depends_on: { migrate: { condition: service_completed_successfully } }`. The API image's entrypoint runs `podvinsya serve` and nothing else. *Cost if wrong:* two API replicas racing the same migration, which is how an Alembic lock becomes an outage.
+**I8 — Migrations are a one-shot compose service the API waits on.** §10: «Миграции применяются отдельным шагом до старта приложения». `depends_on: { migrate: { condition: service_completed_successfully } }`. The API image's entrypoint runs `budge serve` and nothing else. *Cost if wrong:* two API replicas racing the same migration, which is how an Alembic lock becomes an outage.
 
 **I9 — The backup schedule is a loop in a container, not host cron.** The stack must be movable by copying one directory and running `docker compose up`. A crontab on the host is a second thing to install, a second thing to forget, and invisible to `docker compose ps`. The loop sleeps to the next interval and runs the two commands. *Cost if wrong:* fewer scheduling features than cron — no calendar expressions. The deployment takes one backup an hour and one drill a day; neither needs a calendar.
 
@@ -120,7 +120,7 @@ compose.test.yaml
 FROM python:3.12-slim
 
 # `postgresql-client` is here because of I5: the restore drill has to run
-# `pg_restore` AND import `podvinsya.domain` to fold the restored log, so
+# `pg_restore` AND import `budge.domain` to fold the restored log, so
 # the tools and the domain must live in one image. `--no-install-recommends`
 # keeps that to the client binaries rather than a server.
 RUN apt-get update \
@@ -146,14 +146,14 @@ USER budge
 
 # No CMD that migrates. §10 and I8 make migration a separate step, and an
 # image that migrated on start would make that impossible to honour.
-CMD ["podvinsya", "serve", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["budge", "serve", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 - [x] **Step 3: Verify the API image builds and the CLI runs**
 
 ```bash
 docker build -t budge-api:dev backend/; echo "exit=$?"
-docker run --rm budge-api:dev podvinsya --help; echo "exit=$?"
+docker run --rm budge-api:dev budge --help; echo "exit=$?"
 docker run --rm budge-api:dev pg_restore --version; echo "exit=$?"
 ```
 
@@ -278,10 +278,10 @@ MINIO_ROOT_PASSWORD=change-me-too
 # --- application ----------------------------------------------------------
 # Any long random string. `openssl rand -hex 32` will do.
 # Changing it invalidates every session cookie and every stage link.
-PODVINSYA_SECRET_KEY=
+BUDGE_SECRET_KEY=
 
-# The output of:  echo -n 'the password' | docker run --rm -i budge-api podvinsya hash-password
-PODVINSYA_HOST_PASSWORD=
+# The output of:  echo -n 'the password' | docker run --rm -i budge-api budge hash-password
+BUDGE_HOST_PASSWORD=
 
 # --- backups (§10) --------------------------------------------------------
 # Seconds between backups, and between restore drills. One hour and one day.
@@ -303,13 +303,13 @@ Add `.env` to `.gitignore`.
 name: budge
 
 x-postgres-url: &postgres-url
-  PODVINSYA_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  BUDGE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
 
 x-s3: &s3
-  PODVINSYA_S3_ENDPOINT: http://minio:9000
-  PODVINSYA_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
-  PODVINSYA_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-  PODVINSYA_S3_BUCKET: budge-media
+  BUDGE_S3_ENDPOINT: http://minio:9000
+  BUDGE_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+  BUDGE_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+  BUDGE_S3_BUCKET: budge-media
 
 services:
   postgres:
@@ -353,7 +353,7 @@ services:
         condition: service_healthy
     environment:
       <<: *postgres-url
-    command: ["podvinsya", "migrate"]
+    command: ["budge", "migrate"]
 
   api:
     image: budge-api
@@ -366,8 +366,8 @@ services:
         condition: service_healthy
     environment:
       <<: [*postgres-url, *s3]
-      PODVINSYA_SECRET_KEY: ${PODVINSYA_SECRET_KEY}
-      PODVINSYA_HOST_PASSWORD: ${PODVINSYA_HOST_PASSWORD}
+      BUDGE_SECRET_KEY: ${BUDGE_SECRET_KEY}
+      BUDGE_HOST_PASSWORD: ${BUDGE_HOST_PASSWORD}
     healthcheck:
       # §10's own healthcheck endpoint, which already probes both stores.
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)\""]
@@ -418,12 +418,12 @@ The `backup` service references `/app/scripts/backup-loop.sh`, which Task 5 writ
 ```bash
 cp .env.example .env
 # Fill in the two secrets the app refuses to start without.
-sed -i "s|^PODVINSYA_SECRET_KEY=.*|PODVINSYA_SECRET_KEY=$(openssl rand -hex 32)|" .env
+sed -i "s|^BUDGE_SECRET_KEY=.*|BUDGE_SECRET_KEY=$(openssl rand -hex 32)|" .env
 docker compose build; echo "exit=$?"
-docker compose run --rm --no-deps api sh -c 'echo -n smoke-test-password | podvinsya hash-password'
+docker compose run --rm --no-deps api sh -c 'echo -n smoke-test-password | budge hash-password'
 ```
 
-Put that hash into `.env` as `PODVINSYA_HOST_PASSWORD`, then:
+Put that hash into `.env` as `BUDGE_HOST_PASSWORD`, then:
 
 ```bash
 docker compose up -d; echo "exit=$?"
@@ -489,12 +489,12 @@ Expected: `ok: .env is ignored`. If `.env` appears, the `.gitignore` entry is wr
 
 ## Task 3: Taking a backup
 
-`podvinsya backup --to DIR`: a `pg_dump` archive, a manifest of the digests that dump references, and the media mirror brought up to date.
+`budge backup --to DIR`: a `pg_dump` archive, a manifest of the digests that dump references, and the media mirror brought up to date.
 
 **Files:**
-- Create: `backend/src/podvinsya/backup/__init__.py`, `paths.py`, `dump.py`
+- Create: `backend/src/budge/backup/__init__.py`, `paths.py`, `dump.py`
 - Create: `backend/tests/backup/__init__.py`, `conftest.py`, `test_paths.py`, `test_dump.py`
-- Modify: `backend/src/podvinsya/cli.py`
+- Modify: `backend/src/budge/cli.py`
 
 **Interfaces:**
 - Produces:
@@ -519,7 +519,7 @@ from pathlib import Path
 
 import pytest
 
-from podvinsya.backup.paths import BackupRoot, Manifest, stamp
+from budge.backup.paths import BackupRoot, Manifest, stamp
 
 DIGEST = "a" * 64
 
@@ -613,9 +613,9 @@ def test_a_manifest_round_trips(tmp_path: Path) -> None:
 cd backend && pytest tests/backup/test_paths.py -q; echo "exit=$?"
 ```
 
-Expected: FAIL — `ModuleNotFoundError: No module named 'podvinsya.backup'`.
+Expected: FAIL — `ModuleNotFoundError: No module named 'budge.backup'`.
 
-- [ ] **Step 3: Write `backend/src/podvinsya/backup/__init__.py`**
+- [ ] **Step 3: Write `backend/src/budge/backup/__init__.py`**
 
 ```python
 """§10's «бэкапы по расписанию с учениями по восстановлению».
@@ -630,7 +630,7 @@ domain's own `fold`, so it has to be able to import it.
 """
 ```
 
-- [ ] **Step 4: Write `backend/src/podvinsya/backup/paths.py`**
+- [ ] **Step 4: Write `backend/src/budge/backup/paths.py`**
 
 ```python
 """Where a backup lives, and how it is named.
@@ -791,7 +791,7 @@ from alembic import command
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from podvinsya.db.engine import create_engine, sessionmaker_for
+from budge.db.engine import create_engine, sessionmaker_for
 from support.db import DATABASE_URL, alembic_config
 
 UNREACHABLE = (
@@ -858,8 +858,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.backup.dump import take
-from podvinsya.backup.paths import BackupRoot, Manifest
+from budge.backup.dump import take
+from budge.backup.paths import BackupRoot, Manifest
 from support.db import DATABASE_URL
 from support.media import InMemoryMediaStore
 
@@ -1014,9 +1014,9 @@ async def test_it_records_the_schema_revision(
 cd backend && pytest tests/backup/test_dump.py -q; echo "exit=$?"
 ```
 
-Expected: FAIL — no module `podvinsya.backup.dump`.
+Expected: FAIL — no module `budge.backup.dump`.
 
-- [ ] **Step 9: Write `backend/src/podvinsya/backup/dump.py`**
+- [ ] **Step 9: Write `backend/src/budge/backup/dump.py`**
 
 ```python
 """Taking a backup: the database, and the blobs it points at.
@@ -1036,9 +1036,9 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
-from podvinsya.backup.paths import BackupRoot, Manifest, stamp
-from podvinsya.db.engine import create_engine
-from podvinsya.services.ports import MediaStore
+from budge.backup.paths import BackupRoot, Manifest, stamp
+from budge.db.engine import create_engine
+from budge.services.ports import MediaStore
 
 
 class BackupFailed(Exception):
@@ -1124,7 +1124,7 @@ async def take(root: BackupRoot, *, database_url: str, media: MediaStore) -> Man
     return manifest
 ```
 
-If `MediaStore` is not importable from `podvinsya.services.ports`, find where the protocol lives and import it from there — do not redeclare it.
+If `MediaStore` is not importable from `budge.services.ports`, find where the protocol lives and import it from there — do not redeclare it.
 
 - [ ] **Step 10: Run it and watch it pass**
 
@@ -1136,7 +1136,7 @@ Expected: PASS, all of `test_paths.py` plus 6 from `test_dump.py`.
 
 - [ ] **Step 11: Add the CLI subcommand**
 
-In `backend/src/podvinsya/cli.py`, alongside the existing subparsers:
+In `backend/src/budge/cli.py`, alongside the existing subparsers:
 
 ```python
     backup = subcommands.add_parser("backup", help="take a backup (§10)")
@@ -1152,10 +1152,10 @@ and in the dispatch chain, following the lazy-import convention the `serve` bran
         import asyncio
         from pathlib import Path
 
-        from podvinsya.api.settings import ApiSettings
-        from podvinsya.backup.dump import take
-        from podvinsya.backup.paths import BackupRoot
-        from podvinsya.media.s3 import S3MediaStore
+        from budge.api.settings import ApiSettings
+        from budge.backup.dump import take
+        from budge.backup.paths import BackupRoot
+        from budge.media.s3 import S3MediaStore
 
         settings = ApiSettings()
         store = S3MediaStore(
@@ -1183,9 +1183,9 @@ def test_backup_needs_the_media_settings(monkeypatch: pytest.MonkeyPatch) -> Non
     """Kills on: constructing `Settings` rather than `ApiSettings` — the
     backup would start, dump the database, and silently mirror nothing,
     because it would have no store to read from."""
-    for name in ("PODVINSYA_S3_ENDPOINT", "PODVINSYA_S3_ACCESS_KEY", "PODVINSYA_S3_SECRET_KEY"):
+    for name in ("BUDGE_S3_ENDPOINT", "BUDGE_S3_ACCESS_KEY", "BUDGE_S3_SECRET_KEY"):
         monkeypatch.delenv(name, raising=False)
-    monkeypatch.setenv("PODVINSYA_DATABASE_URL", "postgresql+asyncpg://x:y@127.0.0.1:1/z")
+    monkeypatch.setenv("BUDGE_DATABASE_URL", "postgresql+asyncpg://x:y@127.0.0.1:1/z")
     with pytest.raises(ValidationError):
         main(["backup", "--to", "/tmp/does-not-matter"])
 ```
@@ -1203,12 +1203,12 @@ cd .. && git add backend && git commit -m "feat(backup): take a dump, and mirror
 
 ## Task 4: The restore drill
 
-The half of §10 that makes the other half mean something. `podvinsya restore-drill --from DIR` restores the newest backup into a scratch database and proves the history in it still folds.
+The half of §10 that makes the other half mean something. `budge restore-drill --from DIR` restores the newest backup into a scratch database and proves the history in it still folds.
 
 **Files:**
-- Create: `backend/src/podvinsya/backup/scratch.py`, `drill.py`
+- Create: `backend/src/budge/backup/scratch.py`, `drill.py`
 - Create: `backend/tests/backup/test_drill.py`
-- Modify: `backend/src/podvinsya/cli.py`
+- Modify: `backend/src/budge/cli.py`
 
 **Interfaces:**
 - Produces:
@@ -1232,14 +1232,14 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.backup import drill
-from podvinsya.backup.dump import take
-from podvinsya.backup.paths import BackupRoot, Manifest
-from podvinsya.db.engine import create_engine
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.events import MatchCreated
-from podvinsya.domain.ids import MatchId
+from budge.backup import drill
+from budge.backup.dump import take
+from budge.backup.paths import BackupRoot, Manifest
+from budge.db.engine import create_engine
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.events import MatchCreated
+from budge.domain.ids import MatchId
 from support.db import DATABASE_URL
 from support.media import InMemoryMediaStore
 from support.streams import build_rich_stream
@@ -1468,9 +1468,9 @@ async def test_it_writes_its_report_where_an_operator_will_find_it(
 cd backend && pytest tests/backup/test_drill.py -q; echo "exit=$?"
 ```
 
-Expected: FAIL — no module `podvinsya.backup.drill`.
+Expected: FAIL — no module `budge.backup.drill`.
 
-- [ ] **Step 3: Write `backend/src/podvinsya/backup/scratch.py`**
+- [ ] **Step 3: Write `backend/src/budge/backup/scratch.py`**
 
 ```python
 """The scratch database a drill restores into.
@@ -1487,7 +1487,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
-from podvinsya.db.engine import create_engine
+from budge.db.engine import create_engine
 
 # Where `CREATE DATABASE` is issued from. A connection cannot create the
 # database it is connected to, so this runs against the cluster's default
@@ -1533,7 +1533,7 @@ async def scratch_database(database_url: str, name: str) -> AsyncIterator[str]:
         await engine.dispose()
 ```
 
-- [ ] **Step 4: Write `backend/src/podvinsya/backup/drill.py`**
+- [ ] **Step 4: Write `backend/src/budge/backup/drill.py`**
 
 ```python
 """§10's «учения по восстановлению».
@@ -1560,12 +1560,12 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
-from podvinsya.backup.dump import libpq_url
-from podvinsya.backup.paths import BackupRoot, Manifest, stamp
-from podvinsya.backup.scratch import scratch_database
-from podvinsya.db.engine import create_engine, sessionmaker_for
-from podvinsya.db.repository import MatchRepository
-from podvinsya.domain.ids import MatchId
+from budge.backup.dump import libpq_url
+from budge.backup.paths import BackupRoot, Manifest, stamp
+from budge.backup.scratch import scratch_database
+from budge.db.engine import create_engine, sessionmaker_for
+from budge.db.repository import MatchRepository
+from budge.domain.ids import MatchId
 
 logger = logging.getLogger(__name__)
 
@@ -1735,9 +1735,9 @@ and in the dispatch chain:
         import asyncio
         from pathlib import Path
 
-        from podvinsya.backup import drill
-        from podvinsya.backup.paths import BackupRoot
-        from podvinsya.config import Settings
+        from budge.backup import drill
+        from budge.backup.paths import BackupRoot
+        from budge.config import Settings
 
         report = asyncio.run(
             drill.run(BackupRoot(Path(args.source)), database_url=Settings().database_url)
@@ -1796,7 +1796,7 @@ while true; do
 	# somebody noticed the container had exited. The failure is on stdout
 	# either way, and the drill is what turns a run of bad backups into a
 	# loud signal.
-	if podvinsya backup --to "${BACKUP_DIR}"; then
+	if budge backup --to "${BACKUP_DIR}"; then
 		echo "backup ok"
 	else
 		echo "BACKUP FAILED (exit $?)" >&2
@@ -1805,7 +1805,7 @@ while true; do
 	since_drill=$((since_drill + BACKUP_INTERVAL))
 	if [ "${since_drill}" -ge "${DRILL_INTERVAL}" ]; then
 		since_drill=0
-		if podvinsya restore-drill --from "${BACKUP_DIR}"; then
+		if budge restore-drill --from "${BACKUP_DIR}"; then
 			echo "restore drill ok"
 		else
 			# The one message an operator must never learn to ignore.
@@ -1841,7 +1841,7 @@ It was left commented in Task 2 Step 3 because the script did not exist yet. Two
         condition: service_completed_successfully
 ```
 
-**It cannot write to its own volume.** The API image runs as uid 10001 (`budge`), and a named volume mounted at `/backups` is created root-owned, so the first `podvinsya backup --to /backups` fails on `mkdir`. Fix it in the image rather than by running the loop as root — a backup process with root in the container is a worse trade than one directory:
+**It cannot write to its own volume.** The API image runs as uid 10001 (`budge`), and a named volume mounted at `/backups` is created root-owned, so the first `budge backup --to /backups` fails on `mkdir`. Fix it in the image rather than by running the loop as root — a backup process with root in the container is a worse trade than one directory:
 
 ```yaml
     user: root
@@ -1881,7 +1881,7 @@ A drill that cannot fail is not a drill. Break the newest backup and confirm the
 
 ```bash
 docker compose exec backup sh -c 'for f in /backups/dumps/*.dump; do echo broken > "$f"; done'
-docker compose exec backup podvinsya restore-drill --from /backups; echo "exit=$?"
+docker compose exec backup budge restore-drill --from /backups; echo "exit=$?"
 ```
 
 Expected: exit **1**, and the output reports `"passed": false`. Then confirm the scratch database was still dropped:
@@ -1932,10 +1932,10 @@ operator. Everything below assumes that.
 
 ```bash
 cp .env.example .env
-# Fill in PODVINSYA_SECRET_KEY with a long random string:
+# Fill in BUDGE_SECRET_KEY with a long random string:
 #   openssl rand -hex 32
-# Fill in PODVINSYA_HOST_PASSWORD with the hash of the operator's password:
-#   echo -n 'the password' | docker compose run --rm --no-deps api podvinsya hash-password
+# Fill in BUDGE_HOST_PASSWORD with the hash of the operator's password:
+#   echo -n 'the password' | docker compose run --rm --no-deps api budge hash-password
 docker compose up -d
 ```
 
@@ -1981,8 +1981,8 @@ of those failed.
 Take one by hand:
 
 ```bash
-docker compose exec backup podvinsya backup --to /backups
-docker compose exec backup podvinsya restore-drill --from /backups
+docker compose exec backup budge backup --to /backups
+docker compose exec backup budge restore-drill --from /backups
 ```
 
 ## Restoring for real
@@ -2009,11 +2009,11 @@ digest as its key.
 ## Changing the operator's password
 
 ```bash
-echo -n 'the new password' | docker compose run --rm --no-deps api podvinsya hash-password
+echo -n 'the new password' | docker compose run --rm --no-deps api budge hash-password
 ```
 
 Put the output in `.env` and `docker compose up -d api`. Existing sessions
-survive: they are signed with `PODVINSYA_SECRET_KEY`, which has not
+survive: they are signed with `BUDGE_SECRET_KEY`, which has not
 changed. Changing *that* invalidates every session and every stage link.
 ```
 
@@ -2066,7 +2066,7 @@ async def test_a_manifest_without_its_archive_is_not_a_backup(
     whose archive was never finished and report a failure that looks like
     corruption rather than an interrupted run.
     """
-    from podvinsya.backup import dump
+    from budge.backup import dump
 
     def explode(*_: object) -> None:
         raise dump.BackupFailed("interrupted")
@@ -2138,8 +2138,8 @@ If the pass found nothing beyond Step 2's test, commit that alone and say so.
 
 - `docker compose up -d` brings up postgres, minio, migrate, api, web and backup; `migrate` exits 0 before `api` starts; `/health` reports `ok` for both checks.
 - Caddy serves the SPA on plain HTTP, proxies `/api` and `/ws` to the API, and falls through to `index.html` so `/host` and `/stage/:token` survive a reload.
-- `podvinsya backup --to DIR` writes a custom-format archive, a manifest, and the blobs that manifest names.
-- `podvinsya restore-drill --from DIR` restores the newest backup into a scratch database, folds every match's log through the domain, cross-checks the media, writes a report, drops the scratch database, and exits non-zero when any of that fails.
+- `budge backup --to DIR` writes a custom-format archive, a manifest, and the blobs that manifest names.
+- `budge restore-drill --from DIR` restores the newest backup into a scratch database, folds every match's log through the domain, cross-checks the media, writes a report, drops the scratch database, and exits non-zero when any of that fails.
 - A drill can never write to the configured database, and a test holds that.
 - `cd backend && pytest`, `mypy --strict src tests` and `ruff check .` are all green.
 - `.env` is not committed; `.env.example` is, and holds no real values.

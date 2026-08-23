@@ -8,13 +8,13 @@
 
 **Tech Stack:** Python 3.12, `boto3` behind `asyncio.to_thread`, MinIO in compose as the S3-compatible store, `hashlib.sha256` from the standard library.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md` — §7.6 fixes the addressing, §5.3 the `media` store and the one-way link to the log, §8 the operator's workflow, §10 the container and the health check, §9.1 what the stage screen does with a pack.
+**Spec:** `docs/superpowers/specs/2026-08-22-budge-design.md` — §7.6 fixes the addressing, §5.3 the `media` store and the one-way link to the log, §8 the operator's workflow, §10 the container and the health check, §9.1 what the stage screen does with a pack.
 
 **Branch:** `feature/media`, cut from `feature/content` → `feature/contracts` → `feature/api` → `feature/runtime` → `feature/persistence` → `main`, none merged. Nothing under `domain/`, `runtime/` or `db/` is modified; `library/catalogue.py` is not modified either — the store check lives in the route, above it.
 
 ## Global Constraints
 
-- Python `>=3.12`. `mypy --strict` clean over `src/podvinsya` and `tests`; `ruff check` clean with `select = ["E4", "E7", "E9", "F", "E501"]` and `line-length = 100`.
+- Python `>=3.12`. `mypy --strict` clean over `src/budge` and `tests`; `ruff check` clean with `select = ["E4", "E7", "E9", "F", "E501"]` and `line-length = 100`.
 - Dependency direction stays one-way. `media/` is a service-layer implementation alongside `db/`, `runtime/` and `library/`; nothing under `domain/` or `runtime/` imports it.
 - «Медиа контент-адресуемо по sha256; в сообщениях ездят идентификаторы, а не URL.» (§7.6) No frame and no REST response in this plan contains a URL. Plan 5's `test_no_emitted_type_carries_a_url` already walks the generated TypeScript for that, and it keeps passing.
 - «Связь с логом односторонняя.» (§5.3) Media is never deleted while an image row references it, and no object here is ever overwritten — a digest names one sequence of bytes, permanently.
@@ -42,16 +42,16 @@
 ```
 backend/pyproject.toml                            modify  boto3, boto3-stubs[s3]
 backend/compose.test.yaml                         modify  + minio
-backend/src/podvinsya/services/ports.py           modify  + MediaStore, MediaUnavailable
-backend/src/podvinsya/media/__init__.py           create
-backend/src/podvinsya/media/digest.py             create  digest_of, sniff, ACCEPTED_TYPES
-backend/src/podvinsya/media/s3.py                 create  S3MediaStore
-backend/src/podvinsya/api/schemas/media.py        create  UploadedMediaBody
-backend/src/podvinsya/api/routes/media.py         create  POST /api/media, GET /api/media/{d}
-backend/src/podvinsya/api/routes/library.py       modify  refuse a digest the store lacks
-backend/src/podvinsya/api/app.py                  modify  wire the store, second health probe
-backend/src/podvinsya/api/settings.py             modify  s3 settings, max_upload_bytes
-backend/src/podvinsya/contracts/schema.py         modify  + UploadedMediaBody
+backend/src/budge/services/ports.py           modify  + MediaStore, MediaUnavailable
+backend/src/budge/media/__init__.py           create
+backend/src/budge/media/digest.py             create  digest_of, sniff, ACCEPTED_TYPES
+backend/src/budge/media/s3.py                 create  S3MediaStore
+backend/src/budge/api/schemas/media.py        create  UploadedMediaBody
+backend/src/budge/api/routes/media.py         create  POST /api/media, GET /api/media/{d}
+backend/src/budge/api/routes/library.py       modify  refuse a digest the store lacks
+backend/src/budge/api/app.py                  modify  wire the store, second health probe
+backend/src/budge/api/settings.py             modify  s3 settings, max_upload_bytes
+backend/src/budge/contracts/schema.py         modify  + UploadedMediaBody
 backend/tests/support/media.py                    create  InMemoryMediaStore
 backend/tests/media/                              create  digest, sniffing, the S3 store
 backend/tests/api/test_media_routes.py            create
@@ -66,9 +66,9 @@ frontend/src/shared/api/contracts.ts              regenerate
 The pure half: how a digest is computed, what byte sequences are acceptable, and the port everything else is written against. No I/O, no HTTP, no container.
 
 **Files:**
-- Modify: `backend/src/podvinsya/services/ports.py`
-- Create: `backend/src/podvinsya/media/__init__.py`
-- Create: `backend/src/podvinsya/media/digest.py`
+- Modify: `backend/src/budge/services/ports.py`
+- Create: `backend/src/budge/media/__init__.py`
+- Create: `backend/src/budge/media/digest.py`
 - Create: `backend/tests/support/media.py`
 - Test: `backend/tests/media/__init__.py`
 - Test: `backend/tests/media/test_digest.py`
@@ -213,8 +213,8 @@ def test_a_truncated_header_does_not_crash_the_sniffer() -> None:
 **Files:**
 - Modify: `backend/pyproject.toml`
 - Modify: `backend/compose.test.yaml`
-- Modify: `backend/src/podvinsya/api/settings.py`
-- Create: `backend/src/podvinsya/media/s3.py`
+- Modify: `backend/src/budge/api/settings.py`
+- Create: `backend/src/budge/media/s3.py`
 - Test: `backend/tests/media/conftest.py`
 - Test: `backend/tests/media/test_s3.py`
 
@@ -293,10 +293,10 @@ async def test_no_call_blocks_the_event_loop(...)
 ### Task 3: Upload and serve
 
 **Files:**
-- Create: `backend/src/podvinsya/api/schemas/media.py`
-- Create: `backend/src/podvinsya/api/routes/media.py`
-- Modify: `backend/src/podvinsya/api/app.py` (mount, wire the store)
-- Modify: `backend/src/podvinsya/contracts/schema.py`
+- Create: `backend/src/budge/api/schemas/media.py`
+- Create: `backend/src/budge/api/routes/media.py`
+- Modify: `backend/src/budge/api/app.py` (mount, wire the store)
+- Modify: `backend/src/budge/contracts/schema.py`
 - Test: `backend/tests/api/test_media_routes.py`
 - Regenerate: `frontend/src/shared/api/contracts.ts`
 
@@ -356,9 +356,9 @@ async def test_no_media_response_contains_a_url(...)
 ```
 
 - [ ] **Step 4:** Add `UploadedMediaBody` to `contracts/schema.py`, run
-  `podvinsya export-types`, commit the regenerated file.
+  `budge export-types`, commit the regenerated file.
 
-- [ ] **Step 5:** `pytest`, `mypy`, `ruff check`, `podvinsya export-types --check`,
+- [ ] **Step 5:** `pytest`, `mypy`, `ruff check`, `budge export-types --check`,
   commit `"Take a picture in, and hand it back by its address"`.
 
 ---
@@ -366,7 +366,7 @@ async def test_no_media_response_contains_a_url(...)
 ### Task 4: The library only names pictures that exist
 
 **Files:**
-- Modify: `backend/src/podvinsya/api/routes/library.py`
+- Modify: `backend/src/budge/api/routes/library.py`
 - Test: `backend/tests/api/test_library_routes.py` (extend)
 
 - [ ] **Step 1: Check the store before attaching**
@@ -405,7 +405,7 @@ async def test_an_unreachable_store_does_not_let_an_unchecked_digest_through(...
 ### Task 5: The second health probe, and the CI that runs against a real store
 
 **Files:**
-- Modify: `backend/src/podvinsya/api/app.py`
+- Modify: `backend/src/budge/api/app.py`
 - Modify: `.github/workflows/ci.yml`
 - Test: `backend/tests/api/test_app.py` (extend)
 - Test: `backend/tests/api/test_wiring.py` (extend)
@@ -447,7 +447,7 @@ cd backend
 .venv/bin/python -m ruff check
 .venv/bin/python -m mypy
 .venv/bin/python -m pytest -q
-.venv/bin/podvinsya export-types --check
+.venv/bin/budge export-types --check
 ```
 
 - [ ] **Step 5:** Commit `"Check the store the way §10 asks, and run CI against one"`.

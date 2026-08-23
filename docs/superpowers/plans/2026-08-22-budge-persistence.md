@@ -8,12 +8,12 @@
 
 **Tech Stack:** Python 3.12, SQLAlchemy 2.0 (async) + asyncpg, Alembic, Pydantic 2, PostgreSQL 16, pytest + pytest-asyncio + hypothesis.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md` — §5 is this plan's mandate; §3, §4 and §6 bound it.
+**Spec:** `docs/superpowers/specs/2026-08-22-budge-design.md` — §5 is this plan's mandate; §3, §4 and §6 bound it.
 
 ## Global Constraints
 
-- Python `>=3.12`. `mypy --strict` clean over `src/podvinsya` and `tests`; `ruff check` clean with `select = ["E4", "E7", "E9", "F", "E501"]` and `line-length = 100`.
-- Dependency direction is one-way: `db` may import `domain`; `domain` imports nothing outside itself. **No file under `src/podvinsya/domain/` is modified by this plan.**
+- Python `>=3.12`. `mypy --strict` clean over `src/budge` and `tests`; `ruff check` clean with `select = ["E4", "E7", "E9", "F", "E501"]` and `line-length = 100`.
+- Dependency direction is one-way: `db` may import `domain`; `domain` imports nothing outside itself. **No file under `src/budge/domain/` is modified by this plan.**
 - «Лог — единственный источник истины; состояние в памяти — выбрасываемый кэш.» (§5.1) The log is append-only: no code in this plan updates or deletes a `match_events` row.
 - «`operation_id` **всегда генерируется сервером**» (§5.1). This layer *accepts* one and never invents, defaults, or validates one — generation belongs to the runtime (plan 3).
 - «`schema_version` и апкастеры с самого начала» (§5.1).
@@ -41,23 +41,23 @@ Recorded here so no reviewer has to re-derive them.
 backend/pyproject.toml                              modify  deps, pytest config, mypy excludes
 backend/compose.test.yaml                           create  PostgreSQL for the integration suite
 backend/alembic.ini                                 create  no URL of its own — every caller supplies one
-backend/src/podvinsya/config.py                     create  Settings; database_url has no default
-backend/src/podvinsya/cli.py                        create  `podvinsya migrate`
-backend/src/podvinsya/db/__init__.py                create
-backend/src/podvinsya/db/base.py                    create  declarative Base
-backend/src/podvinsya/db/engine.py                  create  engine + sessionmaker factories
-backend/src/podvinsya/db/errors.py                  create  persistence-layer exceptions
-backend/src/podvinsya/db/models.py                  create  Match, MatchPlayer, MatchEventRow
-backend/src/podvinsya/db/codec/__init__.py          create  facade: encode, decode
-backend/src/podvinsya/db/codec/registry.py          create  frozen wire names + current versions
-backend/src/podvinsya/db/codec/codec.py             create  encode/decode + UTC normalisation
-backend/src/podvinsya/db/codec/upcasters.py         create  the version chain (empty at v1)
-backend/src/podvinsya/db/store.py                   create  UnitOfWork, TransactionContext, reconciliation
-backend/src/podvinsya/db/projection.py              create  read-model writes and rebuild
-backend/src/podvinsya/db/repository.py              create  MatchRepository: create, load
-backend/src/podvinsya/db/migrations/env.py          create
-backend/src/podvinsya/db/migrations/script.py.mako  create
-backend/src/podvinsya/db/migrations/versions/0001_initial.py  create
+backend/src/budge/config.py                     create  Settings; database_url has no default
+backend/src/budge/cli.py                        create  `budge migrate`
+backend/src/budge/db/__init__.py                create
+backend/src/budge/db/base.py                    create  declarative Base
+backend/src/budge/db/engine.py                  create  engine + sessionmaker factories
+backend/src/budge/db/errors.py                  create  persistence-layer exceptions
+backend/src/budge/db/models.py                  create  Match, MatchPlayer, MatchEventRow
+backend/src/budge/db/codec/__init__.py          create  facade: encode, decode
+backend/src/budge/db/codec/registry.py          create  frozen wire names + current versions
+backend/src/budge/db/codec/codec.py             create  encode/decode + UTC normalisation
+backend/src/budge/db/codec/upcasters.py         create  the version chain (empty at v1)
+backend/src/budge/db/store.py                   create  UnitOfWork, TransactionContext, reconciliation
+backend/src/budge/db/projection.py              create  read-model writes and rebuild
+backend/src/budge/db/repository.py              create  MatchRepository: create, load
+backend/src/budge/db/migrations/env.py          create
+backend/src/budge/db/migrations/script.py.mako  create
+backend/src/budge/db/migrations/versions/0001_initial.py  create
 backend/tests/support/__init__.py                   create
 backend/tests/support/streams.py                    create  legal event streams for every later test
 backend/tests/domain/conftest.py                    modify  import make_deal from tests.support
@@ -84,14 +84,14 @@ Nothing here persists an event yet. This task earns the right to talk to Postgre
 **Files:**
 - Modify: `backend/pyproject.toml`
 - Create: `backend/compose.test.yaml`
-- Create: `backend/src/podvinsya/config.py`
-- Create: `backend/src/podvinsya/db/__init__.py`, `backend/src/podvinsya/db/base.py`, `backend/src/podvinsya/db/engine.py`
+- Create: `backend/src/budge/config.py`
+- Create: `backend/src/budge/db/__init__.py`, `backend/src/budge/db/base.py`, `backend/src/budge/db/engine.py`
 - Create: `backend/tests/support/__init__.py`, `backend/tests/support/db.py`
 - Test: `backend/tests/db/conftest.py`, `backend/tests/db/test_connection.py`
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
-- Produces: `Settings` (`podvinsya.config`), `create_engine(url, *, echo=False) -> AsyncEngine`, `sessionmaker_for(engine) -> async_sessionmaker[AsyncSession]`, `engine_for(url)` async context manager, `Base` (`podvinsya.db.base`), and the pytest fixtures `engine`, `sessions`, `clean_db` for every later task.
+- Produces: `Settings` (`budge.config`), `create_engine(url, *, echo=False) -> AsyncEngine`, `sessionmaker_for(engine) -> async_sessionmaker[AsyncSession]`, `engine_for(url)` async context manager, `Base` (`budge.db.base`), and the pytest fixtures `engine`, `sessions`, `clean_db` for every later task.
 
 - [ ] **Step 1: Add dependencies and test configuration**
 
@@ -116,7 +116,7 @@ dev = [
 ]
 
 [project.scripts]
-podvinsya = "podvinsya.cli:main"
+budge = "budge.cli:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]
@@ -132,7 +132,7 @@ markers = [
 Under `[tool.mypy]`, add the generated-migration exclusion — `op.create_table(...)` call sequences cannot be usefully typed, and only the generated bodies are excluded, never `env.py`:
 
 ```toml
-exclude = ["src/podvinsya/db/migrations/versions/"]
+exclude = ["src/budge/db/migrations/versions/"]
 ```
 
 Install: `cd backend && .venv/bin/python -m pip install -e ".[dev]"` (or `uv pip install -e ".[dev]"` if the venv was made with uv).
@@ -146,9 +146,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: podvinsya
-      POSTGRES_PASSWORD: podvinsya
-      POSTGRES_DB: podvinsya_test
+      POSTGRES_USER: budge
+      POSTGRES_PASSWORD: budge
+      POSTGRES_DB: budge_test
     ports:
       - "5434:5432"
     # The test database is disposable by definition: keeping it in a tmpfs
@@ -157,7 +157,7 @@ services:
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U podvinsya -d podvinsya_test"]
+      test: ["CMD-SHELL", "pg_isready -U budge -d budge_test"]
       interval: 1s
       timeout: 3s
       retries: 30
@@ -196,7 +196,7 @@ async def test_the_session_factory_opens_a_usable_session(
 - [ ] **Step 4: Run it and watch it fail**
 
 Run: `cd backend && .venv/bin/python -m pytest tests/db -v`
-Expected: collection error — no `engine` fixture, no `podvinsya.db`.
+Expected: collection error — no `engine` fixture, no `budge.db`.
 
 - [ ] **Step 5: Write `config.py`**
 
@@ -208,11 +208,11 @@ class Settings(BaseSettings):
     """Runtime configuration, read from the environment.
 
     `database_url` deliberately has no default. An unset
-    `PODVINSYA_DATABASE_URL` must fail loudly at startup rather than
+    `BUDGE_DATABASE_URL` must fail loudly at startup rather than
     quietly pointing a production process at somebody's scratch database.
     """
 
-    model_config = SettingsConfigDict(env_prefix="PODVINSYA_")
+    model_config = SettingsConfigDict(env_prefix="BUDGE_")
 
     database_url: str
 ```
@@ -286,9 +286,9 @@ named the conftest's package.
 
 import os
 
-TEST_DATABASE_URL = "postgresql+asyncpg://podvinsya:podvinsya@127.0.0.1:5434/podvinsya_test"
+TEST_DATABASE_URL = "postgresql+asyncpg://budge:budge@127.0.0.1:5434/budge_test"
 
-DATABASE_URL = os.environ.get("PODVINSYA_TEST_DATABASE_URL", TEST_DATABASE_URL)
+DATABASE_URL = os.environ.get("BUDGE_TEST_DATABASE_URL", TEST_DATABASE_URL)
 ```
 
 - [ ] **Step 8: Write `tests/db/conftest.py`**
@@ -323,7 +323,7 @@ import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from podvinsya.db.engine import create_engine, sessionmaker_for
+from budge.db.engine import create_engine, sessionmaker_for
 from support.db import DATABASE_URL
 
 THIS_DIR = Path(__file__).parent
@@ -410,8 +410,8 @@ Run: `.venv/bin/mypy` then `.venv/bin/ruff check .` — both clean.
 - [ ] **Step 11: Commit**
 
 ```bash
-git add backend/pyproject.toml backend/compose.test.yaml backend/src/podvinsya/config.py \
-        backend/src/podvinsya/db backend/tests/db backend/tests/support
+git add backend/pyproject.toml backend/compose.test.yaml backend/src/budge/config.py \
+        backend/src/budge/db backend/tests/db backend/tests/support
 git commit -m "Open a seam to PostgreSQL for the integration suite"
 ```
 
@@ -420,15 +420,15 @@ git commit -m "Open a seam to PostgreSQL for the integration suite"
 ### Task 2: Schema, migrations, and the migrate command
 
 **Files:**
-- Create: `backend/src/podvinsya/db/models.py`
-- Create: `backend/alembic.ini`, `backend/src/podvinsya/db/migrations/env.py`, `backend/src/podvinsya/db/migrations/script.py.mako`, `backend/src/podvinsya/db/migrations/versions/0001_initial.py`
-- Create: `backend/src/podvinsya/cli.py`
+- Create: `backend/src/budge/db/models.py`
+- Create: `backend/alembic.ini`, `backend/src/budge/db/migrations/env.py`, `backend/src/budge/db/migrations/script.py.mako`, `backend/src/budge/db/migrations/versions/0001_initial.py`
+- Create: `backend/src/budge/cli.py`
 - Modify: `backend/tests/db/conftest.py` (add `migrated_schema`, `clean_db`), `backend/tests/support/db.py` (add `alembic_config`)
 - Test: `backend/tests/db/test_schema.py`, `backend/tests/db/test_migrations.py`
 
 **Interfaces:**
 - Consumes: `Base`, `create_engine`, `sessionmaker_for`, the `engine`/`sessions` fixtures.
-- Produces: ORM classes `Match`, `MatchPlayer`, `MatchEventRow` (module `podvinsya.db.models`); fixtures `migrated_schema` and `clean_db`; `podvinsya migrate` on the command line.
+- Produces: ORM classes `Match`, `MatchPlayer`, `MatchEventRow` (module `budge.db.models`); fixtures `migrated_schema` and `clean_db`; `budge migrate` on the command line.
 
 - [ ] **Step 1: Write the failing schema tests**
 
@@ -444,8 +444,8 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.models import Match, MatchEventRow, MatchPlayer
-from podvinsya.domain.state import MatchStatus
+from budge.db.models import Match, MatchEventRow, MatchPlayer
+from budge.domain.state import MatchStatus
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
@@ -637,7 +637,7 @@ async def test_downgrade_removes_the_schema_and_upgrade_restores_it(
 - [ ] **Step 3: Run both and watch them fail**
 
 Run: `cd backend && .venv/bin/python -m pytest tests/db -v`
-Expected: import errors — no `podvinsya.db.models`, no `alembic_config`.
+Expected: import errors — no `budge.db.models`, no `alembic_config`.
 
 - [ ] **Step 4: Write `db/models.py`**
 
@@ -676,8 +676,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from podvinsya.db.base import Base
-from podvinsya.domain.state import MatchStatus
+from budge.db.base import Base
+from budge.domain.state import MatchStatus
 
 _STATUSES = ", ".join(f"'{status.value}'" for status in MatchStatus)
 
@@ -759,7 +759,7 @@ class MatchEventRow(Base):
 
 ```ini
 [alembic]
-script_location = src/podvinsya/db/migrations
+script_location = src/budge/db/migrations
 prepend_sys_path = src
 file_template = %%(rev)s_%%(slug)s
 
@@ -797,7 +797,7 @@ formatter = generic
 format = %(levelname)-5.5s [%(name)s] %(message)s
 ```
 
-`src/podvinsya/db/migrations/env.py`:
+`src/budge/db/migrations/env.py`:
 
 ```python
 """Alembic environment. Hand-written and inside mypy's strict scope — only
@@ -809,13 +809,13 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy.engine import Connection
 
-from podvinsya.config import Settings
-from podvinsya.db.base import Base
-from podvinsya.db.engine import create_engine
+from budge.config import Settings
+from budge.db.base import Base
+from budge.db.engine import create_engine
 
 # Imported for the side effect of registering every table on Base.metadata,
 # which is what autogenerate and `alembic check` compare against.
-import podvinsya.db.models  # noqa: F401
+import budge.db.models  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
@@ -861,7 +861,7 @@ else:
     asyncio.run(_run_online())
 ```
 
-`src/podvinsya/db/migrations/script.py.mako`:
+`src/budge/db/migrations/script.py.mako`:
 
 ```mako
 """${message}
@@ -890,13 +890,13 @@ def downgrade() -> None:
     ${downgrades if downgrades else "pass"}
 ```
 
-Create the empty directory `src/podvinsya/db/migrations/versions/`.
+Create the empty directory `src/budge/db/migrations/versions/`.
 
 - [ ] **Step 6: Generate and review migration 0001**
 
 ```bash
 cd backend
-PODVINSYA_DATABASE_URL="postgresql+asyncpg://podvinsya:podvinsya@127.0.0.1:5434/podvinsya_test" \
+BUDGE_DATABASE_URL="postgresql+asyncpg://budge:budge@127.0.0.1:5434/budge_test" \
   .venv/bin/alembic revision --autogenerate -m "initial" --rev-id 0001
 ```
 
@@ -977,7 +977,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
-from podvinsya.config import Settings
+from budge.config import Settings
 
 ALEMBIC_INI = Path(__file__).resolve().parent.parent.parent / "alembic.ini"
 
@@ -989,7 +989,7 @@ def _config(url: str) -> Config:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="podvinsya")
+    parser = argparse.ArgumentParser(prog="budge")
     subcommands = parser.add_subparsers(dest="command", required=True)
     migrate = subcommands.add_parser("migrate", help="apply migrations up to a revision")
     migrate.add_argument("--revision", default="head")
@@ -1011,10 +1011,10 @@ Add to `tests/db/test_migrations.py`:
 async def test_the_migrate_command_brings_an_empty_database_to_head(
     migrated_schema: None, engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from podvinsya.cli import main
+    from budge.cli import main
 
     await asyncio.to_thread(command.downgrade, alembic_config(DATABASE_URL), "base")
-    monkeypatch.setenv("PODVINSYA_DATABASE_URL", DATABASE_URL)
+    monkeypatch.setenv("BUDGE_DATABASE_URL", DATABASE_URL)
     assert await asyncio.to_thread(main, ["migrate"]) == 0
     async with engine.connect() as connection:
         tables = await connection.run_sync(lambda sync: set(inspect(sync).get_table_names()))
@@ -1031,7 +1031,7 @@ Run: `.venv/bin/mypy` and `.venv/bin/ruff check .` — clean.
 - [ ] **Step 10: Commit**
 
 ```bash
-git add backend/alembic.ini backend/src/podvinsya backend/tests
+git add backend/alembic.ini backend/src/budge backend/tests
 git commit -m "Add the schema, its migration, and the migrate command"
 ```
 
@@ -1065,8 +1065,8 @@ keep passing while covering one type less.
 from collections import Counter
 from typing import get_args
 
-from podvinsya.domain.events import Event
-from podvinsya.domain.state import MatchStatus
+from budge.domain.events import Event
+from budge.domain.state import MatchStatus
 from support.streams import build_rich_stream
 
 
@@ -1191,7 +1191,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from podvinsya.domain.actions import (
+from budge.domain.actions import (
     AddPlayer,
     AssignSecret,
     Command,
@@ -1207,16 +1207,16 @@ from podvinsya.domain.actions import (
     StartMatch,
     UndoLastJudgement,
 )
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DealPlan, DealtCell, DecisionContext, JournalEntry
-from podvinsya.domain.decide import decide
-from podvinsya.domain.events import Event
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, GroupId, ImageId, MatchId, PlayerId
-from podvinsya.domain.rules import legal_targets
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchState, MatchStatus
+from budge.domain.board import BoardSize
+from budge.domain.context import DealPlan, DealtCell, DecisionContext, JournalEntry
+from budge.domain.decide import decide
+from budge.domain.events import Event
+from budge.domain.evolve import fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import CategoryId, GroupId, ImageId, MatchId, PlayerId
+from budge.domain.rules import legal_targets
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchState, MatchStatus
 
 BASE_TIME = datetime(2026, 8, 22, 12, 0, 0, tzinfo=UTC)
 COLOURS = ("#e5484d", "#3b82f6", "#22c55e", "#a855f7")
@@ -1419,11 +1419,11 @@ git commit -m "Record legal event streams for the persistence tests"
 ### Task 4: The wire-name registry
 
 **Files:**
-- Create: `backend/src/podvinsya/db/codec/__init__.py`, `backend/src/podvinsya/db/codec/registry.py`
+- Create: `backend/src/budge/db/codec/__init__.py`, `backend/src/budge/db/codec/registry.py`
 - Test: `backend/tests/codec/test_registry.py`
 
 **Interfaces:**
-- Consumes: `podvinsya.domain.events`.
+- Consumes: `budge.domain.events`.
 - Produces: `WIRE_NAMES: Mapping[type[Any], str]`, `CLASSES_BY_WIRE_NAME: Mapping[str, type[Any]]`, `CURRENT_VERSION: Mapping[str, int]`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1436,8 +1436,8 @@ injectivity — the two properties a hand-maintained table loses first."""
 
 from typing import get_args
 
-from podvinsya.db.codec.registry import CLASSES_BY_WIRE_NAME, CURRENT_VERSION, WIRE_NAMES
-from podvinsya.domain.events import Event
+from budge.db.codec.registry import CLASSES_BY_WIRE_NAME, CURRENT_VERSION, WIRE_NAMES
+from budge.domain.events import Event
 
 
 def test_every_event_in_the_union_has_a_wire_name() -> None:
@@ -1469,7 +1469,7 @@ def test_every_wire_name_starts_at_version_one() -> None:
 - [ ] **Step 2: Run it and watch it fail**
 
 Run: `cd backend && .venv/bin/python -m pytest tests/codec -v`
-Expected: `ModuleNotFoundError: No module named 'podvinsya.db.codec'`.
+Expected: `ModuleNotFoundError: No module named 'budge.db.codec'`.
 
 - [ ] **Step 3: Write `registry.py`**
 
@@ -1492,7 +1492,7 @@ every registered event is guaranteed an entry and none can be forgotten.
 from collections.abc import Mapping
 from typing import Any
 
-from podvinsya.domain.events import (
+from budge.domain.events import (
     AnswerAccepted,
     AttackDeclared,
     BoardDealt,
@@ -1542,7 +1542,7 @@ Run: `.venv/bin/python -m pytest tests/codec -v` — expected: 5 passed.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add backend/src/podvinsya/db/codec backend/tests/codec
+git add backend/src/budge/db/codec backend/tests/codec
 git commit -m "Freeze the event wire names"
 ```
 
@@ -1551,7 +1551,7 @@ git commit -m "Freeze the event wire names"
 ### Task 5: The codec's errors and the upcaster chain
 
 **Files:**
-- Create: `backend/src/podvinsya/db/errors.py`, `backend/src/podvinsya/db/codec/upcasters.py`
+- Create: `backend/src/budge/db/errors.py`, `backend/src/budge/db/codec/upcasters.py`
 - Test: `backend/tests/codec/test_upcasters.py`
 
 **Interfaces:**
@@ -1572,8 +1572,8 @@ from typing import Any
 
 import pytest
 
-from podvinsya.db.codec.upcasters import UPCASTERS, Upcaster, _compose, upcast_chain
-from podvinsya.db.errors import UnknownSchemaVersion
+from budge.db.codec.upcasters import UPCASTERS, Upcaster, _compose, upcast_chain
+from budge.db.errors import UnknownSchemaVersion
 
 
 def _rename(old: str, new: str) -> Upcaster:
@@ -1689,8 +1689,8 @@ it against them would prove nothing about the loop or either guard.
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from podvinsya.db.codec.registry import CURRENT_VERSION
-from podvinsya.db.errors import UnknownSchemaVersion
+from budge.db.codec.registry import CURRENT_VERSION
+from budge.db.errors import UnknownSchemaVersion
 
 Upcaster = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -1740,7 +1740,7 @@ Run: `.venv/bin/mypy` and `.venv/bin/ruff check .` — clean.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add backend/src/podvinsya/db/errors.py backend/src/podvinsya/db/codec/upcasters.py \
+git add backend/src/budge/db/errors.py backend/src/budge/db/codec/upcasters.py \
         backend/tests/codec/test_upcasters.py
 git commit -m "Let the log outlive a change to an event's shape"
 ```
@@ -1750,8 +1750,8 @@ git commit -m "Let the log outlive a change to an event's shape"
 ### Task 6: Encoding and decoding events
 
 **Files:**
-- Create: `backend/src/podvinsya/db/codec/codec.py`
-- Modify: `backend/src/podvinsya/db/codec/__init__.py`
+- Create: `backend/src/budge/db/codec/codec.py`
+- Modify: `backend/src/budge/db/codec/__init__.py`
 - Test: `backend/tests/codec/test_codec.py`, `backend/tests/codec/golden/rich_stream.json`
 
 **Interfaces:**
@@ -1779,11 +1779,11 @@ from typing import Any, get_args
 
 import pytest
 
-from podvinsya.db.codec import decode, encode, normalize_utc
-from podvinsya.db.codec.registry import CURRENT_VERSION, WIRE_NAMES
-from podvinsya.db.errors import NaiveDatetime, UnknownEventType, UnknownSchemaVersion
-from podvinsya.domain.board import Cell
-from podvinsya.domain.events import DuelResolved, DuelStarted, Event
+from budge.db.codec import decode, encode, normalize_utc
+from budge.db.codec.registry import CURRENT_VERSION, WIRE_NAMES
+from budge.db.errors import NaiveDatetime, UnknownEventType, UnknownSchemaVersion
+from budge.domain.board import Cell
+from budge.domain.events import DuelResolved, DuelStarted, Event
 from support.streams import build_rich_stream
 
 GOLDEN = Path(__file__).parent / "golden" / "rich_stream.json"
@@ -1916,7 +1916,7 @@ def test_the_codec_refuses_a_container_it_does_not_understand() -> None:
 - [ ] **Step 2: Run and watch it fail**
 
 Run: `cd backend && .venv/bin/python -m pytest tests/codec -v`
-Expected: import errors for `podvinsya.db.codec.decode` and `podvinsya.db.errors`.
+Expected: import errors for `budge.db.codec.decode` and `budge.db.errors`.
 
 - [ ] **Step 3: Write `codec/codec.py`**
 
@@ -1949,10 +1949,10 @@ from typing import Any, cast
 
 from pydantic import TypeAdapter
 
-from podvinsya.db.codec.registry import CLASSES_BY_WIRE_NAME, CURRENT_VERSION, WIRE_NAMES
-from podvinsya.db.codec.upcasters import upcast_chain
-from podvinsya.db.errors import NaiveDatetime, UnknownEventType
-from podvinsya.domain.events import Event
+from budge.db.codec.registry import CLASSES_BY_WIRE_NAME, CURRENT_VERSION, WIRE_NAMES
+from budge.db.codec.upcasters import upcast_chain
+from budge.db.errors import NaiveDatetime, UnknownEventType
+from budge.domain.events import Event
 
 # A manual dict rather than `functools.cache`: mypy strict rejects a
 # `type[X] | type[Y] | ...` argument against `functools`'s `Hashable`-typed
@@ -2042,7 +2042,7 @@ def decode(wire_type: str, schema_version: int, payload: Mapping[str, Any]) -> E
 `codec/__init__.py`:
 
 ```python
-from podvinsya.db.codec.codec import decode, encode, normalize_utc
+from budge.db.codec.codec import decode, encode, normalize_utc
 
 __all__ = ["decode", "encode", "normalize_utc"]
 ```
@@ -2054,7 +2054,7 @@ cd backend
 .venv/bin/python - <<'PY'
 import json, pathlib, sys
 sys.path[:0] = ["src", "tests"]
-from podvinsya.db.codec import encode
+from budge.db.codec import encode
 from support.streams import build_rich_stream
 
 rows = [
@@ -2078,7 +2078,7 @@ Run: `.venv/bin/mypy` and `.venv/bin/ruff check .` — clean.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add backend/src/podvinsya/db backend/tests/codec
+git add backend/src/budge/db backend/tests/codec
 git commit -m "Encode events to JSONB and back without losing a timezone"
 ```
 
@@ -2087,8 +2087,8 @@ git commit -m "Encode events to JSONB and back without losing a timezone"
 ### Task 7: Genesis and the optimistic append
 
 **Files:**
-- Create: `backend/src/podvinsya/db/store.py`, `backend/src/podvinsya/db/repository.py`
-- Modify: `backend/src/podvinsya/db/errors.py` (add `ConcurrentModification`), `backend/tests/support/db.py` (add the lock barrier)
+- Create: `backend/src/budge/db/store.py`, `backend/src/budge/db/repository.py`
+- Modify: `backend/src/budge/db/errors.py` (add `ConcurrentModification`), `backend/tests/support/db.py` (add the lock barrier)
 - Test: `backend/tests/db/test_store.py`
 
 **Interfaces:**
@@ -2115,12 +2115,12 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.errors import ConcurrentModification
-from podvinsya.db.models import Match, MatchEventRow
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.events import Event, MatchCreated
-from podvinsya.domain.ids import MatchId
+from budge.db.errors import ConcurrentModification
+from budge.db.models import Match, MatchEventRow
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.events import Event, MatchCreated
+from budge.domain.ids import MatchId
 from support.db import wait_until_a_backend_is_blocked_on
 from support.streams import build_rich_stream
 
@@ -2314,7 +2314,7 @@ async def wait_until_a_backend_is_blocked_on(
 - [ ] **Step 3: Run and watch it fail**
 
 Run: `cd backend && .venv/bin/python -m pytest tests/db/test_store.py -v`
-Expected: `ModuleNotFoundError: No module named 'podvinsya.db.store'`.
+Expected: `ModuleNotFoundError: No module named 'budge.db.store'`.
 
 - [ ] **Step 4: Add `ConcurrentModification` to `db/errors.py`**
 
@@ -2344,11 +2344,11 @@ from contextlib import asynccontextmanager
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.codec import encode
-from podvinsya.db.errors import ConcurrentModification
-from podvinsya.db.models import Match, MatchEventRow
-from podvinsya.domain.events import Event
-from podvinsya.domain.ids import MatchId
+from budge.db.codec import encode
+from budge.db.errors import ConcurrentModification
+from budge.db.models import Match, MatchEventRow
+from budge.domain.events import Event
+from budge.domain.ids import MatchId
 
 
 class TransactionContext:
@@ -2427,11 +2427,11 @@ transaction, and every later event goes through `TransactionContext.append`.
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.codec import encode
-from podvinsya.db.models import Match, MatchEventRow
-from podvinsya.domain.events import MatchCreated
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.state import MatchStatus
+from budge.db.codec import encode
+from budge.db.models import Match, MatchEventRow
+from budge.domain.events import MatchCreated
+from budge.domain.ids import MatchId
+from budge.domain.state import MatchStatus
 
 
 class MatchRepository:
@@ -2471,7 +2471,7 @@ Run: `.venv/bin/mypy` and `.venv/bin/ruff check .` — clean.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add backend/src/podvinsya/db backend/tests
+git add backend/src/budge/db backend/tests
 git commit -m "Append a command's events, or none of them"
 ```
 
@@ -2482,7 +2482,7 @@ git commit -m "Append a command's events, or none of them"
 §6.3: «Реконсиляция сравнивает **саму пачку**, а не факт её существования … Совпало — коммит прошёл … Любое расхождение — карантин, никаких „почти совпало“.»
 
 **Files:**
-- Modify: `backend/src/podvinsya/db/store.py`
+- Modify: `backend/src/budge/db/store.py`
 - Test: `backend/tests/db/test_reconciliation.py`
 
 **Interfaces:**
@@ -2500,10 +2500,10 @@ retry, a batch that landed is progress, and anything else is a quarantine."""
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import Reconciliation, UnitOfWork
-from podvinsya.domain.events import Event, MatchCreated
-from podvinsya.domain.ids import MatchId
+from budge.db.repository import MatchRepository
+from budge.db.store import Reconciliation, UnitOfWork
+from budge.domain.events import Event, MatchCreated
+from budge.domain.ids import MatchId
 from support.streams import build_rich_stream
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
@@ -2640,14 +2640,14 @@ On `UnitOfWork`:
         return Reconciliation.MATCHED
 ```
 
-Add the imports this needs: `from enum import StrEnum`, `from sqlalchemy import select, update`, `from podvinsya.db.codec.registry import WIRE_NAMES`.
+Add the imports this needs: `from enum import StrEnum`, `from sqlalchemy import select, update`, `from budge.db.codec.registry import WIRE_NAMES`.
 
 - [ ] **Step 4: Run, type-check, lint, commit**
 
 Run: `.venv/bin/python -m pytest tests/db -v`, `.venv/bin/mypy`, `.venv/bin/ruff check .`
 
 ```bash
-git add backend/src/podvinsya/db/store.py backend/tests/db/test_reconciliation.py
+git add backend/src/budge/db/store.py backend/tests/db/test_reconciliation.py
 git commit -m "Settle an ambiguous commit by comparing the batch itself"
 ```
 
@@ -2658,8 +2658,8 @@ git commit -m "Settle an ambiguous commit by comparing the batch itself"
 §5.2: «Проекционная таблица для списка партий в админке: идентификатор, статус, игроки, время создания, победитель. Не авторитетна, перестраивается из лога.»
 
 **Files:**
-- Create: `backend/src/podvinsya/db/projection.py`
-- Modify: `backend/src/podvinsya/db/store.py` (apply the projection inside `append`)
+- Create: `backend/src/budge/db/projection.py`
+- Modify: `backend/src/budge/db/store.py` (apply the projection inside `append`)
 - Test: `backend/tests/db/test_projection.py`
 
 **Interfaces:**
@@ -2681,13 +2681,13 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.models import Match, MatchPlayer
-from podvinsya.db.projection import rebuild
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.events import MatchCreated
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.state import MatchStatus
+from budge.db.models import Match, MatchPlayer
+from budge.db.projection import rebuild
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.events import MatchCreated
+from budge.domain.ids import MatchId
+from budge.domain.state import MatchStatus
 from support.streams import Recorded, build_rich_stream
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
@@ -2794,7 +2794,7 @@ async def test_the_projection_is_written_in_the_appending_transaction(
 
 - [ ] **Step 2: Run and watch it fail**
 
-Expected: `ModuleNotFoundError: No module named 'podvinsya.db.projection'`.
+Expected: `ModuleNotFoundError: No module named 'budge.db.projection'`.
 
 - [ ] **Step 3: Write `db/projection.py`**
 
@@ -2816,16 +2816,16 @@ from collections.abc import Iterable
 from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from podvinsya.db.models import Match, MatchPlayer
-from podvinsya.domain.events import (
+from budge.db.models import Match, MatchPlayer
+from budge.domain.events import (
     Event,
     MatchStarted,
     MatchWon,
     PlayerAdded,
     PlayerEliminated,
 )
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.state import MatchStatus
+from budge.domain.ids import MatchId
+from budge.domain.state import MatchStatus
 
 
 async def apply_events(
@@ -2891,14 +2891,14 @@ In `TransactionContext.append`, after the event rows are added and before the fl
         await apply_events(self.session, match_id, events)
 ```
 
-Add the import `from podvinsya.db.projection import apply_events`, and a note in `append`'s docstring: the read model is written here, inside the same transaction, because a projection updated after the commit can disagree with the log across a crash.
+Add the import `from budge.db.projection import apply_events`, and a note in `append`'s docstring: the read model is written here, inside the same transaction, because a projection updated after the commit can disagree with the log across a crash.
 
 - [ ] **Step 5: Run, type-check, lint, commit**
 
 Run: `.venv/bin/python -m pytest tests/db -v`, `.venv/bin/mypy`, `.venv/bin/ruff check .`
 
 ```bash
-git add backend/src/podvinsya/db backend/tests/db/test_projection.py
+git add backend/src/budge/db backend/tests/db/test_projection.py
 git commit -m "Maintain the admin read model in the appending transaction"
 ```
 
@@ -2907,7 +2907,7 @@ git commit -m "Maintain the admin read model in the appending transaction"
 ### Task 10: Loading a match back
 
 **Files:**
-- Modify: `backend/src/podvinsya/db/repository.py`, `backend/src/podvinsya/db/errors.py`
+- Modify: `backend/src/budge/db/repository.py`, `backend/src/budge/db/errors.py`
 - Test: `backend/tests/db/test_repository.py`
 
 **Interfaces:**
@@ -2928,12 +2928,12 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.errors import EventStreamCorrupt, MatchNotFound
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.events import Event, MatchCreated
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.state import DuelPhase
+from budge.db.errors import EventStreamCorrupt, MatchNotFound
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.events import Event, MatchCreated
+from budge.domain.ids import MatchId
+from budge.domain.state import DuelPhase
 from support.streams import Recorded, build_rich_stream
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
@@ -3130,7 +3130,7 @@ As a method on `MatchRepository`:
         return LoadedMatch(state=state, last_seq=state.seq)
 ```
 
-Add the imports: `from dataclasses import dataclass`, `from sqlalchemy import select`, `from podvinsya.db.codec import decode`, `from podvinsya.db.errors import EventStreamCorrupt, MatchNotFound`, `from podvinsya.domain.evolve import fold`, `from podvinsya.domain.genesis import create_initial_state`, `from podvinsya.domain.state import MatchState`.
+Add the imports: `from dataclasses import dataclass`, `from sqlalchemy import select`, `from budge.db.codec import decode`, `from budge.db.errors import EventStreamCorrupt, MatchNotFound`, `from budge.domain.evolve import fold`, `from budge.domain.genesis import create_initial_state`, `from budge.domain.state import MatchState`.
 
 - [ ] **Step 5: Run everything**
 
@@ -3140,7 +3140,7 @@ Run: `.venv/bin/mypy` and `.venv/bin/ruff check .` — clean.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add backend/src/podvinsya/db backend/tests/db/test_repository.py
+git add backend/src/budge/db backend/tests/db/test_repository.py
 git commit -m "Recover a match by folding its log"
 ```
 

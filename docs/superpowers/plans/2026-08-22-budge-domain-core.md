@@ -8,13 +8,13 @@
 
 **Tech Stack:** Python 3.12, `dataclasses` (frozen + slots), pytest, Hypothesis, ruff, mypy в строгом режиме. Ни одной зависимости от БД, сети или файловой системы.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md`
+**Spec:** `docs/superpowers/specs/2026-08-22-budge-design.md`
 
 ## Global Constraints
 
 - Python **3.12** или новее.
-- Пакет называется `podvinsya`, исходники живут в `backend/src/podvinsya/`, тесты в `backend/tests/`.
-- Этот план трогает **только** `backend/src/podvinsya/domain/` и `backend/tests/domain/`. Ни одного импорта из `sqlalchemy`, `fastapi`, `asyncio`, `random`, `datetime.now`, `time`. Нарушение ловится тестом в задаче 15.
+- Пакет называется `budge`, исходники живут в `backend/src/budge/`, тесты в `backend/tests/`.
+- Этот план трогает **только** `backend/src/budge/domain/` и `backend/tests/domain/`. Ни одного импорта из `sqlalchemy`, `fastapi`, `asyncio`, `random`, `datetime.now`, `time`. Нарушение ловится тестом в задаче 15.
 - Все доменные типы — `@dataclass(frozen=True, slots=True)`. Коллекции в состоянии — `tuple` или `frozenset`, никогда `list` или `dict`.
 - `decide` **чистая**: одинаковые `(state, command, ctx)` дают одинаковый результат.
 - `decide` бросает `Rejected(reason)` на нелегальную команду и возвращает `()` на команду, которая легальна, но ничего не меняет.
@@ -31,7 +31,7 @@
 ```
 backend/
   pyproject.toml                      конфигурация пакета, pytest, ruff, mypy
-  src/podvinsya/domain/
+  src/budge/domain/
     __init__.py                       публичный фасад домена
     ids.py                            NewType-идентификаторы
     board.py                          Cell, BoardSize, геометрия, смежность, связность
@@ -76,11 +76,11 @@ backend/
 
 **Files:**
 - Create: `backend/pyproject.toml`
-- Create: `backend/src/podvinsya/__init__.py`
-- Create: `backend/src/podvinsya/domain/__init__.py`
-- Create: `backend/src/podvinsya/domain/ids.py`
-- Create: `backend/src/podvinsya/domain/board.py`
-- Create: `backend/src/podvinsya/domain/errors.py`
+- Create: `backend/src/budge/__init__.py`
+- Create: `backend/src/budge/domain/__init__.py`
+- Create: `backend/src/budge/domain/ids.py`
+- Create: `backend/src/budge/domain/board.py`
+- Create: `backend/src/budge/domain/errors.py`
 - Test: `backend/tests/domain/test_board.py`
 
 **Interfaces:**
@@ -93,7 +93,7 @@ backend/
 
 ```toml
 [project]
-name = "podvinsya"
+name = "budge"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = []
@@ -106,7 +106,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/podvinsya"]
+packages = ["src/budge"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -115,7 +115,7 @@ testpaths = ["tests"]
 [tool.mypy]
 strict = true
 mypy_path = "src"
-packages = ["podvinsya"]
+packages = ["budge"]
 
 [tool.ruff]
 line-length = 100
@@ -127,7 +127,7 @@ select = ["E4", "E7", "E9", "F", "E501"]
 
 `E501` is selected deliberately. Ruff's default rule set omits it, so `line-length` alone configures only the formatter and `ruff check` never enforces it — a declared constraint that nothing checks. Adding it to the default four makes the stated limit real without pulling in isort, pyupgrade or bugbear, whose findings are a separate decision.
 
-Создать пустые `backend/src/podvinsya/__init__.py` и `backend/src/podvinsya/domain/__init__.py`.
+Создать пустые `backend/src/budge/__init__.py` и `backend/src/budge/domain/__init__.py`.
 
 - [ ] **Step 2: Написать падающий тест геометрии**
 
@@ -136,7 +136,7 @@ select = ["E4", "E7", "E9", "F", "E501"]
 ```python
 import pytest
 
-from podvinsya.domain.board import (
+from budge.domain.board import (
     BoardSize,
     Cell,
     groups_are_adjacent,
@@ -144,7 +144,7 @@ from podvinsya.domain.board import (
     orthogonal_neighbours,
     validate_board,
 )
-from podvinsya.domain.errors import Rejected, RejectionReason
+from budge.domain.errors import Rejected, RejectionReason
 
 
 def test_board_enumerates_every_cell() -> None:
@@ -216,11 +216,11 @@ def test_default_boards_are_valid(width: int, height: int, players: int) -> None
 - [ ] **Step 3: Убедиться, что тест падает**
 
 Run: `cd backend && python -m pytest tests/domain/test_board.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'podvinsya.domain.board'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'budge.domain.board'`
 
 - [ ] **Step 4: Написать реализацию**
 
-`backend/src/podvinsya/domain/ids.py`:
+`backend/src/budge/domain/ids.py`:
 
 ```python
 from typing import NewType
@@ -233,7 +233,7 @@ CategoryId = NewType("CategoryId", UUID)
 ImageId = NewType("ImageId", UUID)
 ```
 
-`backend/src/podvinsya/domain/errors.py`:
+`backend/src/budge/domain/errors.py`:
 
 ```python
 from enum import StrEnum
@@ -272,14 +272,14 @@ class Rejected(Exception):
         self.reason = reason
 ```
 
-`backend/src/podvinsya/domain/board.py`:
+`backend/src/budge/domain/board.py`:
 
 ```python
 from collections import deque
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from podvinsya.domain.errors import Rejected, RejectionReason
+from budge.domain.errors import Rejected, RejectionReason
 
 MAX_CELLS = 36
 MIN_SIDE = 3
@@ -363,7 +363,7 @@ Expected: PASS, mypy чисто.
 - [ ] **Step 6: Коммит**
 
 ```bash
-git add backend/pyproject.toml backend/src/podvinsya backend/tests/domain/test_board.py
+git add backend/pyproject.toml backend/src/budge backend/tests/domain/test_board.py
 git commit -m "feat(domain): board geometry, ids, rejection reasons"
 ```
 
@@ -372,10 +372,10 @@ git commit -m "feat(domain): board geometry, ids, rejection reasons"
 ### Task 2: Типы состояния, настройки, бюджеты, генезис
 
 **Files:**
-- Create: `backend/src/podvinsya/domain/settings.py`
-- Create: `backend/src/podvinsya/domain/budgets.py`
-- Create: `backend/src/podvinsya/domain/state.py`
-- Create: `backend/src/podvinsya/domain/genesis.py`
+- Create: `backend/src/budge/domain/settings.py`
+- Create: `backend/src/budge/domain/budgets.py`
+- Create: `backend/src/budge/domain/state.py`
+- Create: `backend/src/budge/domain/genesis.py`
 - Test: `backend/tests/domain/test_state.py`
 
 **Interfaces:**
@@ -389,12 +389,12 @@ git commit -m "feat(domain): board geometry, ids, rejection reasons"
 ```python
 from uuid import uuid4
 
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.budgets import Budgets
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import MatchId, PlayerId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchStatus
+from budge.domain.board import BoardSize
+from budge.domain.budgets import Budgets
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import MatchId, PlayerId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchStatus
 
 
 def test_default_settings_match_the_spec() -> None:
@@ -439,11 +439,11 @@ def test_genesis_produces_an_empty_setup_match() -> None:
 - [ ] **Step 2: Убедиться, что тест падает**
 
 Run: `cd backend && python -m pytest tests/domain/test_state.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'podvinsya.domain.settings'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'budge.domain.settings'`
 
 - [ ] **Step 3: Написать реализацию**
 
-`backend/src/podvinsya/domain/settings.py`:
+`backend/src/budge/domain/settings.py`:
 
 ```python
 from dataclasses import dataclass
@@ -468,13 +468,13 @@ class MatchSettings:
         return self.pass_penalty_seconds * 1000
 ```
 
-`backend/src/podvinsya/domain/budgets.py`:
+`backend/src/budge/domain/budgets.py`:
 
 ```python
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from podvinsya.domain.ids import PlayerId
+from budge.domain.ids import PlayerId
 
 
 @dataclass(frozen=True, slots=True)
@@ -513,7 +513,7 @@ class Budgets:
         return self.with_value(player, self.get(player) - amount_ms)
 ```
 
-`backend/src/podvinsya/domain/state.py`:
+`backend/src/budge/domain/state.py`:
 
 ```python
 from collections.abc import Mapping
@@ -521,10 +521,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
-from podvinsya.domain.board import BoardSize, Cell
-from podvinsya.domain.budgets import Budgets
-from podvinsya.domain.ids import CategoryId, GroupId, ImageId, MatchId, PlayerId
-from podvinsya.domain.settings import MatchSettings
+from budge.domain.board import BoardSize, Cell
+from budge.domain.budgets import Budgets
+from budge.domain.ids import CategoryId, GroupId, ImageId, MatchId, PlayerId
+from budge.domain.settings import MatchSettings
 
 
 class MatchStatus(StrEnum):
@@ -611,13 +611,13 @@ class MatchState:
         return tuple(p for p in self.players if not p.eliminated)
 ```
 
-`backend/src/podvinsya/domain/genesis.py`:
+`backend/src/budge/domain/genesis.py`:
 
 ```python
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchState, MatchStatus
+from budge.domain.board import BoardSize
+from budge.domain.ids import MatchId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchState, MatchStatus
 
 
 def create_initial_state(
@@ -645,7 +645,7 @@ Expected: PASS, mypy чисто.
 - [ ] **Step 5: Коммит**
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain/test_state.py
+git add backend/src/budge/domain backend/tests/domain/test_state.py
 git commit -m "feat(domain): state types, budgets value, genesis constructor"
 ```
 
@@ -654,11 +654,11 @@ git commit -m "feat(domain): state types, budgets value, genesis constructor"
 ### Task 3: Команды, события, контекст, диспетчеры
 
 **Files:**
-- Create: `backend/src/podvinsya/domain/actions.py`
-- Create: `backend/src/podvinsya/domain/events.py`
-- Create: `backend/src/podvinsya/domain/context.py`
-- Create: `backend/src/podvinsya/domain/decide.py`
-- Create: `backend/src/podvinsya/domain/evolve.py`
+- Create: `backend/src/budge/domain/actions.py`
+- Create: `backend/src/budge/domain/events.py`
+- Create: `backend/src/budge/domain/context.py`
+- Create: `backend/src/budge/domain/decide.py`
+- Create: `backend/src/budge/domain/evolve.py`
 - Test: `backend/tests/domain/test_dispatch.py`
 
 **Interfaces:**
@@ -677,16 +677,16 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import CreateMatch
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.events import MatchCreated
-from podvinsya.domain.evolve import evolve, fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchStatus
+from budge.domain.actions import CreateMatch
+from budge.domain.board import BoardSize
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.events import MatchCreated
+from budge.domain.evolve import evolve, fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import MatchId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchStatus
 
 NOW = datetime(2026, 8, 22, 12, 0, 0, tzinfo=UTC)
 
@@ -734,18 +734,18 @@ def test_unknown_event_is_a_type_error_not_a_silent_noop() -> None:
 - [ ] **Step 2: Убедиться, что тест падает**
 
 Run: `cd backend && python -m pytest tests/domain/test_dispatch.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'podvinsya.domain.actions'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'budge.domain.actions'`
 
 - [ ] **Step 3: Написать команды и события**
 
-`backend/src/podvinsya/domain/actions.py`:
+`backend/src/budge/domain/actions.py`:
 
 ```python
 from dataclasses import dataclass
 
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.ids import CategoryId, GroupId, PlayerId
-from podvinsya.domain.settings import MatchSettings
+from budge.domain.board import BoardSize
+from budge.domain.ids import CategoryId, GroupId, PlayerId
+from budge.domain.settings import MatchSettings
 
 
 @dataclass(frozen=True, slots=True)
@@ -836,17 +836,17 @@ Command = (
 )
 ```
 
-`backend/src/podvinsya/domain/events.py`:
+`backend/src/budge/domain/events.py`:
 
 ```python
 from dataclasses import dataclass
 from datetime import datetime
 
-from podvinsya.domain.board import BoardSize, Cell
-from podvinsya.domain.budgets import Budgets
-from podvinsya.domain.context import DealtCell
-from podvinsya.domain.ids import CategoryId, GroupId, ImageId, PlayerId
-from podvinsya.domain.settings import MatchSettings
+from budge.domain.board import BoardSize, Cell
+from budge.domain.budgets import Budgets
+from budge.domain.context import DealtCell
+from budge.domain.ids import CategoryId, GroupId, ImageId, PlayerId
+from budge.domain.settings import MatchSettings
 
 
 @dataclass(frozen=True, slots=True)
@@ -971,14 +971,14 @@ Event = (
 )
 ```
 
-`backend/src/podvinsya/domain/context.py`:
+`backend/src/budge/domain/context.py`:
 
 ```python
 from dataclasses import dataclass
 from datetime import datetime
 
-from podvinsya.domain.board import Cell
-from podvinsya.domain.ids import CategoryId, GroupId, ImageId, PlayerId
+from budge.domain.board import Cell
+from budge.domain.ids import CategoryId, GroupId, ImageId, PlayerId
 
 
 @dataclass(frozen=True, slots=True)
@@ -1011,15 +1011,15 @@ class DecisionContext:
 
 - [ ] **Step 4: Написать диспетчеры**
 
-`backend/src/podvinsya/domain/decide.py`:
+`backend/src/budge/domain/decide.py`:
 
 ```python
-from podvinsya.domain.actions import Command, CreateMatch
-from podvinsya.domain.board import validate_board
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.events import Event, MatchCreated
-from podvinsya.domain.state import MatchState, MatchStatus
+from budge.domain.actions import Command, CreateMatch
+from budge.domain.board import validate_board
+from budge.domain.context import DecisionContext
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.events import Event, MatchCreated
+from budge.domain.state import MatchState, MatchStatus
 
 
 def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[Event, ...]:
@@ -1043,14 +1043,14 @@ def _create_match(state: MatchState, command: CreateMatch) -> tuple[Event, ...]:
     )
 ```
 
-`backend/src/podvinsya/domain/evolve.py`:
+`backend/src/budge/domain/evolve.py`:
 
 ```python
 from collections.abc import Iterable
 from dataclasses import replace
 
-from podvinsya.domain.events import Event, MatchCreated
-from podvinsya.domain.state import MatchState
+from budge.domain.events import Event, MatchCreated
+from budge.domain.state import MatchState
 
 
 def evolve(state: MatchState, event: Event) -> MatchState:
@@ -1083,7 +1083,7 @@ Expected: PASS, mypy чисто.
 - [ ] **Step 6: Коммит**
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain/test_dispatch.py
+git add backend/src/budge/domain backend/tests/domain/test_dispatch.py
 git commit -m "feat(domain): commands, events, decision context, decide/evolve dispatchers"
 ```
 
@@ -1092,8 +1092,8 @@ git commit -m "feat(domain): commands, events, decision context, decide/evolve d
 ### Task 4: Игроки и секреты
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/decide.py`
-- Modify: `backend/src/podvinsya/domain/evolve.py`
+- Modify: `backend/src/budge/domain/decide.py`
+- Modify: `backend/src/budge/domain/evolve.py`
 - Create: `backend/tests/domain/conftest.py`
 - Test: `backend/tests/domain/test_setup.py`
 
@@ -1111,15 +1111,15 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import AddPlayer, AssignSecret, Command, CreateMatch
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, MatchId, PlayerId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchState
+from budge.domain.actions import AddPlayer, AssignSecret, Command, CreateMatch
+from budge.domain.board import BoardSize
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.evolve import fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import CategoryId, MatchId, PlayerId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchState
 
 BASE_TIME = datetime(2026, 8, 22, 12, 0, 0, tzinfo=UTC)
 COLOURS = ("#e5484d", "#3b82f6", "#22c55e", "#a855f7")
@@ -1178,12 +1178,12 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import AddPlayer, AssignSecret
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.ids import CategoryId, PlayerId
-from podvinsya.domain.state import MatchState
+from budge.domain.actions import AddPlayer, AssignSecret
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.ids import CategoryId, PlayerId
+from budge.domain.state import MatchState
 
 from .conftest import BASE_TIME, apply, build_setup_state
 
@@ -1344,7 +1344,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): add players and assign secrets"
 ```
 
@@ -1353,8 +1353,8 @@ git commit -m "feat(domain): add players and assign secrets"
 ### Task 5: Раздача и перераздача
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/decide.py`
-- Modify: `backend/src/podvinsya/domain/evolve.py`
+- Modify: `backend/src/budge/domain/decide.py`
+- Modify: `backend/src/budge/domain/evolve.py`
 - Modify: `backend/tests/domain/conftest.py`
 - Test: `backend/tests/domain/test_deal.py`
 
@@ -1371,9 +1371,9 @@ git commit -m "feat(domain): add players and assign secrets"
 ```python
 from collections import Counter
 
-from podvinsya.domain.actions import DealBoard
-from podvinsya.domain.context import DealPlan, DealtCell
-from podvinsya.domain.ids import GroupId
+from budge.domain.actions import DealBoard
+from budge.domain.context import DealPlan, DealtCell
+from budge.domain.ids import GroupId
 
 
 def make_deal(
@@ -1438,10 +1438,10 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import DealBoard
-from podvinsya.domain.context import DealPlan, DealtCell
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.ids import GroupId
+from budge.domain.actions import DealBoard
+from budge.domain.context import DealPlan, DealtCell
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.ids import GroupId
 
 from .conftest import apply, build_dealt_state, build_setup_state, make_deal
 
@@ -1555,11 +1555,11 @@ def test_deal_with_a_secret_on_the_wrong_owner_is_rejected() -> None:
 
 
 def test_deal_before_every_secret_is_assigned_is_rejected() -> None:
-    from podvinsya.domain.actions import AddPlayer, CreateMatch
-    from podvinsya.domain.board import BoardSize
-    from podvinsya.domain.genesis import create_initial_state
-    from podvinsya.domain.ids import MatchId, PlayerId
-    from podvinsya.domain.settings import MatchSettings
+    from budge.domain.actions import AddPlayer, CreateMatch
+    from budge.domain.board import BoardSize
+    from budge.domain.genesis import create_initial_state
+    from budge.domain.ids import MatchId, PlayerId
+    from budge.domain.settings import MatchSettings
 
     board = BoardSize(4, 6)
     state = create_initial_state(MatchId(uuid4()), board, MatchSettings())
@@ -1658,7 +1658,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): validated board deal and redeal"
 ```
 
@@ -1667,9 +1667,9 @@ git commit -m "feat(domain): validated board deal and redeal"
 ### Task 6: Старт партии и порядок хода
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/decide.py`
-- Modify: `backend/src/podvinsya/domain/evolve.py`
-- Create: `backend/src/podvinsya/domain/rules.py`
+- Modify: `backend/src/budge/domain/decide.py`
+- Modify: `backend/src/budge/domain/evolve.py`
+- Create: `backend/src/budge/domain/rules.py`
 - Modify: `backend/tests/domain/conftest.py`
 - Test: `backend/tests/domain/test_start.py`
 
@@ -1686,10 +1686,10 @@ from dataclasses import replace
 
 import pytest
 
-from podvinsya.domain.actions import StartMatch
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.rules import next_turn
-from podvinsya.domain.state import MatchStatus
+from budge.domain.actions import StartMatch
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.rules import next_turn
+from budge.domain.state import MatchStatus
 
 from .conftest import apply, build_dealt_state, build_setup_state
 
@@ -1761,14 +1761,14 @@ def test_next_turn_falls_back_when_every_player_is_eliminated() -> None:
 - [ ] **Step 2: Убедиться, что тест падает**
 
 Run: `cd backend && python -m pytest tests/domain/test_start.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'podvinsya.domain.rules'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'budge.domain.rules'`
 
 - [ ] **Step 3: Написать rules.next_turn**
 
-`backend/src/podvinsya/domain/rules.py`:
+`backend/src/budge/domain/rules.py`:
 
 ```python
-from podvinsya.domain.state import MatchState
+from budge.domain.state import MatchState
 
 
 def next_turn(state: MatchState) -> tuple[int, int]:
@@ -1823,7 +1823,7 @@ def _start_match(state: MatchState) -> tuple[Event, ...]:
 - [ ] **Step 5: Дописать построитель в conftest**
 
 ```python
-from podvinsya.domain.actions import StartMatch
+from budge.domain.actions import StartMatch
 
 
 def build_running_state(player_count: int = 4) -> tuple[MatchState, tuple[PlayerId, ...]]:
@@ -1842,7 +1842,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): start match, fixed turn order, elimination-aware rotation"
 ```
 
@@ -1851,7 +1851,7 @@ git commit -m "feat(domain): start match, fixed turn order, elimination-aware ro
 ### Task 7: Бонус времени и легальные цели
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/rules.py`
+- Modify: `backend/src/budge/domain/rules.py`
 - Test: `backend/tests/domain/test_rules.py`
 
 **Interfaces:**
@@ -1866,16 +1866,16 @@ git commit -m "feat(domain): start match, fixed turn order, elimination-aware ro
 from dataclasses import replace
 from uuid import uuid4
 
-from podvinsya.domain.board import Cell
-from podvinsya.domain.ids import CategoryId, GroupId, PlayerId
-from podvinsya.domain.rules import (
+from budge.domain.board import Cell
+from budge.domain.ids import CategoryId, GroupId, PlayerId
+from budge.domain.rules import (
     group_containing,
     legal_targets,
     starting_budget_ms,
     time_bonus_ms,
 )
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import Group
+from budge.domain.settings import MatchSettings
+from budge.domain.state import Group
 
 from .conftest import build_running_state
 
@@ -1951,10 +1951,10 @@ Expected: FAIL — `ImportError: cannot import name 'time_bonus_ms'`
 - [ ] **Step 3: Дописать rules.py**
 
 ```python
-from podvinsya.domain.board import Cell, groups_are_adjacent
-from podvinsya.domain.ids import GroupId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import Group, MatchState
+from budge.domain.board import Cell, groups_are_adjacent
+from budge.domain.ids import GroupId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import Group, MatchState
 
 
 def time_bonus_ms(group: Group, settings: MatchSettings) -> int:
@@ -1989,7 +1989,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain/rules.py backend/tests/domain/test_rules.py
+git add backend/src/budge/domain/rules.py backend/tests/domain/test_rules.py
 git commit -m "feat(domain): time bonus from the duelling group, legal attack targets"
 ```
 
@@ -1998,8 +1998,8 @@ git commit -m "feat(domain): time bonus from the duelling group, legal attack ta
 ### Task 8: Объявление атаки
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/decide.py`
-- Modify: `backend/src/podvinsya/domain/evolve.py`
+- Modify: `backend/src/budge/domain/decide.py`
+- Modify: `backend/src/budge/domain/evolve.py`
 - Modify: `backend/tests/domain/conftest.py`
 - Test: `backend/tests/domain/test_declare.py`
 
@@ -2012,9 +2012,9 @@ git commit -m "feat(domain): time bonus from the duelling group, legal attack ta
 - [ ] **Step 1: Дописать построитель в conftest**
 
 ```python
-from podvinsya.domain.actions import DeclareAttack
-from podvinsya.domain.ids import ImageId
-from podvinsya.domain.rules import legal_targets
+from budge.domain.actions import DeclareAttack
+from budge.domain.ids import ImageId
+from budge.domain.rules import legal_targets
 
 IMAGE_POOL: tuple[ImageId, ...] = tuple(ImageId(uuid4()) for _ in range(40))
 
@@ -2049,11 +2049,11 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import DeclareAttack
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.ids import GroupId
-from podvinsya.domain.rules import legal_targets, starting_budget_ms
-from podvinsya.domain.state import DuelPhase
+from budge.domain.actions import DeclareAttack
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.ids import GroupId
+from budge.domain.rules import legal_targets, starting_budget_ms
+from budge.domain.state import DuelPhase
 
 from .conftest import IMAGE_POOL, apply, build_declared_state, build_running_state
 
@@ -2197,7 +2197,7 @@ def test_attacking_your_own_group_is_rejected() -> None:
 
 
 def test_attacking_a_non_adjacent_group_is_rejected() -> None:
-    from podvinsya.domain.board import groups_are_adjacent
+    from budge.domain.board import groups_are_adjacent
 
     state, _ = build_running_state(4)
     attacker_id = state.current_player()
@@ -2330,7 +2330,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): declare attack, reveal defender category, draw image order"
 ```
 
@@ -2339,9 +2339,9 @@ git commit -m "feat(domain): declare attack, reveal defender category, draw imag
 ### Task 9: Старт дуэли, якорь, дедлайн
 
 **Files:**
-- Create: `backend/src/podvinsya/domain/timing.py`
-- Modify: `backend/src/podvinsya/domain/decide.py`
-- Modify: `backend/src/podvinsya/domain/evolve.py`
+- Create: `backend/src/budge/domain/timing.py`
+- Modify: `backend/src/budge/domain/decide.py`
+- Modify: `backend/src/budge/domain/evolve.py`
 - Modify: `backend/tests/domain/conftest.py`
 - Test: `backend/tests/domain/test_duel_start.py`
 
@@ -2358,10 +2358,10 @@ from datetime import timedelta
 
 import pytest
 
-from podvinsya.domain.actions import StartDuel
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.state import DuelPhase
-from podvinsya.domain.timing import deadline_of, elapsed_ms, is_expired
+from budge.domain.actions import StartDuel
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.state import DuelPhase
+from budge.domain.timing import deadline_of, elapsed_ms, is_expired
 
 from .conftest import BASE_TIME, apply, at, build_declared_state, build_duel_state
 
@@ -2428,14 +2428,14 @@ def test_starting_a_duel_without_declaring_is_rejected() -> None:
 - [ ] **Step 2: Убедиться, что тест падает**
 
 Run: `cd backend && python -m pytest tests/domain/test_duel_start.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'podvinsya.domain.timing'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'budge.domain.timing'`
 
 - [ ] **Step 3: Написать timing.py**
 
 ```python
 from datetime import datetime, timedelta
 
-from podvinsya.domain.state import Duel
+from budge.domain.state import Duel
 
 
 def elapsed_ms(anchor: datetime | None, now: datetime, remaining_ms: int) -> int:
@@ -2510,7 +2510,7 @@ def _duel(state: MatchState) -> Duel:
 - [ ] **Step 5: Дописать построитель в conftest**
 
 ```python
-from podvinsya.domain.actions import StartDuel
+from budge.domain.actions import StartDuel
 
 
 def build_duel_state() -> tuple[MatchState, tuple[PlayerId, ...], GroupId, GroupId]:
@@ -2529,7 +2529,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): start duel, anchor-based deadline, clamped elapsed time"
 ```
 
@@ -2538,8 +2538,8 @@ git commit -m "feat(domain): start duel, anchor-based deadline, clamped elapsed 
 ### Task 10: «Верно»
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/decide.py`
-- Modify: `backend/src/podvinsya/domain/evolve.py`
+- Modify: `backend/src/budge/domain/decide.py`
+- Modify: `backend/src/budge/domain/evolve.py`
 - Test: `backend/tests/domain/test_judge_correct.py`
 
 **Interfaces:**
@@ -2553,8 +2553,8 @@ git commit -m "feat(domain): start duel, anchor-based deadline, clamped elapsed 
 ```python
 import pytest
 
-from podvinsya.domain.actions import JudgeCorrect
-from podvinsya.domain.errors import Rejected, RejectionReason
+from budge.domain.actions import JudgeCorrect
+from budge.domain.errors import Rejected, RejectionReason
 
 from .conftest import BASE_TIME, apply, at, build_declared_state, build_duel_state
 
@@ -2693,7 +2693,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): judge correct — charge answerer, pass turn, advance image"
 ```
 
@@ -2702,8 +2702,8 @@ git commit -m "feat(domain): judge correct — charge answerer, pass turn, advan
 ### Task 11: «Пас» в ноль и исход дуэли
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/decide.py`
-- Modify: `backend/src/podvinsya/domain/evolve.py`
+- Modify: `backend/src/budge/domain/decide.py`
+- Modify: `backend/src/budge/domain/evolve.py`
 - Test: `backend/tests/domain/test_judge_pass.py`
 
 **Interfaces:**
@@ -2725,8 +2725,8 @@ git commit -m "feat(domain): judge correct — charge answerer, pass turn, advan
 ```python
 from dataclasses import replace
 
-from podvinsya.domain.actions import JudgePass
-from podvinsya.domain.budgets import Budgets
+from budge.domain.actions import JudgePass
+from budge.domain.budgets import Budgets
 
 from .conftest import apply, at, build_duel_state
 
@@ -2878,7 +2878,7 @@ def _resolve(state: MatchState, duel: Duel, loser: PlayerId) -> tuple[Event, ...
             evolved = replace(after, turn_index=turn_index, round_no=round_no)
 ```
 
-Импортировать `next_turn` из `podvinsya.domain.rules` в `evolve.py`.
+Импортировать `next_turn` из `budge.domain.rules` в `evolve.py`.
 
 `Budgets.with_value` уже клампит в ноль, поэтому уход ниже нуля невозможен по построению.
 
@@ -2888,7 +2888,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): judge pass with penalty, immediate loss at zero, duel resolution and group merge"
 ```
 
@@ -2897,8 +2897,8 @@ git commit -m "feat(domain): judge pass with penalty, immediate loss at zero, du
 ### Task 12: Пауза и снятие с паузы
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/decide.py`
-- Modify: `backend/src/podvinsya/domain/evolve.py`
+- Modify: `backend/src/budge/domain/decide.py`
+- Modify: `backend/src/budge/domain/evolve.py`
 - Test: `backend/tests/domain/test_pause.py`
 
 **Interfaces:**
@@ -2912,9 +2912,9 @@ git commit -m "feat(domain): judge pass with penalty, immediate loss at zero, du
 ```python
 import pytest
 
-from podvinsya.domain.actions import JudgeCorrect, PauseDuel, ResumeDuel
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.timing import deadline_of
+from budge.domain.actions import JudgeCorrect, PauseDuel, ResumeDuel
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.timing import deadline_of
 
 from .conftest import apply, at, build_duel_state
 
@@ -3038,7 +3038,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): pause and resume, paused time is never charged"
 ```
 
@@ -3047,7 +3047,7 @@ git commit -m "feat(domain): pause and resume, paused time is never charged"
 ### Task 13: Истечение таймера и авторитет часов
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/decide.py`
+- Modify: `backend/src/budge/domain/decide.py`
 - Test: `backend/tests/domain/test_resolution.py`
 
 **Interfaces:**
@@ -3063,11 +3063,11 @@ git commit -m "feat(domain): pause and resume, paused time is never charged"
 ```python
 from dataclasses import replace
 
-from podvinsya.domain.actions import ExpireTimer, JudgeCorrect, JudgePass, PauseDuel
-from podvinsya.domain.board import is_connected
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.events import DuelResolved, PassUsed
+from budge.domain.actions import ExpireTimer, JudgeCorrect, JudgePass, PauseDuel
+from budge.domain.board import is_connected
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.events import DuelResolved, PassUsed
 
 from .conftest import apply, at, build_declared_state, build_duel_state
 
@@ -3169,8 +3169,8 @@ def test_a_judging_command_arriving_after_the_deadline_resolves_as_expiry() -> N
 
 def test_expire_timer_without_a_duel_is_ignored() -> None:
     from .conftest import build_running_state
-    from podvinsya.domain.context import DecisionContext
-    from podvinsya.domain.decide import decide
+    from budge.domain.context import DecisionContext
+    from budge.domain.decide import decide
     from .conftest import BASE_TIME
 
     state, _ = build_running_state(4)
@@ -3265,7 +3265,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): expire timer, clock authority over late judging commands"
 ```
 
@@ -3274,8 +3274,8 @@ git commit -m "feat(domain): expire timer, clock authority over late judging com
 ### Task 14: Выбывание и победа
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/decide.py`
-- Modify: `backend/src/podvinsya/domain/evolve.py`
+- Modify: `backend/src/budge/domain/decide.py`
+- Modify: `backend/src/budge/domain/evolve.py`
 - Test: `backend/tests/domain/test_elimination.py`
 
 **Interfaces:**
@@ -3289,8 +3289,8 @@ git commit -m "feat(domain): expire timer, clock authority over late judging com
 ```python
 from dataclasses import replace
 
-from podvinsya.domain.actions import ExpireTimer
-from podvinsya.domain.state import MatchStatus
+from budge.domain.actions import ExpireTimer
+from budge.domain.state import MatchStatus
 
 from .conftest import apply, at, build_duel_state
 
@@ -3374,8 +3374,8 @@ def test_the_last_player_standing_wins_and_the_match_finishes() -> None:
 def test_a_finished_match_refuses_further_attacks() -> None:
     import pytest
 
-    from podvinsya.domain.actions import DeclareAttack
-    from podvinsya.domain.errors import Rejected, RejectionReason
+    from budge.domain.actions import DeclareAttack
+    from budge.domain.errors import Rejected, RejectionReason
 
     state, players, attacking, defending = build_duel_state()
     duel = state.duel
@@ -3468,7 +3468,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): elimination on losing the last group, victory for the last player standing"
 ```
 
@@ -3477,9 +3477,9 @@ git commit -m "feat(domain): elimination on losing the last group, victory for t
 ### Task 15: Отмена судейского решения
 
 **Files:**
-- Modify: `backend/src/podvinsya/domain/decide.py`
-- Modify: `backend/src/podvinsya/domain/evolve.py`
-- Modify: `backend/src/podvinsya/domain/context.py`
+- Modify: `backend/src/budge/domain/decide.py`
+- Modify: `backend/src/budge/domain/evolve.py`
+- Modify: `backend/src/budge/domain/context.py`
 - Test: `backend/tests/domain/test_undo.py`
 
 **Interfaces:**
@@ -3495,9 +3495,9 @@ git commit -m "feat(domain): elimination on losing the last group, victory for t
 ```python
 import pytest
 
-from podvinsya.domain.actions import JudgeCorrect, JudgePass, UndoLastJudgement
-from podvinsya.domain.context import JournalEntry
-from podvinsya.domain.errors import Rejected, RejectionReason
+from budge.domain.actions import JudgeCorrect, JudgePass, UndoLastJudgement
+from budge.domain.context import JournalEntry
+from budge.domain.errors import Rejected, RejectionReason
 
 from .conftest import apply, at, build_duel_state
 
@@ -3604,7 +3604,7 @@ Expected: FAIL — `ImportError: cannot import name 'JournalEntry'`
 В `context.py`:
 
 ```python
-from podvinsya.domain.budgets import Budgets
+from budge.domain.budgets import Budgets
 
 
 @dataclass(frozen=True, slots=True)
@@ -3680,7 +3680,7 @@ Run: `cd backend && python -m pytest tests/domain -v && python -m mypy`
 Expected: PASS
 
 ```bash
-git add backend/src/podvinsya/domain backend/tests/domain
+git add backend/src/budge/domain backend/tests/domain
 git commit -m "feat(domain): undo the last judgement via a compensating event"
 ```
 
@@ -3689,13 +3689,13 @@ git commit -m "feat(domain): undo the last judgement via a compensating event"
 ### Task 16: Инварианты, завершаемость, чистота
 
 **Files:**
-- Create: `backend/src/podvinsya/domain/__init__.py` — переписать как публичный фасад
+- Create: `backend/src/budge/domain/__init__.py` — переписать как публичный фасад
 - Test: `backend/tests/domain/test_invariants.py`
 - Test: `backend/tests/domain/test_purity.py`
 
 **Interfaces:**
 - Consumes: весь домен.
-- Produces: `podvinsya.domain.check_invariants(state: MatchState) -> None` — бросает `AssertionError` с внятным сообщением; фасадные реэкспорты `decide`, `evolve`, `fold`, `create_initial_state`, `Rejected`, `RejectionReason`.
+- Produces: `budge.domain.check_invariants(state: MatchState) -> None` — бросает `AssertionError` с внятным сообщением; фасадные реэкспорты `decide`, `evolve`, `fold`, `create_initial_state`, `Rejected`, `RejectionReason`.
 
 Это задача, ради которой существовал весь план: три инварианта спеки §2.8 и вытекающая из них завершаемость проверяются не примерами, а на случайных легальных партиях.
 
@@ -3708,13 +3708,13 @@ import random
 
 import pytest
 
-from podvinsya.domain import check_invariants
-from podvinsya.domain.actions import DeclareAttack, JudgeCorrect, StartDuel
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.rules import legal_targets
-from podvinsya.domain.state import MatchState, MatchStatus
+from budge.domain import check_invariants
+from budge.domain.actions import DeclareAttack, JudgeCorrect, StartDuel
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.evolve import fold
+from budge.domain.rules import legal_targets
+from budge.domain.state import MatchState, MatchStatus
 
 from .conftest import IMAGE_POOL, BASE_TIME, at, build_running_state
 
@@ -3821,15 +3821,15 @@ Expected: FAIL — `ImportError: cannot import name 'check_invariants'`
 
 - [ ] **Step 3: Написать фасад с check_invariants**
 
-`backend/src/podvinsya/domain/__init__.py`:
+`backend/src/budge/domain/__init__.py`:
 
 ```python
-from podvinsya.domain.board import is_connected
-from podvinsya.domain.decide import decide
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.evolve import evolve, fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.state import MatchState, MatchStatus
+from budge.domain.board import is_connected
+from budge.domain.decide import decide
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.evolve import evolve, fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.state import MatchState, MatchStatus
 
 __all__ = [
     "Rejected",
@@ -3877,7 +3877,7 @@ import pathlib
 
 import pytest
 
-DOMAIN = pathlib.Path(__file__).resolve().parents[2] / "src" / "podvinsya" / "domain"
+DOMAIN = pathlib.Path(__file__).resolve().parents[2] / "src" / "budge" / "domain"
 FORBIDDEN_MODULES = {
     "asyncio", "random", "secrets", "time", "os", "socket", "pathlib",
     "sqlalchemy", "fastapi", "httpx", "requests",
@@ -3910,10 +3910,10 @@ def test_domain_never_reads_a_clock(path: pathlib.Path) -> None:
 
 
 def test_decide_is_deterministic_for_the_same_inputs() -> None:
-    from podvinsya.domain.actions import DeclareAttack
-    from podvinsya.domain.context import DecisionContext
-    from podvinsya.domain.decide import decide
-    from podvinsya.domain.rules import legal_targets
+    from budge.domain.actions import DeclareAttack
+    from budge.domain.context import DecisionContext
+    from budge.domain.decide import decide
+    from budge.domain.rules import legal_targets
 
     from .conftest import IMAGE_POOL, BASE_TIME, build_running_state
 
@@ -3937,7 +3937,7 @@ Expected: PASS, mypy и ruff чисто.
 - [ ] **Step 6: Коммит**
 
 ```bash
-git add backend/src/podvinsya/domain/__init__.py backend/tests/domain
+git add backend/src/budge/domain/__init__.py backend/tests/domain
 git commit -m "test(domain): invariants, termination bound, purity guards"
 ```
 

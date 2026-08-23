@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, SQLAlchemy 2.0, Alembic, PostgreSQL, FastAPI — all already present. No new dependency.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md` — §5.3 is the schema and the locking invariant, §8 is the library's behaviour and the content-defect policy, §3.4 is what selection has to produce.
+**Spec:** `docs/superpowers/specs/2026-08-22-budge-design.md` — §5.3 is the schema and the locking invariant, §8 is the library's behaviour and the content-defect policy, §3.4 is what selection has to produce.
 
 **Scope: media is a separate plan.** §13's step 6 reads «Контент и админка: библиотека, медиа, отбор на партию». Media is its own subsystem — content-addressed blob storage, an upload path, an S3-compatible container in compose, and §10's second health probe — and it produces working software on its own, as does this. `images.media_sha256` lands here as the plain column §5.3 specifies; the store behind it is the next plan's. Nothing here reads or writes a byte of media.
 
@@ -16,7 +16,7 @@
 
 ## Global Constraints
 
-- Python `>=3.12`. `mypy --strict` clean over `src/podvinsya` and `tests`; `ruff check` clean with `select = ["E4", "E7", "E9", "F", "E501"]` and `line-length = 100`.
+- Python `>=3.12`. `mypy --strict` clean over `src/budge` and `tests`; `ruff check` clean with `select = ["E4", "E7", "E9", "F", "E501"]` and `line-length = 100`.
 - Dependency direction stays one-way: `api → services → domain`, with `library` a service-layer implementation alongside `db` and `runtime`. Nothing under `domain/` or `runtime/` imports `library`.
 - «Контент удаляется только мягко, флагом `is_active`.» (§5.3) No route, repository method or migration in this plan issues a `DELETE` against `categories` or `images`. A test asserts the absence.
 - «Каждая семантическая правка категории бампает `categories.version`… Бамп обеспечивается ровно в одном месте, и это покрыто тестом.» (§5.3) Every write goes through `LibraryCatalogue`, the bump lives in one private method, and a test walks the module to prove no other write path exists.
@@ -42,16 +42,16 @@
 ## File Structure
 
 ```
-backend/src/podvinsya/db/models.py                    modify  + Category, Image
-backend/src/podvinsya/db/migrations/versions/0002_content_library.py  create
-backend/src/podvinsya/library/__init__.py             create
-backend/src/podvinsya/library/catalogue.py            create  LibraryCatalogue — the only writer
-backend/src/podvinsya/library/bank.py                 create  DatabaseCategoryBank
-backend/src/podvinsya/library/directory.py            create  DatabaseContentDirectory
-backend/src/podvinsya/api/schemas/library.py          create  admin bodies and responses
-backend/src/podvinsya/api/routes/library.py           create  the admin surface
-backend/src/podvinsya/api/app.py                      modify  wire the two real implementations
-backend/src/podvinsya/contracts/schema.py             modify  + the new roots
+backend/src/budge/db/models.py                    modify  + Category, Image
+backend/src/budge/db/migrations/versions/0002_content_library.py  create
+backend/src/budge/library/__init__.py             create
+backend/src/budge/library/catalogue.py            create  LibraryCatalogue — the only writer
+backend/src/budge/library/bank.py                 create  DatabaseCategoryBank
+backend/src/budge/library/directory.py            create  DatabaseContentDirectory
+backend/src/budge/api/schemas/library.py          create  admin bodies and responses
+backend/src/budge/api/routes/library.py           create  the admin surface
+backend/src/budge/api/app.py                      modify  wire the two real implementations
+backend/src/budge/contracts/schema.py             modify  + the new roots
 backend/tests/library/                                create  one module per seam
 backend/tests/db/test_schema.py                       modify  + the library's constraints
 backend/tests/api/test_commands.py                    modify  + the new inbound module
@@ -63,8 +63,8 @@ frontend/src/shared/api/contracts.ts                  regenerate
 ### Task 1: The two tables §5.3 writes out
 
 **Files:**
-- Modify: `backend/src/podvinsya/db/models.py`
-- Create: `backend/src/podvinsya/db/migrations/versions/0002_content_library.py`
+- Modify: `backend/src/budge/db/models.py`
+- Create: `backend/src/budge/db/migrations/versions/0002_content_library.py`
 - Test: `backend/tests/db/test_schema.py` (extend)
 
 **Interfaces:**
@@ -182,8 +182,8 @@ async def test_deleting_a_category_cascades_to_its_images(...) -> None:
 одном месте, и это покрыто тестом.»
 
 **Files:**
-- Create: `backend/src/podvinsya/library/__init__.py`
-- Create: `backend/src/podvinsya/library/catalogue.py`
+- Create: `backend/src/budge/library/__init__.py`
+- Create: `backend/src/budge/library/catalogue.py`
 - Test: `backend/tests/library/__init__.py`
 - Test: `backend/tests/library/test_catalogue.py`
 
@@ -202,7 +202,7 @@ def test_no_write_outside_the_catalogue() -> None:
     """§5.3: «Бамп обеспечивается ровно в одном месте, и это покрыто
     тестом.» This is that test.
 
-    It parses every module under `src/podvinsya/` and fails on any
+    It parses every module under `src/budge/` and fails on any
     `update(Category)`, `update(Image)`, `insert`, `delete` or
     `session.add` naming a library model outside `library/catalogue.py`.
     A second write path is exactly what §5.3 says will slip past the
@@ -248,7 +248,7 @@ async def test_an_unknown_category_is_reported_not_ignored(...)
 
 - [ ] **Step 2: Run them and watch them fail**
 
-`pytest tests/library -q`. Expected: collection error, `podvinsya.library`
+`pytest tests/library -q`. Expected: collection error, `budge.library`
 does not exist.
 
 - [ ] **Step 3: Write `library/catalogue.py`**
@@ -291,7 +291,7 @@ async def _bump(self, session: AsyncSession, category_id: UUID) -> None:
 ### Task 3: Selection — `CategoryBank`, at last implemented
 
 **Files:**
-- Create: `backend/src/podvinsya/library/bank.py`
+- Create: `backend/src/budge/library/bank.py`
 - Test: `backend/tests/library/test_bank.py`
 
 **Interfaces:**
@@ -359,7 +359,7 @@ makes the `FOR SHARE` locks live until the commit (§5.3, §6.3).
 ### Task 4: `ContentDirectory`, and the answer that only ever goes one way
 
 **Files:**
-- Create: `backend/src/podvinsya/library/directory.py`
+- Create: `backend/src/budge/library/directory.py`
 - Test: `backend/tests/library/test_directory.py`
 
 **Interfaces:**
@@ -415,10 +415,10 @@ tests above give.
 ### Task 5: The admin surface
 
 **Files:**
-- Create: `backend/src/podvinsya/api/schemas/library.py`
-- Create: `backend/src/podvinsya/api/routes/library.py`
-- Modify: `backend/src/podvinsya/api/app.py` (mount the router)
-- Modify: `backend/src/podvinsya/contracts/schema.py` (new roots)
+- Create: `backend/src/budge/api/schemas/library.py`
+- Create: `backend/src/budge/api/routes/library.py`
+- Modify: `backend/src/budge/api/app.py` (mount the router)
+- Modify: `backend/src/budge/contracts/schema.py` (new roots)
 - Modify: `backend/tests/api/test_commands.py` (`INBOUND_MODULES` gains the module)
 - Test: `backend/tests/api/test_library_routes.py`
 - Regenerate: `frontend/src/shared/api/contracts.ts`
@@ -479,11 +479,11 @@ async def test_no_library_route_deletes_anything(...)
 ```
 
 - [ ] **Step 5:** Add the new roots to `contracts/schema.py`, run
-  `podvinsya export-types`, commit the regenerated file. Plan 5's
+  `budge export-types`, commit the regenerated file. Plan 5's
   `test_every_schema_model_is_reachable_from_a_root` fails first if a body
   is forgotten — which is the point of it.
 
-- [ ] **Step 6:** `pytest -q`, `mypy`, `ruff check`, `podvinsya export-types --check`.
+- [ ] **Step 6:** `pytest -q`, `mypy`, `ruff check`, `budge export-types --check`.
 
 - [ ] **Step 7: Commit** `"Give the operator a library to keep"`.
 
@@ -496,7 +496,7 @@ and asserted that a deal refuses cleanly; this replaces both and asserts
 that it now succeeds.
 
 **Files:**
-- Modify: `backend/src/podvinsya/api/app.py`
+- Modify: `backend/src/budge/api/app.py`
 - Modify: `backend/tests/api/test_wiring.py`
 - Test: `backend/tests/api/test_a_whole_match.py`
 
@@ -539,7 +539,7 @@ async def test_a_match_can_be_played_from_an_empty_database(...) -> None:
 This is the first test in the repository that touches every layer at once,
 and it is worth its runtime for exactly that reason.
 
-- [ ] **Step 4:** `pytest -q`, `mypy`, `ruff check`, `podvinsya export-types --check`.
+- [ ] **Step 4:** `pytest -q`, `mypy`, `ruff check`, `budge export-types --check`.
 
 - [ ] **Step 5: Commit** `"Deal a real board from a real library"`.
 

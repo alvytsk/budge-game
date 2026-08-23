@@ -8,13 +8,13 @@
 
 **Tech Stack:** Everything the stage plan installed, plus `@tanstack/react-query` (the REST surface), `zustand` (one piece of cross-screen client state) and `msw` (test doubles for the REST surface). No new toolchain.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md` — §9.2 primarily; §7.4–7.6 for the transports and the principal; §8 for content administration; §5.3 for the library; §3.4 for redeal; §11 for what the tests must hold.
+**Spec:** `docs/superpowers/specs/2026-08-22-budge-design.md` — §9.2 primarily; §7.4–7.6 for the transports and the principal; §8 for content administration; §5.3 for the library; §3.4 for redeal; §11 for what the tests must hold.
 
 **Predecessor:** `docs/superpowers/plans/2026-08-23-budge-stage-screen.md`, complete on branch `feature/stage`. Read its **Rulings**: R1 (types only, no Zod), R2 (clock offset from `server_now`) and R6 (dependencies added when needed) all carry forward unchanged.
 
 ## Global Constraints
 
-- **Naming.** The product is **budge**. Do not introduce the word "Podvinsya" anywhere under `frontend/`. The Python package is still `podvinsya`; its rename is a separate, later plan and is out of scope here. `contracts.ts`'s generation header is the one permitted mention.
+- **Naming.** The product is **budge**. Do not introduce the word "budge" anywhere under `frontend/`. The Python package is still `budge`; its rename is a separate, later plan and is out of scope here. `contracts.ts`'s generation header is the one permitted mention.
 - **User-facing copy is Russian.** «Раздать», «Перераздать», «Верно», «Пас», «Пауза», «Отмена».
 - **Package manager is pnpm.** Never `npm` or `yarn`.
 - **`frontend/src/shared/api/contracts.ts` is generated and committed.** Never hand-edit it.
@@ -3616,5 +3616,5 @@ git commit -m "test(host): assert the route split, and close the gaps the mutati
 - Space, `P`, `Esc` and `Ctrl+Z` work by physical key, and do nothing while a text field has focus (H4, H5).
 - No module writes match state except a frame arriving off the socket (H1).
 - The stage chunk contains no console code (H8).
-- The word "Podvinsya" appears nowhere under `frontend/` except `contracts.ts`'s generation header.
+- The word "budge" appears nowhere under `frontend/` except `contracts.ts`'s generation header.
 - The branch `feature/host` is left local — unpushed and unmerged.

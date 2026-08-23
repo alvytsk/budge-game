@@ -8,13 +8,13 @@
 
 **Tech Stack:** Python 3.12, Pydantic v2's `models_json_schema`, the standard library. No npm generator and no node in the backend's CI (see ruling 1).
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md` — §7.6 is this plan's mandate, §11's «Контракты» row is what its CI job owes, and §9.3 says where the generated file has to land: «Обе поверхности живут в одном приложении и делят сгенерированные типы».
+**Spec:** `docs/superpowers/specs/2026-08-22-budge-design.md` — §7.6 is this plan's mandate, §11's «Контракты» row is what its CI job owes, and §9.3 says where the generated file has to land: «Обе поверхности живут в одном приложении и делят сгенерированные типы».
 
 **Branch:** `feature/contracts`, cut from `feature/api`, which is cut from `feature/runtime` → `feature/persistence` → `main`, none of them merged. Nothing under `domain/`, `db/`, `runtime/` or `api/` is modified by this plan; `cli.py` gains one subcommand.
 
 ## Global Constraints
 
-- Python `>=3.12`. `mypy --strict` clean over `src/podvinsya` and `tests`; `ruff check` clean with `select = ["E4", "E7", "E9", "F", "E501"]` and `line-length = 100`.
+- Python `>=3.12`. `mypy --strict` clean over `src/budge` and `tests`; `ruff check` clean with `select = ["E4", "E7", "E9", "F", "E501"]` and `line-length = 100`.
 - Dependency direction stays one-way. `contracts/` imports `api/schemas/` and nothing else from the application; nothing imports `contracts/`.
 - «Схемы генерируются из Pydantic в TypeScript, расхождение ловится в CI.» (§7.6) The generated file is committed, and the check is a comparison against it — a file generated at build time and never committed has nothing to diverge *from*.
 - «Медиа контент-адресуемо по sha256; в сообщениях ездят идентификаторы, а не URL.» (§7.6) Unchanged by this plan and asserted by it: no emitted type carries a URL.
@@ -40,11 +40,11 @@
 ## File Structure
 
 ```
-backend/src/podvinsya/contracts/__init__.py      create  the public surface
-backend/src/podvinsya/contracts/schema.py        create  ROOTS, contract_schema()
-backend/src/podvinsya/contracts/typescript.py    create  emit(), UnsupportedSchema
-backend/src/podvinsya/contracts/export.py        create  write(), check(), CONTRACTS_PATH
-backend/src/podvinsya/cli.py                     modify  export-types
+backend/src/budge/contracts/__init__.py      create  the public surface
+backend/src/budge/contracts/schema.py        create  ROOTS, contract_schema()
+backend/src/budge/contracts/typescript.py    create  emit(), UnsupportedSchema
+backend/src/budge/contracts/export.py        create  write(), check(), CONTRACTS_PATH
+backend/src/budge/cli.py                     modify  export-types
 backend/tests/contracts/__init__.py              create
 backend/tests/contracts/test_schema.py           create  roots and reachability
 backend/tests/contracts/test_typescript.py       create  the emitter, construct by construct
@@ -63,15 +63,15 @@ built from an explicit list of roots — plus the test that makes the explicit
 list safe.
 
 **Files:**
-- Create: `backend/src/podvinsya/contracts/__init__.py`
-- Create: `backend/src/podvinsya/contracts/schema.py`
+- Create: `backend/src/budge/contracts/__init__.py`
+- Create: `backend/src/budge/contracts/schema.py`
 - Create: `backend/tests/contracts/__init__.py`
 - Test: `backend/tests/contracts/test_schema.py`
 
 **Interfaces:**
 - Produces: `ROOTS: tuple[tuple[type[BaseModel], JsonSchemaMode], ...]`,
   `contract_schema() -> dict[str, Any]` (a document whose only key is `$defs`).
-- Consumes: `podvinsya.api.schemas.frames`, `.commands`, `.rest`.
+- Consumes: `budge.api.schemas.frames`, `.commands`, `.rest`.
 
 - [ ] **Step 1: Write `contracts/schema.py`**
 
@@ -93,9 +93,9 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic.json_schema import JsonSchemaMode, models_json_schema
 
-from podvinsya.api.schemas.commands import Ack, Envelope
-from podvinsya.api.schemas.frames import HostFrame, StageFrame
-from podvinsya.api.schemas.rest import (
+from budge.api.schemas.commands import Ack, Envelope
+from budge.api.schemas.frames import HostFrame, StageFrame
+from budge.api.schemas.rest import (
     AddPlayerBody,
     AssignSecretBody,
     CreateMatchBody,
@@ -155,8 +155,8 @@ import inspect
 
 from pydantic import BaseModel
 
-from podvinsya.api.schemas import commands, frames, rest
-from podvinsya.contracts.schema import ROOTS, contract_schema
+from budge.api.schemas import commands, frames, rest
+from budge.contracts.schema import ROOTS, contract_schema
 
 SCHEMA_MODULES = (frames, commands, rest)
 
@@ -224,7 +224,7 @@ Then `mypy` and `ruff check`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add backend/src/podvinsya/contracts backend/tests/contracts
+git add backend/src/budge/contracts backend/tests/contracts
 git commit -m "Gather every wire model into one schema document"
 ```
 
@@ -237,7 +237,7 @@ is handled by name; anything else raises, carrying the path to the node
 that was not understood.
 
 **Files:**
-- Create: `backend/src/podvinsya/contracts/typescript.py`
+- Create: `backend/src/budge/contracts/typescript.py`
 - Test: `backend/tests/contracts/test_typescript.py`
 
 **Interfaces:**
@@ -263,7 +263,7 @@ from typing import Any
 
 import pytest
 
-from podvinsya.contracts.typescript import UnsupportedSchema, emit
+from budge.contracts.typescript import UnsupportedSchema, emit
 
 
 def document(**defs: Any) -> dict[str, Any]:
@@ -408,7 +408,7 @@ def test_the_header_says_it_is_generated_and_how_to_regenerate_it() -> None:
     """Kills on: dropping the header. The first thing anyone does with an
     unfamiliar checked-in file is edit it."""
     emitted = emit(document(A=obj({}, [])))
-    assert "podvinsya export-types" in emitted.splitlines()[1]
+    assert "budge export-types" in emitted.splitlines()[1]
     assert "do not edit" in emitted.lower()
 
 
@@ -446,7 +446,7 @@ def test_the_refusal_names_where_it_happened() -> None:
 - [ ] **Step 2: Run them and watch them fail**
 
 `pytest tests/contracts/test_typescript.py -q`. Expected: collection error —
-`podvinsya.contracts.typescript` does not exist.
+`budge.contracts.typescript` does not exist.
 
 - [ ] **Step 3: Write `contracts/typescript.py`**
 
@@ -467,8 +467,8 @@ model *discovery* order, which changes when an import moves.
 
 from typing import Any
 
-HEADER = """// Generated from the Pydantic models by `podvinsya export-types`.
-// Do not edit: run `podvinsya export-types` and commit the result.
+HEADER = """// Generated from the Pydantic models by `budge export-types`.
+// Do not edit: run `budge export-types` and commit the result.
 // The CI job `contracts` fails if this file and the models disagree (§7.6).
 """
 
@@ -589,7 +589,7 @@ def emit(document: dict[str, Any]) -> str:
 - [ ] **Step 5: Commit**
 
 ```bash
-git add backend/src/podvinsya/contracts/typescript.py backend/tests/contracts/test_typescript.py
+git add backend/src/budge/contracts/typescript.py backend/tests/contracts/test_typescript.py
 git commit -m "Emit TypeScript for what this contract uses, and refuse the rest"
 ```
 
@@ -598,8 +598,8 @@ git commit -m "Emit TypeScript for what this contract uses, and refuse the rest"
 ### Task 3: The artifact, the command, and the check that fails CI
 
 **Files:**
-- Create: `backend/src/podvinsya/contracts/export.py`
-- Modify: `backend/src/podvinsya/cli.py`
+- Create: `backend/src/budge/contracts/export.py`
+- Modify: `backend/src/budge/cli.py`
 - Create: `frontend/src/shared/api/contracts.ts` (generated)
 - Test: `backend/tests/contracts/test_export.py`
 - Test: `backend/tests/test_cli.py` (extend)
@@ -622,10 +622,10 @@ regenerate it and compare it with itself.
 import difflib
 from pathlib import Path
 
-from podvinsya.contracts.schema import contract_schema
-from podvinsya.contracts.typescript import emit
+from budge.contracts.schema import contract_schema
+from budge.contracts.typescript import emit
 
-# `backend/src/podvinsya/contracts/export.py` → the repository root.
+# `backend/src/budge/contracts/export.py` → the repository root.
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 
 # §9.3: «Обе поверхности живут в одном приложении и делят сгенерированные
@@ -667,7 +667,7 @@ def check(path: Path | None = None) -> str | None:
     )
 ```
 
-- [ ] **Step 2: Add `podvinsya export-types`**
+- [ ] **Step 2: Add `budge export-types`**
 
 In `cli.py`, alongside the other subcommands:
 
@@ -688,7 +688,7 @@ and in `main`:
     if args.command == "export-types":
         # Imported here for the same reason `serve`'s imports are: the
         # migrate step must not pull in the whole API model tree.
-        from podvinsya.contracts.export import CONTRACTS_PATH, check, write
+        from budge.contracts.export import CONTRACTS_PATH, check, write
 
         if args.check:
             difference = check()
@@ -697,7 +697,7 @@ and in `main`:
             print(difference, end="")
             print(
                 f"\n{CONTRACTS_PATH} is out of date. "
-                "Run `podvinsya export-types` and commit the result.",
+                "Run `budge export-types` and commit the result.",
                 file=sys.stderr,
             )
             return 1
@@ -708,7 +708,7 @@ and in `main`:
 - [ ] **Step 3: Generate and commit the artifact**
 
 ```bash
-.venv/bin/podvinsya export-types
+.venv/bin/budge export-types
 ```
 
 Then read the produced file. It must contain `export interface StageFrame`,
@@ -723,7 +723,7 @@ from pathlib import Path
 
 import pytest
 
-from podvinsya.contracts.export import CONTRACTS_PATH, check, render, write
+from budge.contracts.export import CONTRACTS_PATH, check, render, write
 
 
 def test_the_committed_file_matches_the_models() -> None:
@@ -808,7 +808,7 @@ def test_the_frames_agree_with_what_the_server_actually_sends() -> None:
     import asyncio
 
     from domain.conftest import build_duel_state
-    from podvinsya.api.projection import project_stage
+    from budge.api.projection import project_stage
     from support.content import RecordingContentDirectory
     from datetime import UTC, datetime
 
@@ -853,7 +853,7 @@ def test_export_types_check_fails_against_a_stale_file(
 
     Kills on: returning 0 on a difference, which leaves the CI job green
     over a contract that has drifted."""
-    from podvinsya.contracts import export
+    from budge.contracts import export
 
     stale = tmp_path / "contracts.ts"
     stale.write_text("nothing like the real thing\n", encoding="utf-8")
@@ -870,7 +870,7 @@ def test_export_types_check_fails_against_a_stale_file(
 - [ ] **Step 7: Commit**
 
 ```bash
-git add backend/src/podvinsya/contracts/export.py backend/src/podvinsya/cli.py \
+git add backend/src/budge/contracts/export.py backend/src/budge/cli.py \
         backend/tests frontend/src/shared/api/contracts.ts
 git commit -m "Generate the TypeScript contract, commit it, and fail on divergence"
 ```
@@ -907,14 +907,14 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: podvinsya
-          POSTGRES_PASSWORD: podvinsya
-          POSTGRES_DB: podvinsya_test
+          POSTGRES_USER: budge
+          POSTGRES_PASSWORD: budge
+          POSTGRES_DB: budge_test
         # 5434 matches compose.test.yaml and `support/db.py`'s default, so
         # the suite runs here with the same URL a developer uses locally.
         ports: ["5434:5432"]
         options: >-
-          --health-cmd "pg_isready -U podvinsya -d podvinsya_test"
+          --health-cmd "pg_isready -U budge -d budge_test"
           --health-interval 1s
           --health-timeout 3s
           --health-retries 30
@@ -943,7 +943,7 @@ jobs:
       # writes nothing — it prints the diff and exits non-zero, so the
       # failure names what drifted.
       - name: Contracts
-        run: podvinsya export-types --check
+        run: budge export-types --check
 ```
 
 - [ ] **Step 2: Run every step locally, in order**
@@ -953,7 +953,7 @@ cd backend
 .venv/bin/python -m ruff check
 .venv/bin/python -m mypy
 .venv/bin/python -m pytest -q
-.venv/bin/podvinsya export-types --check
+.venv/bin/budge export-types --check
 ```
 
 All four must succeed. A workflow whose steps have never been run in order
@@ -963,7 +963,7 @@ change that triggered it.
 - [ ] **Step 3: Prove the contract step actually fails**
 
 Temporarily add a field to `StageFrame`, run
-`.venv/bin/podvinsya export-types --check`, and confirm it exits 1 and
+`.venv/bin/budge export-types --check`, and confirm it exits 1 and
 prints a diff naming the field. Then revert the field and confirm the check
 passes again. Record the observed output in the task report — a CI step
 that has never been seen to fail is a CI step nobody knows is wired up.

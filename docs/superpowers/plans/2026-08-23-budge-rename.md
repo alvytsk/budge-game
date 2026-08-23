@@ -1,8 +1,8 @@
-# Renaming podvinsya to budge — Implementation Plan
+# Renaming budge to budge — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rename the project from `podvinsya` to `budge` everywhere — the Python package, the CLI, the environment prefix, the test and deployment identifiers, the product-facing strings, and the documentation — leaving no occurrence behind and no test silently disabled.
+**Goal:** Rename the project from `budge` to `budge` everywhere — the Python package, the CLI, the environment prefix, the test and deployment identifiers, the product-facing strings, and the documentation — leaving no occurrence behind and no test silently disabled.
 
 **Architecture:** Not a single `sed`. The occurrences fall into seven coupled sets, preceded by one fix the rename would otherwise entrench, and each set has to move whole or something breaks — sometimes loudly, sometimes not (R1). One task per set, the suite green at every commit, so a mistake is bisectable to one coupling rather than to a 1500-line diff.
 
@@ -10,9 +10,9 @@
 
 **One thing here is not a rename.** Task 1 fixes how `cli.py` locates `alembic.ini`. It is in this plan rather than in the infrastructure one because the rename moves that file anyway, and fixing the lookup first means the ini travels with the package instead of being renamed in place and left fragile.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md`. Note the spec's *body* never uses the word — only its filename does (Task 7).
+**Spec:** `docs/superpowers/specs/2026-08-22-budge-design.md`. Note the spec's *body* never uses the word — only its filename does (Task 7).
 
-**Predecessor:** `docs/superpowers/plans/2026-08-23-budge-infrastructure.md` on `feature/infra`. **This plan must run after that one is complete**, because infra creates `compose.yaml`, `.env.example` and `backend/scripts/backup-loop.sh`, all of which carry `PODVINSYA_*` variables and `podvinsya` CLI invocations that Tasks 3 and 4 have to rename. Starting before infra lands means renaming a moving target.
+**Predecessor:** `docs/superpowers/plans/2026-08-23-budge-infrastructure.md` on `feature/infra`. **This plan must run after that one is complete**, because infra creates `compose.yaml`, `.env.example` and `backend/scripts/backup-loop.sh`, all of which carry `BUDGE_*` variables and `budge` CLI invocations that Tasks 3 and 4 have to rename. Starting before infra lands means renaming a moving target.
 
 ## Global Constraints
 
@@ -27,13 +27,13 @@
 
 ## The inventory this plan is written against
 
-1585 occurrences across 152 files (`podvinsya` 1528, `PODVINSYA` 51, `Podvinsya` 6), plus 9 paths whose *name* carries the word. Excluding documentation, the code-and-config surface is 793 occurrences across 142 files.
+1585 occurrences across 152 files (`budge` 1528, `BUDGE` 51, `budge` 6), plus 9 paths whose *name* carries the word. Excluding documentation, the code-and-config surface is 793 occurrences across 142 files.
 
 | Set | Where | Moves in |
 | --- | --- | --- |
-| Package directory, 703 import lines, packaging metadata | `backend/src/podvinsya/`, `pyproject.toml`, `alembic.ini` | Task 7 |
+| Package directory, 703 import lines, packaging metadata | `backend/src/budge/`, `pyproject.toml`, `alembic.ini` | Task 7 |
 | CLI name and every invoker, the generated header | `pyproject.toml`, `cli.py`, `ci.yml`, `Dockerfile`, READMEs, `typescript.py` | Task 7 |
-| `PODVINSYA_` env prefix, and the two test-only `PODVINSYA_TEST_*` vars | `config.py`, tests, `.env.example`, `compose.yaml`, `backup-loop.sh` | Task 7 |
+| `BUDGE_` env prefix, and the two test-only `BUDGE_TEST_*` vars | `config.py`, tests, `.env.example`, `compose.yaml`, `backup-loop.sh` | Task 7 |
 | Postgres and MinIO identifiers — coupled across three files | `compose.test.yaml`, `ci.yml`, `tests/support/db.py` | Task 7 |
 | Product-facing: FastAPI title, session cookie, S3 bucket default | `app.py`, `principal.py`, `api/settings.py` | Task 7 |
 | Documentation filenames and bodies | `docs/superpowers/**` | Task 7 |
@@ -51,27 +51,27 @@
 > if you want the anchored form.
 
 
-**R1 — Ordered by coupling, not by file type.** A repo-wide `sed -i 's/podvinsya/budge/g'` would rename the package, the test-only override variables, the Postgres role and the session cookie in one commit. If anything then failed, there would be no green checkpoint between "before" and "1500 lines later". Each task below moves one coupled set completely and leaves the suite green.
+**R1 — Ordered by coupling, not by file type.** A repo-wide `sed -i 's/budge/budge/g'` would rename the package, the test-only override variables, the Postgres role and the session cookie in one commit. If anything then failed, there would be no green checkpoint between "before" and "1500 lines later". Each task below moves one coupled set completely and leaves the suite green.
 
 **R2 — Three tests can pass *vacuously* after a partial rename, and they are guarded before anything moves.** This is the most important ruling here, because each of these tests exists to enforce a ruling from an earlier plan, and a rename that silently disables one removes the enforcement while leaving a green tick:
 
-- `backend/tests/api/test_stage_ws.py:36` — `FORBIDDEN_MODULES = ("podvinsya.domain.actions", "podvinsya.runtime")`. This is the API plan's ruling 12: the stage socket must import no way to submit a command. Left un-renamed, the guard matches nothing and passes.
-- `backend/tests/domain/test_purity.py:6` — `pathlib.Path(...).parents[2] / "src" / "podvinsya" / "domain"`. A hardcoded path segment, not an import. Left un-renamed, it walks a directory that does not exist.
-- `backend/tests/runtime/test_watchdog.py:489` and `test_match.py:585` — `caplog.at_level(..., logger="podvinsya.runtime.watchdog")`. `caplog.at_level` on a non-existent logger does not error; it captures nothing, and the assertion fails with an empty-records message that reads like a behaviour change.
+- `backend/tests/api/test_stage_ws.py:36` — `FORBIDDEN_MODULES = ("budge.domain.actions", "budge.runtime")`. This is the API plan's ruling 12: the stage socket must import no way to submit a command. Left un-renamed, the guard matches nothing and passes.
+- `backend/tests/domain/test_purity.py:6` — `pathlib.Path(...).parents[2] / "src" / "budge" / "domain"`. A hardcoded path segment, not an import. Left un-renamed, it walks a directory that does not exist.
+- `backend/tests/runtime/test_watchdog.py:489` and `test_match.py:585` — `caplog.at_level(..., logger="budge.runtime.watchdog")`. `caplog.at_level` on a non-existent logger does not error; it captures nothing, and the assertion fails with an empty-records message that reads like a behaviour change.
 
 Task 2 Step 1 adds an assertion to each that its target *exists* before the rename touches anything. *Cost if wrong:* the enforcement those tests provide disappears silently, and nothing in the suite would ever say so.
 
-**R3 — `argparse`'s `prog="podvinsya"` gets a test before it is renamed.** Nothing in `backend/tests/test_cli.py` ever checks usage or help output, so this string has no coverage: a missed rename ships a CLI whose `--help` and every error message name a program that no longer exists. *Cost if wrong:* cosmetic but user-facing, and invisible to CI forever.
+**R3 — `argparse`'s `prog="budge"` gets a test before it is renamed.** Nothing in `backend/tests/test_cli.py` ever checks usage or help output, so this string has no coverage: a missed rename ships a CLI whose `--help` and every error message name a program that no longer exists. *Cost if wrong:* cosmetic but user-facing, and invisible to CI forever.
 
-**R4 — The generated contract is regenerated, never edited.** `backend/src/podvinsya/contracts/typescript.py:18-19` emits a header that must byte-match `frontend/src/shared/api/contracts.ts:1-2`, and CI enforces it with `export-types --check`. Rename the generator, then run the generator. *Cost if wrong:* CI red, loudly — this one cannot fail silently, which is why it is a ruling about method rather than about risk.
+**R4 — The generated contract is regenerated, never edited.** `backend/src/budge/contracts/typescript.py:18-19` emits a header that must byte-match `frontend/src/shared/api/contracts.ts:1-2`, and CI enforces it with `export-types --check`. Rename the generator, then run the generator. *Cost if wrong:* CI red, loudly — this one cannot fail silently, which is why it is a ruling about method rather than about risk.
 
-**R5 — The S3 bucket default becomes `budge-media`.** `backend/src/podvinsya/api/settings.py:32` is the only value in the tree that a real deployment would carry by default, and renaming it would silently 404 every stored image for a deployment that already held objects under `podvinsya-media`. There is no such deployment: nothing has been deployed, and the infra plan already sets `PODVINSYA_S3_BUCKET: budge-media` explicitly, so the default is currently overridden anyway. *Cost if wrong:* if a live store ever did exist, its objects would have to be copied to the new bucket or the env override kept. `docs/operations.md` gains a line saying so.
+**R5 — The S3 bucket default becomes `budge-media`.** `backend/src/budge/api/settings.py:32` is the only value in the tree that a real deployment would carry by default, and renaming it would silently 404 every stored image for a deployment that already held objects under `budge-media`. There is no such deployment: nothing has been deployed, and the infra plan already sets `BUDGE_S3_BUCKET: budge-media` explicitly, so the default is currently overridden anyway. *Cost if wrong:* if a live store ever did exist, its objects would have to be copied to the new bucket or the env override kept. `docs/operations.md` gains a line saying so.
 
 **R6 — The session cookie becomes `budge_session`.** Every live operator session is silently invalidated — the browser keeps sending a cookie the server no longer looks for, and the operator lands on the login screen. There are no live sessions. *Cost if wrong:* one unexpected logout, recoverable by logging in.
 
-**R7 — Documentation moves last, mechanically, in its own commit.** 792 of the 1585 occurrences are in `docs/`, and none of them can break anything. Mixing them into the code commits would bury a 793-occurrence code change inside a 1585-occurrence diff. The bodies of completed plan documents *are* rewritten rather than left as historical record: a plan that says `src/podvinsya/api/` is actively misleading to anyone who follows it after this. Git history keeps the originals. *Cost if wrong:* the plan documents no longer match the commit messages of the work they describe.
+**R7 — Documentation moves last, mechanically, in its own commit.** 792 of the 1585 occurrences are in `docs/`, and none of them can break anything. Mixing them into the code commits would bury a 793-occurrence code change inside a 1585-occurrence diff. The bodies of completed plan documents *are* rewritten rather than left as historical record: a plan that says `src/budge/api/` is actively misleading to anyone who follows it after this. Git history keeps the originals. *Cost if wrong:* the plan documents no longer match the commit messages of the work they describe.
 
-**R8 — The editable install must be recreated the moment the package directory moves.** `backend/.venv/` holds `bin/podvinsya`, `_editable_impl_podvinsya.pth` and a `podvinsya-0.1.0.dist-info/`. Until `pip install -e .` re-runs, every single test fails at import — which looks exactly like the rename having gone wrong. *Cost if wrong:* an hour spent debugging a working rename.
+**R8 — The editable install must be recreated the moment the package directory moves.** `backend/.venv/` holds `bin/budge`, `_editable_impl_budge.pth` and a `budge-0.1.0.dist-info/`. Until `pip install -e .` re-runs, every single test fails at import — which looks exactly like the rename having gone wrong. *Cost if wrong:* an hour spent debugging a working rename.
 
 ---
 
@@ -79,13 +79,13 @@ Task 2 Step 1 adds an assertion to each that its target *exists* before the rena
 
 A bug the rename would otherwise entrench, fixed first so the file travels with the package when Task 2 moves it.
 
-`cli.py` locates two things. The migrations directory it finds through the package — `Path(podvinsya.db.__file__).parent / "migrations"` — which is correct in every install layout. `alembic.ini` it finds by walking three parents up from `__file__`, which is correct only when the package sits in a source tree. Installed flat into `site-packages`, the same arithmetic yields `/usr/local/lib/python3.12/alembic.ini`, and `migrate` dies with `FileNotFoundError` inside `env.py`'s `fileConfig` before it opens a connection.
+`cli.py` locates two things. The migrations directory it finds through the package — `Path(budge.db.__file__).parent / "migrations"` — which is correct in every install layout. `alembic.ini` it finds by walking three parents up from `__file__`, which is correct only when the package sits in a source tree. Installed flat into `site-packages`, the same arithmetic yields `/usr/local/lib/python3.12/alembic.ini`, and `migrate` dies with `FileNotFoundError` inside `env.py`'s `fileConfig` before it opens a connection.
 
 That is not hypothetical: the infrastructure plan's API image hit it, and the workaround was to make the production image an *editable* install so the source layout survives into the container. Nothing tests that, so a later tidy-up of the Dockerfile reintroduces it silently.
 
 **Files:**
-- Move: `backend/alembic.ini` → `backend/src/podvinsya/alembic.ini`
-- Modify: `backend/src/podvinsya/cli.py`, `backend/tests/support/db.py`, `backend/pyproject.toml`
+- Move: `backend/alembic.ini` → `backend/src/budge/alembic.ini`
+- Modify: `backend/src/budge/cli.py`, `backend/tests/support/db.py`, `backend/pyproject.toml`
 - Create: a test in `backend/tests/test_cli.py`
 
 **Interfaces:**
@@ -108,12 +108,12 @@ def test_the_alembic_ini_travels_with_the_package() -> None:
     Kills on: the parent-walk — `backend/alembic.ini`'s parent is
     `backend/`, not the package directory.
     """
-    import podvinsya
+    import budge
 
-    from podvinsya.cli import ALEMBIC_INI
+    from budge.cli import ALEMBIC_INI
 
     assert ALEMBIC_INI.is_file()
-    assert ALEMBIC_INI.parent == Path(podvinsya.__file__).parent
+    assert ALEMBIC_INI.parent == Path(budge.__file__).parent
 ```
 
 with `from pathlib import Path` at the top if it is not already imported.
@@ -129,14 +129,14 @@ Expected: FAIL on the second assertion — the file is currently at `backend/ale
 - [x] **Step 3: Move the ini into the package**
 
 ```bash
-cd backend && git mv alembic.ini src/podvinsya/alembic.ini; echo "exit=$?"
+cd backend && git mv alembic.ini src/budge/alembic.ini; echo "exit=$?"
 ```
 
-`script_location` inside it stays `src/podvinsya/db/migrations`. It is relative and Alembic resolves it against the *invocation* directory, which is why `cli.py` already overrides it — the value in the file matters only to a bare `alembic` invocation from `backend/`, which now needs `-c src/podvinsya/alembic.ini`.
+`script_location` inside it stays `src/budge/db/migrations`. It is relative and Alembic resolves it against the *invocation* directory, which is why `cli.py` already overrides it — the value in the file matters only to a bare `alembic` invocation from `backend/`, which now needs `-c src/budge/alembic.ini`.
 
 - [x] **Step 4: Locate it through the package**
 
-In `backend/src/podvinsya/cli.py`, replace the `ALEMBIC_INI` assignment:
+In `backend/src/budge/cli.py`, replace the `ALEMBIC_INI` assignment:
 
 ```python
 # Located through the package, exactly as `_config` already locates the
@@ -144,31 +144,31 @@ In `backend/src/podvinsya/cli.py`, replace the `ALEMBIC_INI` assignment:
 # from this file, which is `backend/` in a source tree and the
 # interpreter's lib directory in a flat install — so `migrate` worked from
 # a checkout and died in an installed container.
-ALEMBIC_INI = Path(podvinsya.__file__).resolve().parent / "alembic.ini"
+ALEMBIC_INI = Path(budge.__file__).resolve().parent / "alembic.ini"
 ```
 
-`import podvinsya` is needed alongside the existing `import podvinsya.db`; importing the subpackage already binds the parent name, so confirm whether a second import line is required or whether `ruff` flags it as redundant, and do whichever keeps both `ruff` and `mypy --strict` clean.
+`import budge` is needed alongside the existing `import budge.db`; importing the subpackage already binds the parent name, so confirm whether a second import line is required or whether `ruff` flags it as redundant, and do whichever keeps both `ruff` and `mypy --strict` clean.
 
 - [x] **Step 5: Keep it in the wheel**
 
-`backend/pyproject.toml` line 35 is `packages = ["src/podvinsya"]`. Hatchling includes non-Python files under a declared package directory, so the ini should ship — but *should* is not evidence, and this is the whole point of the task. Prove it with a real non-editable install:
+`backend/pyproject.toml` line 35 is `packages = ["src/budge"]`. Hatchling includes non-Python files under a declared package directory, so the ini should ship — but *should* is not evidence, and this is the whole point of the task. Prove it with a real non-editable install:
 
 ```bash
 cd backend
 python -m venv /tmp/budge-wheel-probe
 /tmp/budge-wheel-probe/bin/pip install --quiet . ; echo "install=$?"
 /tmp/budge-wheel-probe/bin/python -c "
-from podvinsya.cli import ALEMBIC_INI
+from budge.cli import ALEMBIC_INI
 print(ALEMBIC_INI, ALEMBIC_INI.is_file())
 "; echo "exit=$?"
 rm -rf /tmp/budge-wheel-probe
 ```
 
-Expected: the path prints under `site-packages/podvinsya/alembic.ini` and `True`. If it prints `False`, the ini is not being packaged — add it explicitly:
+Expected: the path prints under `site-packages/budge/alembic.ini` and `True`. If it prints `False`, the ini is not being packaged — add it explicitly:
 
 ```toml
 [tool.hatch.build.targets.wheel.force-include]
-"src/podvinsya/alembic.ini" = "podvinsya/alembic.ini"
+"src/budge/alembic.ini" = "budge/alembic.ini"
 ```
 
 and re-run the probe. Report which was needed.
@@ -178,7 +178,7 @@ and re-run the probe. Report which was needed.
 `backend/tests/support/db.py` has `ALEMBIC_INI = BACKEND_DIR / "alembic.ini"`. Change it to locate the file the same way, so the suite and the CLI cannot disagree:
 
 ```python
-ALEMBIC_INI = Path(podvinsya.__file__).resolve().parent / "alembic.ini"
+ALEMBIC_INI = Path(budge.__file__).resolve().parent / "alembic.ini"
 ```
 
 `BACKEND_DIR` is still used for nothing else in that module — if it becomes unused, remove it rather than leaving a name `ruff` will flag.
@@ -233,9 +233,9 @@ which is what let the image drop its editable-install workaround."
 The directory, 703 import lines, the packaging metadata, and the four tests that reference the name as a string rather than an import. The CLI keeps its old *name* here — only its target module moves.
 
 **Files:**
-- Move: `backend/src/podvinsya/` → `backend/src/budge/` (81 files across 14 directories)
+- Move: `backend/src/budge/` → `backend/src/budge/` (81 files across 14 directories)
 - Modify: `backend/pyproject.toml`, `backend/src/budge/alembic.ini` (moved into the package by Task 1)
-- Modify: every file with a `podvinsya` import (55 source, 77 test)
+- Modify: every file with a `budge` import (55 source, 77 test)
 - Modify: `backend/tests/domain/test_purity.py`, `backend/tests/api/test_stage_ws.py`, `backend/tests/runtime/test_watchdog.py`, `backend/tests/runtime/test_match.py`, `backend/tests/db/test_migrations.py`
 
 - [x] **Step 1: Guard the three tests that could pass vacuously — BEFORE anything moves**
@@ -265,7 +265,7 @@ for _forbidden in FORBIDDEN_MODULES:
 
 with `import importlib` at the top.
 
-In `backend/tests/runtime/test_watchdog.py` and `backend/tests/runtime/test_match.py`, each `caplog.at_level(..., logger="podvinsya.runtime.X")` names a logger as a string. `caplog.at_level` accepts any name — a logger nobody has created simply captures nothing — so the check is that the *module* whose `__name__` becomes that logger name is importable. Add once at module scope in each file, with `import importlib` at the top:
+In `backend/tests/runtime/test_watchdog.py` and `backend/tests/runtime/test_match.py`, each `caplog.at_level(..., logger="budge.runtime.X")` names a logger as a string. `caplog.at_level` accepts any name — a logger nobody has created simply captures nothing — so the check is that the *module* whose `__name__` becomes that logger name is importable. Add once at module scope in each file, with `import importlib` at the top:
 
 ```python
 # The logger name below is a string, and `caplog.at_level` accepts any
@@ -273,10 +273,10 @@ In `backend/tests/runtime/test_watchdog.py` and `backend/tests/runtime/test_matc
 # assertion then fails with an empty-records message that reads like a
 # behaviour change. Import the module that owns the logger instead, so a
 # rename that orphans the name fails here and says why.
-importlib.import_module("podvinsya.runtime.watchdog")
+importlib.import_module("budge.runtime.watchdog")
 ```
 
-In `test_match.py` the module is `podvinsya.runtime.match`.
+In `test_match.py` the module is `budge.runtime.match`.
 
 - [x] **Step 2: Run the suite and confirm the guards pass before the rename**
 
@@ -297,47 +297,47 @@ cd .. && git add backend/tests && git commit -m "test: fail loudly if a name-sha
 - [x] **Step 4: Move the package**
 
 ```bash
-cd backend && git mv src/podvinsya src/budge; echo "exit=$?"
+cd backend && git mv src/budge src/budge; echo "exit=$?"
 ```
 
 - [x] **Step 5: Rewrite every import**
 
 ```bash
 cd backend
-grep -rl 'podvinsya' src tests --include='*.py' --include='*.mako' \
-  | xargs sed -i 's/\bpodvinsya\b/budge/g'
+grep -rl 'budge' src tests --include='*.py' --include='*.mako' \
+  | xargs sed -i 's/\bbudge\b/budge/g'
 echo "exit=$?"
 ```
 
-`\b` word boundaries matter, **but they protect less than they look like they do**. Underscore is a word character, so `podvinsya_test` and `podvinsya_session` are genuinely safe. Hyphen, colon and slash are *not* — `\bpodvinsya\b` matches inside `podvinsya-media`, `podvinsya-secret`, `podvinsya-media-test` and `//podvinsya:podvinsya@host/…`. Those belong to Tasks 5 and 6 and this sed will take them anyway.
+`\b` word boundaries matter, **but they protect less than they look like they do**. Underscore is a word character, so `budge_test` and `budge_session` are genuinely safe. Hyphen, colon and slash are *not* — `\bbudge\b` matches inside `budge-media`, `budge-secret`, `budge-media-test` and `//budge:budge@host/…`. Those belong to Tasks 5 and 6 and this sed will take them anyway.
 
 So the sed is a first pass, not the whole step: restore every identifier it took that a later task owns. In `backend/tests/support/db.py` and `backend/tests/api/test_app.py` the Postgres role and password inside the URL; in `backend/tests/support/db.py` the three `S3_*` constants; in `backend/src/budge/api/settings.py` the `s3_bucket` default. Restoring the Postgres role is not cosmetic — `compose.test.yaml` is not a `.py` file, so the running stack still answers to the old role and the suite goes red without it.
 
-The sed also takes strings **Task 3** owns, and those must be restored too or Task 3's tests stop being able to fail: `prog="podvinsya"` in `cli.py`, the two-line `HEADER` in `contracts/typescript.py`, its assertion in `tests/contracts/test_typescript.py`, and the CLI-invocation prose in `cli.py`, `api/app.py`, `api/settings.py`, `api/routes/session.py` and `tests/db/test_migrations.py`. `test_export_types_check_passes_against_the_committed_file` runs the real generator against the committed `contracts.ts`, which is not a `.py` file — leave the header renamed here and the suite is red until Task 3 Step 4 regenerates it. Verify nothing outside the intended set changed:
+The sed also takes strings **Task 3** owns, and those must be restored too or Task 3's tests stop being able to fail: `prog="budge"` in `cli.py`, the two-line `HEADER` in `contracts/typescript.py`, its assertion in `tests/contracts/test_typescript.py`, and the CLI-invocation prose in `cli.py`, `api/app.py`, `api/settings.py`, `api/routes/session.py` and `tests/db/test_migrations.py`. `test_export_types_check_passes_against_the_committed_file` runs the real generator against the committed `contracts.ts`, which is not a `.py` file — leave the header renamed here and the suite is red until Task 3 Step 4 regenerates it. Verify nothing outside the intended set changed:
 
 ```bash
 cd backend && git diff --stat | tail -3
-grep -rn 'podvinsya' src tests --include='*.py' | grep -v 'podvinsya_test\|podvinsya-media\|podvinsya_session\|PODVINSYA_' || echo "ok: only the deferred sets remain"
+grep -rn 'budge' src tests --include='*.py' | grep -v 'budge_test\|budge-media\|budge_session\|BUDGE_' || echo "ok: only the deferred sets remain"
 ```
 
 That grep is restricted to `*.py`, so it will not show `src/budge/alembic.ini` — whose `script_location` still names the old path. Step 6 handles it; check it explicitly rather than trusting the line above:
 
 ```bash
-cd backend && grep -n 'podvinsya' src/budge/alembic.ini || echo "ok: the ini is clean"
+cd backend && grep -n 'budge' src/budge/alembic.ini || echo "ok: the ini is clean"
 ```
 
 - [x] **Step 6: Update the packaging metadata**
 
 `backend/pyproject.toml`:
-- line 2: `name = "podvinsya"` → `name = "budge"`
-- line 28: `podvinsya = "podvinsya.cli:main"` → `podvinsya = "budge.cli:main"` — **the script name stays `podvinsya` for now**; Task 3 renames it. Only its target moves here.
-- line 35: `packages = ["src/podvinsya"]` → `["src/budge"]`
-- line 50: `files = ["src/podvinsya", "tests"]` → `["src/budge", "tests"]`
-- line 51: `exclude = ["src/podvinsya/db/migrations/versions/"]` → `["src/budge/db/migrations/versions/"]`
+- line 2: `name = "budge"` → `name = "budge"`
+- line 28: `budge = "budge.cli:main"` → `budge = "budge.cli:main"` — **the script name stays `budge` for now**; Task 3 renames it. Only its target moves here.
+- line 35: `packages = ["src/budge"]` → `["src/budge"]`
+- line 50: `files = ["src/budge", "tests"]` → `["src/budge", "tests"]`
+- line 51: `exclude = ["src/budge/db/migrations/versions/"]` → `["src/budge/db/migrations/versions/"]`
 
-`backend/src/budge/alembic.ini` line 2 — Task 1 moved this file inside the package, so `git mv` in Step 4 has already carried it across; only its *contents* still name the old path. `script_location = src/podvinsya/db/migrations` → `src/budge/db/migrations`.
+`backend/src/budge/alembic.ini` line 2 — Task 1 moved this file inside the package, so `git mv` in Step 4 has already carried it across; only its *contents* still name the old path. `script_location = src/budge/db/migrations` → `src/budge/db/migrations`.
 
-Note `script_location` is *overridden at runtime* by `cli.py`, so a mistake here is invisible to `podvinsya migrate` and shows up only under a bare `alembic -c src/budge/alembic.ini` invocation. Change it anyway: the test suite exercises the code path, not the ini, so nothing else will catch it.
+Note `script_location` is *overridden at runtime* by `cli.py`, so a mistake here is invisible to `budge migrate` and shows up only under a bare `alembic -c src/budge/alembic.ini` invocation. Change it anyway: the test suite exercises the code path, not the ini, so nothing else will catch it.
 
 - [x] **Step 7: Recreate the editable install**
 
@@ -348,9 +348,9 @@ cd backend && VIRTUAL_ENV="$PWD/.venv" uv pip install -e . ; echo "exit=$?"
 .venv/bin/python -c 'import budge, budge.cli; print(budge.__file__)'; echo "exit=$?"
 ```
 
-`backend/.venv` was created by **uv** and has no `pip` in it — `uv pip install` is the equivalent. It also leaves the previous distribution's metadata behind (`podvinsya-0.1.0.dist-info/`, `_editable_impl_podvinsya.pth`); neither shadows the new install, but they leave the venv advertising a distribution that no longer exists. Remove both.
+`backend/.venv` was created by **uv** and has no `pip` in it — `uv pip install` is the equivalent. It also leaves the previous distribution's metadata behind (`budge-0.1.0.dist-info/`, `_editable_impl_budge.pth`); neither shadows the new install, but they leave the venv advertising a distribution that no longer exists. Remove both.
 
-Expected: the path prints under `src/budge/`. If a stale `_editable_impl_podvinsya.pth` shadows it, remove it from `site-packages` and reinstall — report if you had to.
+Expected: the path prints under `src/budge/`. If a stale `_editable_impl_budge.pth` shadows it, remove it from `site-packages` and reinstall — report if you had to.
 
 - [x] **Step 8: Run everything**
 
@@ -369,7 +369,7 @@ The point of R2 is that these fail if their target vanished. Prove they would:
 ```bash
 cd backend
 cp tests/api/test_stage_ws.py /tmp/guard-backup.py
-sed -i 's/"budge.domain.actions"/"podvinsya.domain.actions"/' tests/api/test_stage_ws.py
+sed -i 's/"budge.domain.actions"/"budge.domain.actions"/' tests/api/test_stage_ws.py
 pytest tests/api/test_stage_ws.py -q; echo "exit=$?"
 cp /tmp/guard-backup.py tests/api/test_stage_ws.py
 ```
@@ -381,7 +381,7 @@ Expected: **non-zero** — and specifically exit **2**, not 1. The guard runs at
 - [x] **Step 10: Commit**
 
 ```bash
-cd .. && git add backend && git commit -m "refactor: move the package from podvinsya to budge"
+cd .. && git add backend && git commit -m "refactor: move the package from budge to budge"
 ```
 
 ---
@@ -407,7 +407,7 @@ def test_the_help_names_the_program_the_user_typed(capsys: pytest.CaptureFixture
     CLI whose --help and every error message name a program that does not
     exist — and nothing would ever say so.
 
-    Kills on: leaving `prog="podvinsya"` behind.
+    Kills on: leaving `prog="budge"` behind.
     """
     with pytest.raises(SystemExit):
         main(["--help"])
@@ -420,12 +420,12 @@ def test_the_help_names_the_program_the_user_typed(capsys: pytest.CaptureFixture
 cd backend && pytest tests/test_cli.py -q -k help; echo "exit=$?"
 ```
 
-Expected: FAIL — `usage: podvinsya` is what it prints today.
+Expected: FAIL — `usage: budge` is what it prints today.
 
 - [x] **Step 3: Rename the script and `prog`**
 
-`backend/pyproject.toml` line 28: `podvinsya = "budge.cli:main"` → `budge = "budge.cli:main"`.
-`backend/src/budge/cli.py` line 39: `prog="podvinsya"` → `prog="budge"`.
+`backend/pyproject.toml` line 28: `budge = "budge.cli:main"` → `budge = "budge.cli:main"`.
+`backend/src/budge/cli.py` line 39: `prog="budge"` → `prog="budge"`.
 
 Then reinstall so the new console script exists:
 
@@ -434,7 +434,7 @@ cd backend && pip install -e . ; echo "exit=$?"
 which budge; budge --help | head -3; echo "exit=$?"
 ```
 
-The old `podvinsya` shim may linger in `.venv/bin`; remove it so a stale invoker fails loudly rather than working by accident.
+The old `budge` shim may linger in `.venv/bin`; remove it so a stale invoker fails loudly rather than working by accident.
 
 - [x] **Step 4: Rename the generator's header, then regenerate**
 
@@ -458,17 +458,17 @@ Expected: both 0, and `git diff frontend/src/shared/api/contracts.ts` shows only
 
 | File | Change |
 | --- | --- |
-| `.github/workflows/ci.yml:79` | `run: podvinsya export-types --check` → `budge` |
-| `backend/Dockerfile` | `CMD ["podvinsya", "serve", ...]` → `["budge", ...]`; the comment on line 5 |
-| `frontend/README.md:40,43` | both `podvinsya export-types` mentions |
+| `.github/workflows/ci.yml:79` | `run: budge export-types --check` → `budge` |
+| `backend/Dockerfile` | `CMD ["budge", "serve", ...]` → `["budge", ...]`; the comment on line 5 |
+| `frontend/README.md:40,43` | both `budge export-types` mentions |
 | `frontend/src/shared/api/index.ts:3` | the comment |
-| `backend/src/budge/cli.py` | comments at 22, 31, and the "Run `podvinsya export-types`" message at 102 |
-| `backend/src/budge/api/app.py:5`, `api/settings.py:4` | docstrings naming `podvinsya migrate` |
-| `backend/src/budge/api/routes/session.py:5` | docstring naming `podvinsya hash-password` |
+| `backend/src/budge/cli.py` | comments at 22, 31, and the "Run `budge export-types`" message at 102 |
+| `backend/src/budge/api/app.py:5`, `api/settings.py:4` | docstrings naming `budge migrate` |
+| `backend/src/budge/api/routes/session.py:5` | docstring naming `budge hash-password` |
 | `backend/tests/db/test_migrations.py:120`, `tests/support/db.py:44` | docstrings |
-| `compose.yaml` | `command: ["podvinsya", "migrate"]` |
-| `backend/scripts/backup-loop.sh` | both `podvinsya backup` and `podvinsya restore-drill` |
-| `docs/operations.md` | every `podvinsya` invocation |
+| `compose.yaml` | `command: ["budge", "migrate"]` |
+| `backend/scripts/backup-loop.sh` | both `budge backup` and `budge restore-drill` |
+| `docs/operations.md` | every `budge` invocation |
 
 The last three exist only if the infra plan has landed. If any is absent, say so rather than creating it.
 
@@ -484,7 +484,7 @@ cd .. && git add -A && git commit -m "refactor: rename the CLI to budge, and reg
 - [x] **Step 7: Prove no invoker was missed**
 
 ```bash
-grep -rn 'podvinsya \(serve\|migrate\|backup\|export-types\|hash-password\|restore-drill\)' \
+grep -rn 'budge \(serve\|migrate\|backup\|export-types\|hash-password\|restore-drill\)' \
   --include='*' . 2>/dev/null | grep -v node_modules | grep -v 'docs/superpowers/plans' \
   || echo "ok: every invoker renamed"
 ```
@@ -495,7 +495,7 @@ Expected: `ok: every invoker renamed`. Plan documents are excluded because Task 
 
 ## Task 4: The environment prefix
 
-`PODVINSYA_` → `BUDGE_`, in one commit, because pydantic-settings ignores unknown variables: a half-renamed prefix does not say "you renamed half the prefix", it says `field required`.
+`BUDGE_` → `BUDGE_`, in one commit, because pydantic-settings ignores unknown variables: a half-renamed prefix does not say "you renamed half the prefix", it says `field required`.
 
 **Files:**
 - Modify: `backend/src/budge/config.py`, `backend/src/budge/cli.py`, `backend/src/budge/api/routes/session.py`
@@ -504,31 +504,31 @@ Expected: `ok: every invoker renamed`. Plan documents are excluded because Task 
 
 - [x] **Step 1: Rename the prefix and every setter together**
 
-The single definition is `backend/src/budge/config.py:12` — `env_prefix="PODVINSYA_"` → `"BUDGE_"`.
+The single definition is `backend/src/budge/config.py:12` — `env_prefix="BUDGE_"` → `"BUDGE_"`.
 
 Then every place a prefixed variable is set or read:
 
 | File | Lines | What |
 | --- | --- | --- |
-| `backend/src/budge/config.py` | 8 | docstring naming `PODVINSYA_DATABASE_URL` |
-| `backend/src/budge/cli.py` | 45 | help text naming `PODVINSYA_HOST_PASSWORD` |
+| `backend/src/budge/config.py` | 8 | docstring naming `BUDGE_DATABASE_URL` |
+| `backend/src/budge/cli.py` | 45 | help text naming `BUDGE_HOST_PASSWORD` |
 | `backend/src/budge/api/routes/session.py` | 5 | docstring |
 | `backend/tests/test_cli.py` | 58–63, 79 | six `setenv` calls and one `delenv` |
 | `backend/tests/db/test_migrations.py` | 104, 125 | two `setenv` calls |
-| `backend/tests/api/conftest.py` | 48 | docstring `PODVINSYA_*` |
+| `backend/tests/api/conftest.py` | 48 | docstring `BUDGE_*` |
 | `backend/tests/api/test_security.py` | 55 | docstring |
-| `.env.example`, `compose.yaml` | — | `PODVINSYA_SECRET_KEY`, `_HOST_PASSWORD`, `_DATABASE_URL`, `_S3_*` |
+| `.env.example`, `compose.yaml` | — | `BUDGE_SECRET_KEY`, `_HOST_PASSWORD`, `_DATABASE_URL`, `_S3_*` |
 
 A `sed` over the uppercase form is safe here — it is a distinct token from everything Tasks 5 and 6 own:
 
 ```bash
-cd backend && grep -rl 'PODVINSYA_' src tests | xargs sed -i 's/PODVINSYA_/BUDGE_/g'; echo "exit=$?"
-cd .. && grep -rl 'PODVINSYA_' .env.example compose.yaml 2>/dev/null | xargs -r sed -i 's/PODVINSYA_/BUDGE_/g'; echo "exit=$?"
+cd backend && grep -rl 'BUDGE_' src tests | xargs sed -i 's/BUDGE_/BUDGE_/g'; echo "exit=$?"
+cd .. && grep -rl 'BUDGE_' .env.example compose.yaml 2>/dev/null | xargs -r sed -i 's/BUDGE_/BUDGE_/g'; echo "exit=$?"
 ```
 
 - [x] **Step 2: Catch the two variables the prefix rename does not reach**
 
-`backend/tests/support/db.py:22,29` read `PODVINSYA_TEST_DATABASE_URL` and `PODVINSYA_TEST_S3_ENDPOINT`. These are **not** derived from `env_prefix` — pydantic-settings never sees them; the test suite reads them directly with `os.environ.get`. Anyone searching from `config.py` would miss them entirely. The `sed` above catches them because it matches the literal prefix, but confirm:
+`backend/tests/support/db.py:22,29` read `BUDGE_TEST_DATABASE_URL` and `BUDGE_TEST_S3_ENDPOINT`. These are **not** derived from `env_prefix` — pydantic-settings never sees them; the test suite reads them directly with `os.environ.get`. Anyone searching from `config.py` would miss them entirely. The `sed` above catches them because it matches the literal prefix, but confirm:
 
 ```bash
 cd backend && grep -n 'BUDGE_TEST_' tests/support/db.py; echo "exit=$?"
@@ -539,11 +539,11 @@ Expected: both lines, now `BUDGE_TEST_DATABASE_URL` and `BUDGE_TEST_S3_ENDPOINT`
 - [x] **Step 3: Confirm nothing anywhere still sets the old prefix**
 
 ```bash
-grep -rn 'PODVINSYA_' . 2>/dev/null | grep -v node_modules | grep -v 'docs/superpowers/plans' \
-  || echo "ok: no PODVINSYA_ variable remains"
+grep -rn 'BUDGE_' . 2>/dev/null | grep -v node_modules | grep -v 'docs/superpowers/plans' \
+  || echo "ok: no BUDGE_ variable remains"
 ```
 
-Expected: `ok: no PODVINSYA_ variable remains`. Plan documents are Task 7's.
+Expected: `ok: no BUDGE_ variable remains`. Plan documents are Task 7's.
 
 - [x] **Step 4: Green everything and commit**
 
@@ -587,12 +587,12 @@ The coupling is the point: these six values appear in three files and nothing sh
 | MinIO root password | 36 | 42 | `S3_SECRET_KEY`, 31 |
 | Test bucket | — | — | `S3_BUCKET`, 32 |
 
-One more, in none of those three files: `backend/tests/backup/test_drill.py` builds a scratch-database name as `f"podvinsya_drill_force_{uuid4().hex[:12]}"`. Underscore protected it from Task 2's sed and no grep in this plan would have caught it before Task 7's final sweep. Rename it here.
+One more, in none of those three files: `backend/tests/backup/test_drill.py` builds a scratch-database name as `f"budge_drill_force_{uuid4().hex[:12]}"`. Underscore protected it from Task 2's sed and no grep in this plan would have caught it before Task 7's final sweep. Rename it here.
 
 ```bash
 cd /home/alexey/projects/sandbox/budge-game
-sed -i 's/podvinsya/budge/g' backend/compose.test.yaml .github/workflows/ci.yml
-sed -i 's/podvinsya/budge/g' backend/tests/support/db.py backend/tests/api/test_app.py \
+sed -i 's/budge/budge/g' backend/compose.test.yaml .github/workflows/ci.yml
+sed -i 's/budge/budge/g' backend/tests/support/db.py backend/tests/api/test_app.py \
   backend/tests/backup/test_drill.py
 echo "exit=$?"
 ```
@@ -604,7 +604,7 @@ git diff --stat backend/compose.test.yaml .github/workflows/ci.yml backend/tests
 git diff backend/tests/support/db.py
 ```
 
-Expected: `podvinsya:podvinsya@127.0.0.1:5434/podvinsya_test` → `budge:budge@127.0.0.1:5434/budge_test`, `podvinsya-media-test` → `budge-media-test`, `podvinsya-secret` → `budge-secret`. The **port 5434 must not change** — it was chosen to stay clear of a local server and of the neighbouring triviador project.
+Expected: `budge:budge@127.0.0.1:5434/budge_test` → `budge:budge@127.0.0.1:5434/budge_test`, `budge-media-test` → `budge-media-test`, `budge-secret` → `budge-secret`. The **port 5434 must not change** — it was chosen to stay clear of a local server and of the neighbouring triviador project.
 
 - [x] **Step 3: Recreate the test stack with the new identifiers**
 
@@ -640,26 +640,26 @@ Three strings a person actually sees or a deployment actually carries.
 
 - [x] **Step 1: The OpenAPI title**
 
-`backend/src/budge/api/app.py:115` — `FastAPI(title="Podvinsya", ...)` → `title="budge"`. This is what a reader sees at `/docs`.
+`backend/src/budge/api/app.py:115` — `FastAPI(title="budge", ...)` → `title="budge"`. This is what a reader sees at `/docs`.
 
 - [x] **Step 2: The session cookie — R6**
 
-`backend/src/budge/api/principal.py:21` — `SESSION_COOKIE = "podvinsya_session"` → `"budge_session"`.
-`backend/tests/api/test_session_routes.py:69` asserts on the literal `'podvinsya_session=""'` in a `Set-Cookie` header; update it.
+`backend/src/budge/api/principal.py:21` — `SESSION_COOKIE = "budge_session"` → `"budge_session"`.
+`backend/tests/api/test_session_routes.py:69` asserts on the literal `'budge_session=""'` in a `Set-Cookie` header; update it.
 
 Note what this does: a browser holding the old cookie keeps sending it, the server no longer looks for it, and the operator silently lands on the login screen. There are no live sessions, so the cost is zero today — but say so in the commit message, because it is the kind of change that is confusing when it happens to someone.
 
 - [x] **Step 3: The S3 bucket default — R5**
 
-`backend/src/budge/api/settings.py:32` — `s3_bucket: str = "podvinsya-media"` → `"budge-media"`.
+`backend/src/budge/api/settings.py:32` — `s3_bucket: str = "budge-media"` → `"budge-media"`.
 
 This is the only value in the tree that a real deployment would carry by default. Nothing is deployed, and `compose.yaml` already sets `BUDGE_S3_BUCKET: budge-media` explicitly, so the default is currently overridden anyway. Add a line to `docs/operations.md` under a **Renaming** heading:
 
 ```markdown
 ## If you are restoring a deployment older than the budge rename
 
-Objects were stored in a bucket called `podvinsya-media`, and the default
-is now `budge-media`. Either set `BUDGE_S3_BUCKET=podvinsya-media` in
+Objects were stored in a bucket called `budge-media`, and the default
+is now `budge-media`. Either set `BUDGE_S3_BUCKET=budge-media` in
 `.env`, or copy the objects across before starting `api`. A mismatch here
 does not error — every picture simply 404s, and the game comes back
 looking empty.
@@ -688,28 +688,28 @@ cookie the server no longer reads."
 - Move: 8 files under `docs/superpowers/`
 - Modify: their bodies, and every cross-reference to them
 
-- [ ] **Step 1: Rename the eight files**
+- [x] **Step 1: Rename the eight files**
 
 ```bash
 cd /home/alexey/projects/sandbox/budge-game/docs/superpowers
-git mv specs/2026-08-22-podvinsya-design.md specs/2026-08-22-budge-design.md
-for name in 2026-08-22-podvinsya-domain-core 2026-08-22-podvinsya-persistence \
-            2026-08-23-podvinsya-api 2026-08-23-podvinsya-content-library \
-            2026-08-23-podvinsya-contracts 2026-08-23-podvinsya-media \
-            2026-08-23-podvinsya-runtime; do
-  git mv "plans/${name}.md" "plans/$(echo "$name" | sed 's/podvinsya/budge/').md"
+git mv specs/2026-08-22-budge-design.md specs/2026-08-22-budge-design.md
+for name in 2026-08-22-budge-domain-core 2026-08-22-budge-persistence \
+            2026-08-23-budge-api 2026-08-23-budge-content-library \
+            2026-08-23-budge-contracts 2026-08-23-budge-media \
+            2026-08-23-budge-runtime; do
+  git mv "plans/${name}.md" "plans/$(echo "$name" | sed 's/budge/budge/').md"
 done
 echo "exit=$?"
 ```
 
-- [ ] **Step 2: Rewrite the bodies**
+- [x] **Step 2: Rewrite the bodies**
 
-R7: a completed plan that says `src/podvinsya/api/` is actively misleading to anyone who follows it after this rename. Git history keeps the originals.
+R7: a completed plan that says `src/budge/api/` is actively misleading to anyone who follows it after this rename. Git history keeps the originals.
 
 ```bash
 cd /home/alexey/projects/sandbox/budge-game
-grep -rl 'podvinsya\|PODVINSYA\|Podvinsya' docs/superpowers/ | xargs sed -i \
-  -e 's/PODVINSYA/BUDGE/g' -e 's/Podvinsya/budge/g' -e 's/podvinsya/budge/g'
+grep -rl 'budge\|BUDGE\|budge' docs/superpowers/ | xargs sed -i \
+  -e 's/BUDGE/BUDGE/g' -e 's/budge/budge/g' -e 's/budge/budge/g'
 echo "exit=$?"
 ```
 
@@ -718,14 +718,14 @@ Order matters: uppercase and title-case first, or the lowercase rule consumes th
 **Scoped to `docs/superpowers/`, not to `docs/`.** `docs/operations.md` also lives under `docs/`, and Task 6 deliberately wrote a paragraph there naming the *old* bucket — a blanket sed would rewrite it into a paragraph that says the old name and the new name are both `budge-media`, which is worse than not having written it. Confirm it survived:
 
 ```bash
-grep -n 'podvinsya-media' docs/operations.md; echo "exit=$?"
+grep -n 'budge-media' docs/operations.md; echo "exit=$?"
 ```
 
 Expected: two lines. If it returns nothing, the sed was run too widely — restore them from `git show HEAD~1:docs/operations.md` and re-run scoped.
 
-- [ ] **Step 3: Fix the cross-references to the renamed spec**
+- [x] **Step 3: Fix the cross-references to the renamed spec**
 
-Several plans name the spec by path — `docs/superpowers/specs/2026-08-22-podvinsya-design.md` — and Step 2 has already rewritten those strings to the new name. Confirm every referenced path now resolves:
+Several plans name the spec by path — `docs/superpowers/specs/2026-08-22-budge-design.md` — and Step 2 has already rewritten those strings to the new name. Confirm every referenced path now resolves:
 
 ```bash
 cd /home/alexey/projects/sandbox/budge-game
@@ -737,11 +737,11 @@ echo "checked"
 
 Expected: no `DANGLING:` lines. If any appears, the reference names a file that was never renamed or never existed — fix the reference, not the filename.
 
-- [ ] **Step 4: Confirm the word is gone from the whole repository**
+- [x] **Step 4: Confirm the word is gone from the whole repository**
 
 ```bash
 cd /home/alexey/projects/sandbox/budge-game
-grep -rni 'podvinsya' . 2>/dev/null \
+grep -rni 'budge' . 2>/dev/null \
   | grep -v node_modules | grep -v '/\.git/' | grep -v '\.venv/' \
   || echo "ok: no occurrence remains anywhere"
 ```
@@ -750,8 +750,8 @@ grep -rni 'podvinsya' . 2>/dev/null \
 
 | Survivor | Why it stays |
 | --- | --- |
-| `docs/operations.md`, 2 lines naming `podvinsya-media` | Task 6 Step 3 wrote it; its whole subject is that objects from before the rename live under the old bucket name (R5). |
-| `backend/tests/test_cli.py`, the `prog` test's docstring "Kills on: leaving `prog="podvinsya"` behind" | R3's test names the *old* value it kills on. Renamed, the docstring would claim the test kills on leaving `prog="budge"` behind, which is nonsense. |
+| `docs/operations.md`, 2 lines naming `budge-media` | Task 6 Step 3 wrote it; its whole subject is that objects from before the rename live under the old bucket name (R5). |
+| `backend/tests/test_cli.py`, the `prog` test's docstring "Kills on: leaving `prog="budge"` behind" | R3's test names the *old* value it kills on. Renamed, the docstring would claim the test kills on leaving `prog="budge"` behind, which is nonsense. |
 | `.env` at the **repository root** (untracked, gitignored) | Local operator state. Task 8 Step 6 updates it by hand; nothing in the repo may write it. |
 
 Anything under `backend/.venv/` is a build artefact and is fixed by reinstalling, not by editing.
@@ -760,16 +760,16 @@ So the honest check is that nothing *else* survives:
 
 ```bash
 cd /home/alexey/projects/sandbox/budge-game
-/usr/bin/grep -rnI 'podvinsya\|PODVINSYA\|Podvinsya' . \
+/usr/bin/grep -rnI 'budge\|BUDGE\|budge' . \
   --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.venv \
   | grep -v 'docs/operations.md' | grep -v 'tests/test_cli.py' \
   || echo "ok: only the three deliberate survivors remain"
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
-git add -A && git commit -m "docs: rename podvinsya to budge throughout"
+git add -A && git commit -m "docs: rename budge to budge throughout"
 ```
 
 ---
