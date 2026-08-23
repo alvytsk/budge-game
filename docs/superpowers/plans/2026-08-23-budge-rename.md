@@ -708,12 +708,20 @@ R7: a completed plan that says `src/podvinsya/api/` is actively misleading to an
 
 ```bash
 cd /home/alexey/projects/sandbox/budge-game
-grep -rl 'podvinsya\|PODVINSYA\|Podvinsya' docs/ | xargs sed -i \
+grep -rl 'podvinsya\|PODVINSYA\|Podvinsya' docs/superpowers/ | xargs sed -i \
   -e 's/PODVINSYA/BUDGE/g' -e 's/Podvinsya/budge/g' -e 's/podvinsya/budge/g'
 echo "exit=$?"
 ```
 
 Order matters: uppercase and title-case first, or the lowercase rule consumes them.
+
+**Scoped to `docs/superpowers/`, not to `docs/`.** `docs/operations.md` also lives under `docs/`, and Task 6 deliberately wrote a paragraph there naming the *old* bucket — a blanket sed would rewrite it into a paragraph that says the old name and the new name are both `budge-media`, which is worse than not having written it. Confirm it survived:
+
+```bash
+grep -n 'podvinsya-media' docs/operations.md; echo "exit=$?"
+```
+
+Expected: two lines. If it returns nothing, the sed was run too widely — restore them from `git show HEAD~1:docs/operations.md` and re-run scoped.
 
 - [ ] **Step 3: Fix the cross-references to the renamed spec**
 
@@ -738,9 +746,25 @@ grep -rni 'podvinsya' . 2>/dev/null \
   || echo "ok: no occurrence remains anywhere"
 ```
 
-Expected: `ok: no occurrence remains anywhere`. Two categories are allowed to survive and must be reported rather than silently accepted:
-- anything under `backend/.venv/` — a build artefact, fixed by `pip install -e .`
-- the `docs/operations.md` paragraph from Task 6 Step 3, which deliberately names the *old* bucket because that is its whole subject
+**This will not return `ok:`, and that is correct.** Three things are allowed to survive. Report them explicitly rather than accepting them silently, and do not rename any of them:
+
+| Survivor | Why it stays |
+| --- | --- |
+| `docs/operations.md`, 2 lines naming `podvinsya-media` | Task 6 Step 3 wrote it; its whole subject is that objects from before the rename live under the old bucket name (R5). |
+| `backend/tests/test_cli.py`, the `prog` test's docstring "Kills on: leaving `prog="podvinsya"` behind" | R3's test names the *old* value it kills on. Renamed, the docstring would claim the test kills on leaving `prog="budge"` behind, which is nonsense. |
+| `.env` at the **repository root** (untracked, gitignored) | Local operator state. Task 8 Step 6 updates it by hand; nothing in the repo may write it. |
+
+Anything under `backend/.venv/` is a build artefact and is fixed by reinstalling, not by editing.
+
+So the honest check is that nothing *else* survives:
+
+```bash
+cd /home/alexey/projects/sandbox/budge-game
+/usr/bin/grep -rnI 'podvinsya\|PODVINSYA\|Podvinsya' . \
+  --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.venv \
+  | grep -v 'docs/operations.md' | grep -v 'tests/test_cli.py' \
+  || echo "ok: only the three deliberate survivors remain"
+```
 
 - [ ] **Step 5: Commit**
 
