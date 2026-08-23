@@ -724,7 +724,7 @@ cd .. && git add frontend && git commit -m "feat(host): the console shell — se
 **Interfaces:**
 - Produces: `useCategories()`, `useCategory(id)`, `useReadiness(cells)`, `useCreateCategory()`, `useEditCategory()`, `useSetCategoryActive()`, `useAddImage()`, `useEditImage()`, `useSetImageActive()`, `useReorderImages()`, `useUploadMedia()`, `<CategoryEditor categoryId />`, `<LibraryPage />`
 
-- [ ] **Step 1: Write the failing library-api test — `frontend/src/features/library/api/use-library.test.tsx`**
+- [x] **Step 1: Write the failing library-api test — `frontend/src/features/library/api/use-library.test.tsx`**
 
 ```tsx
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -843,7 +843,7 @@ describe("useAddImage", () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 cd frontend && pnpm vitest run src/features/library; echo "exit=$?"
@@ -851,7 +851,7 @@ cd frontend && pnpm vitest run src/features/library; echo "exit=$?"
 
 Expected: FAIL — `Failed to resolve import "./use-library"`.
 
-- [ ] **Step 3: Write `frontend/src/features/library/api/use-library.ts`**
+- [x] **Step 3: Write `frontend/src/features/library/api/use-library.ts`**
 
 ```ts
 import {
@@ -1003,11 +1003,11 @@ export function useUploadMedia(): (file: File) => Promise<UploadedMediaBody> {
 
 `frontend/src/features/library/index.ts` re-exports all eleven names.
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Expected: PASS, 4 tests.
 
-- [ ] **Step 5: Write the failing editor test — `frontend/src/widgets/category-editor/ui/category-editor.test.tsx`**
+- [x] **Step 5: Write the failing editor test — `frontend/src/widgets/category-editor/ui/category-editor.test.tsx`**
 
 ```tsx
 import { screen, waitFor } from "@testing-library/react";
@@ -1123,7 +1123,7 @@ describe("CategoryEditor", () => {
 });
 ```
 
-- [ ] **Step 6: Run it, watch it fail, then write `frontend/src/widgets/category-editor/ui/category-editor.tsx`**
+- [x] **Step 6: Run it, watch it fail, then write `frontend/src/widgets/category-editor/ui/category-editor.tsx`**
 
 ```tsx
 import { type ChangeEvent, useEffect, useState } from "react";
@@ -1252,11 +1252,11 @@ export function CategoryEditor({ categoryId }: { categoryId: string }) {
 
 `alt={image.answer_text}` is what makes `getByAltText("Титаник")` resolve, and it is also correct: the answer *is* what the picture depicts.
 
-- [ ] **Step 7: Run it and watch it pass**
+- [x] **Step 7: Run it and watch it pass**
 
 Expected: PASS, 5 tests.
 
-- [ ] **Step 8: Write the failing library-page test — `frontend/src/pages/host-library/ui/library-page.test.tsx`**
+- [x] **Step 8: Write the failing library-page test — `frontend/src/pages/host-library/ui/library-page.test.tsx`**
 
 ```tsx
 import { screen, waitFor } from "@testing-library/react";
@@ -1344,7 +1344,7 @@ describe("LibraryPage", () => {
 });
 ```
 
-- [ ] **Step 9: Run it, watch it fail, then write `frontend/src/pages/host-library/ui/library-page.tsx`**
+- [x] **Step 9: Run it, watch it fail, then write `frontend/src/pages/host-library/ui/library-page.tsx`**
 
 ```tsx
 import { useState } from "react";
@@ -1437,7 +1437,7 @@ export function LibraryPage() {
 
 `frontend/src/pages/host-library/index.ts`: `export { LibraryPage } from "./ui/library-page";`
 
-- [ ] **Step 10: Replace the route stub — `frontend/src/app/routes/host.library.tsx`**
+- [x] **Step 10: Replace the route stub — `frontend/src/app/routes/host.library.tsx`**
 
 ```tsx
 import { createFileRoute } from "@tanstack/react-router";
@@ -1446,7 +1446,7 @@ import { LibraryPage } from "@/pages/host-library";
 export const Route = createFileRoute("/host/library")({ component: LibraryPage });
 ```
 
-- [ ] **Step 11: Green everything and commit**
+- [x] **Step 11: Green everything and commit**
 
 ```bash
 cd frontend && pnpm build; echo "exit=$?"

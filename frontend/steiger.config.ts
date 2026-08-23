@@ -11,8 +11,15 @@ export default defineConfig([
   // each widget (`board`, `duel`, `overlay`) is drawn by that one page by
   // design — the stage screen is a single surface split for readability,
   // so "only one reference, consider merging" is advice to undo the split.
+  //
+  // `features/**` is on this list for a mechanical reason rather than a
+  // stylistic one: turning a rule off for a glob drops those files out of
+  // the tree that rule sees, so `insignificant-slice` can no longer see
+  // that `widgets/category-editor` and `pages/host-library` import
+  // `features/library` — it reports "no references" for a slice with two.
+  // Its verdict on `features` is unsound while the exclusions above stand.
   {
-    files: ["./src/entities/**", "./src/pages/**", "./src/widgets/**"],
+    files: ["./src/entities/**", "./src/features/**", "./src/pages/**", "./src/widgets/**"],
     rules: { "fsd/insignificant-slice": "off" },
   },
   // `segments-by-purpose` blacklists the word "providers" because inside a
