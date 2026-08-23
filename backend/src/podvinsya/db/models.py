@@ -116,3 +116,65 @@ class MatchEventRow(Base):
     __table_args__ = (
         Index("ix_match_events_match_id_operation_id", "match_id", "operation_id"),
     )
+
+
+class Category(Base):
+    """§5.3's `categories`, an ordinary table and deliberately not
+    event-sourced: the library outlives every match, and a log of its edits
+    would be a second history nobody replays.
+
+    `version` is not bookkeeping. §5.3 makes it a locking invariant:
+    selection takes `FOR SHARE` on this row, and an edit path that changed
+    an image without touching this row would slip past that lock. The bump
+    lives in exactly one place — `LibraryCatalogue._bump` — and
+    `test_no_write_outside_the_catalogue` is what keeps it there.
+
+    There is no delete. §5.3: «контент удаляется только мягко, флагом
+    `is_active`» — the observed behaviour of an operator who turned a theme
+    off after three editions rather than throwing it away.
+    """
+
+    __tablename__ = "categories"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    title: Mapped[str] = mapped_column(Text)
+    is_secret: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Image(Base):
+    """§5.3's `images`.
+
+    `answer_text` is the thing §7.1 forbids the stage screen ever to
+    receive, which is why it lives here and reaches the frame layer only
+    through `ContentDirectory` — a port whose stage-side caller passes
+    `images=frozenset()` and therefore never asks for one.
+
+    `media_sha256` is content-addressable by definition (§7.6: «медиа
+    контент-адресуемо по sha256»); the store behind it arrives with the
+    media plan. The check constraint below is the part that is true either
+    way, and it is in the schema rather than only in Pydantic because that
+    plan will write here too.
+    """
+
+    __tablename__ = "images"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    category_id: Mapped[UUID] = mapped_column(
+        ForeignKey("categories.id", ondelete="CASCADE"), index=True
+    )
+    media_sha256: Mapped[str] = mapped_column(Text)
+    answer_text: Mapped[str] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "media_sha256 ~ '^[0-9a-f]{64}$'", name="ck_images_media_sha256_is_a_digest"
+        ),
+        CheckConstraint("position >= 0", name="ck_images_position_non_negative"),
+    )

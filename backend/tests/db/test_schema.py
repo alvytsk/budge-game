@@ -7,7 +7,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.models import Match, MatchEventRow, MatchPlayer
+from podvinsya.db.models import Category, Image, Match, MatchEventRow, MatchPlayer
 from podvinsya.domain.state import MatchStatus
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
@@ -150,3 +150,118 @@ async def test_deleting_a_match_takes_its_log_and_players_with_it(
         left_players = (await session.execute(select(MatchPlayer.player_id))).scalars().all()
     assert left_events == []
     assert left_players == []
+
+
+async def _a_category(
+    sessions: async_sessionmaker[AsyncSession], **overrides: object
+) -> Category:
+    category = Category(id=uuid4(), title="История", is_secret=False, is_active=True, version=1)
+    for key, value in overrides.items():
+        setattr(category, key, value)
+    async with sessions() as session, session.begin():
+        session.add(category)
+    return category
+
+
+A_DIGEST = "a" * 64
+
+
+async def test_an_image_digest_must_be_a_sha256(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """Kills on: dropping the check constraint. The media plan writes here
+    too, and a row whose digest is not one points at an object that cannot
+    exist under any content-addressed scheme (§7.6)."""
+    category = await _a_category(sessions)
+    with pytest.raises(IntegrityError):
+        async with sessions() as session, session.begin():
+            session.add(
+                Image(
+                    id=uuid4(),
+                    category_id=category.id,
+                    media_sha256="not-a-digest",
+                    answer_text="Гагарин",
+                    position=0,
+                )
+            )
+
+
+async def test_an_uppercase_digest_is_refused(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """Content addressing only works if one object has one name. Kills on:
+    a case-insensitive pattern, which would let the same bytes be stored
+    under two digests that differ only in case."""
+    category = await _a_category(sessions)
+    with pytest.raises(IntegrityError):
+        async with sessions() as session, session.begin():
+            session.add(
+                Image(
+                    id=uuid4(),
+                    category_id=category.id,
+                    media_sha256="A" * 64,
+                    answer_text="Гагарин",
+                    position=0,
+                )
+            )
+
+
+async def test_a_negative_position_is_refused(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    category = await _a_category(sessions)
+    with pytest.raises(IntegrityError):
+        async with sessions() as session, session.begin():
+            session.add(
+                Image(
+                    id=uuid4(),
+                    category_id=category.id,
+                    media_sha256=A_DIGEST,
+                    answer_text="Гагарин",
+                    position=-1,
+                )
+            )
+
+
+async def test_a_category_starts_active_at_version_one(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """Kills on: defaulting `version` to 0, which makes the first bump
+    produce 1 and be indistinguishable from a category never edited."""
+    async with sessions() as session, session.begin():
+        category = Category(id=uuid4(), title="Кино")
+        session.add(category)
+    async with sessions() as session:
+        stored = (
+            await session.execute(select(Category).where(Category.id == category.id))
+        ).scalar_one()
+    assert (stored.version, stored.is_active, stored.is_secret) == (1, True, False)
+
+
+async def test_deleting_a_category_cascades_to_its_images(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """Nothing in this system performs a hard delete (§5.3: «контент
+    удаляется только мягко»). Asserted so that if a later plan adds an
+    administrative purge, it cannot leave orphaned images behind.
+
+    Kills on: dropping `ondelete="CASCADE"`, which turns that future purge
+    into a foreign-key violation or, worse, orphan rows."""
+    category = await _a_category(sessions)
+    async with sessions() as session, session.begin():
+        session.add(
+            Image(
+                id=uuid4(),
+                category_id=category.id,
+                media_sha256=A_DIGEST,
+                answer_text="Гагарин",
+                position=0,
+            )
+        )
+
+    async with sessions() as session, session.begin():
+        await session.execute(text("DELETE FROM categories WHERE id = :id"), {"id": category.id})
+
+    async with sessions() as session:
+        remaining = (await session.execute(select(Image))).scalars().all()
+    assert remaining == []
