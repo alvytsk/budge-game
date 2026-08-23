@@ -158,6 +158,30 @@ describe("StagePage", () => {
     expect(body).not.toContain("Кино");
   });
 
+  it("drives the rendered clock from the frame's server_now, not the browser's", () => {
+    // §7.3, and the one wiring the type system cannot hold: `StagePage`
+    // hands `DuelView` a `() => number`, and any `() => number` type-checks.
+    // Kills on: passing `Date.now` — this browser's clock is five minutes
+    // fast, so an uncorrected screen would show the attacker's whole
+    // 60-second budget already burnt.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-23T20:05:00Z"));
+    const { send } = mount();
+    send(
+      stageFrame({
+        server_now: "2026-08-23T20:00:00Z",
+        duel: duel({
+          phase: "running",
+          timing: timing({
+            anchor: "2026-08-23T20:00:00Z",
+            remaining_ms: { [ATTACKER]: 60_000, [DEFENDER]: 60_000 },
+          }),
+        }),
+      }),
+    );
+    expect(screen.getByTestId(`timer-${ATTACKER}`)).toHaveTextContent("1:00");
+  });
+
   it("renders the newest frame, not a merge of what came before", () => {
     // §7.2: «клиент рисует последнее пришедшее». Kills on: any attempt to
     // reconcile, patch or queue frames.
