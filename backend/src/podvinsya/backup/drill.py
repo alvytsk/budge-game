@@ -84,6 +84,28 @@ async def _fold_every_match(scratch: str) -> tuple[int, int, tuple[str, ...]]:
     return matches, events, tuple(failures)
 
 
+async def _digests_in(scratch: str) -> tuple[str, ...]:
+    """Every digest the *restored* database references.
+
+    Read from the restore rather than from the manifest, and that is the
+    whole point (I3). `take` reads its digest list on one connection and
+    `pg_dump` snapshots on another, so an image inserted between the two is
+    inside the archive and absent from the manifest — and a cross-check
+    against the manifest would then pass while the restored game came back
+    with a picture nobody mirrored. The archive is the artefact being
+    rehearsed, so the archive is what gets asked.
+    """
+    engine = create_engine(scratch)
+    try:
+        async with engine.connect() as connection:
+            rows = (
+                await connection.execute(text("SELECT DISTINCT media_sha256 FROM images"))
+            ).all()
+        return tuple(sorted(row[0] for row in rows))
+    finally:
+        await engine.dispose()
+
+
 async def _revision_of(scratch: str) -> str | None:
     engine = create_engine(scratch)
     try:
@@ -126,6 +148,9 @@ async def run(
     failures: list[str] = []
     revision: str | None = None
     matches = events = 0
+    # Seeded from the manifest so a restore that never got far enough to be
+    # asked still reports what the dump said it needed.
+    referenced: tuple[str, ...] = manifest.digests
 
     try:
         async with scratch_database(database_url, name) as scratch:
@@ -135,14 +160,14 @@ async def run(
                 failures.append("the restored database carries no alembic_version")
             elif expected_revision is not None and revision != expected_revision:
                 failures.append(f"restored at revision {revision}, expected {expected_revision}")
+            referenced = await _digests_in(scratch)
             matches, events, fold_failures = await _fold_every_match(scratch)
             failures.extend(fold_failures)
     except Exception as failure:
         failures.append(f"{type(failure).__name__}: {failure}")
 
-    # I3, checked against the manifest rather than against the restored
-    # rows: the manifest is what the dump *said* it needed.
-    missing = tuple(digest for digest in manifest.digests if not root.blob(digest).is_file())
+    # I3, against what the restore actually contains — see `_digests_in`.
+    missing = tuple(digest for digest in referenced if not root.blob(digest).is_file())
 
     report = DrillReport(
         dump=newest,

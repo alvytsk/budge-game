@@ -386,3 +386,54 @@ async def test_the_scratch_database_is_dropped_with_a_connection_still_open(
         if lingering is not None:
             with suppress(Exception):
                 await lingering.dispose()
+
+
+async def test_it_checks_the_pictures_the_archive_holds_not_the_ones_the_manifest_named(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    """I3, at the only place it can be exact.
+
+    `take` reads its digest list on one connection and `pg_dump` snapshots
+    on another, so an image inserted between the two lands inside the
+    archive and outside the manifest. A cross-check against the manifest
+    passes on that backup; the restored game comes back with a picture
+    nobody mirrored.
+
+    Kills on: reading `manifest.digests` instead of the restored rows. The
+    manifest here is deliberately made to under-report, which is exactly
+    what that race produces.
+    """
+    category = uuid4()
+    digest = "9" * 64
+    async with sessions() as session:
+        await session.execute(
+            text(
+                "INSERT INTO categories (id, title, is_secret, is_active, version) "
+                "VALUES (:id, 'Кино', false, true, 1)"
+            ),
+            {"id": category},
+        )
+        await session.execute(
+            text(
+                "INSERT INTO images (id, category_id, media_sha256, answer_text, "
+                "position, is_active) VALUES (:id, :category, :digest, 'Титаник', 0, true)"
+            ),
+            {"id": uuid4(), "category": category, "digest": digest},
+        )
+        await session.commit()
+
+    root = BackupRoot(tmp_path)
+    store = InMemoryMediaStore()
+    store.objects[digest] = b"a picture"
+    manifest = await take(root, database_url=DATABASE_URL, media=store)
+
+    # Stand in for the race: the archive references the digest, the
+    # manifest does not, and the blob was therefore never mirrored.
+    root.blob(digest).unlink()
+    Manifest(taken_at=manifest.taken_at, revision=manifest.revision, digests=()).write(
+        root.manifest_for(manifest.taken_at)
+    )
+
+    report = await drill.run(root, database_url=DATABASE_URL)
+    assert not report.passed
+    assert digest in report.missing_media
