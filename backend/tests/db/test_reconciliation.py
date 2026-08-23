@@ -5,10 +5,10 @@ retry, a batch that landed is progress, and anything else is a quarantine."""
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import Reconciliation, UnitOfWork
-from podvinsya.domain.events import Event, MatchCreated
-from podvinsya.domain.ids import MatchId
+from budge.db.repository import MatchRepository
+from budge.db.store import Reconciliation, UnitOfWork
+from budge.domain.events import Event, MatchCreated
+from budge.domain.ids import MatchId
 from support.streams import build_rich_stream
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]

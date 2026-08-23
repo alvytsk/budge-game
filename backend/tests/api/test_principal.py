@@ -12,11 +12,11 @@ import pytest
 from fastapi import Depends, FastAPI
 
 from api.conftest import TEST_SECRET, running_app
-from podvinsya.api.app import build_app
-from podvinsya.api.principal import SESSION_COOKIE, HostPrincipal, require_host, stage_principal_for
-from podvinsya.api.security import mint_session, mint_stage_token
-from podvinsya.api.settings import ApiSettings
-from podvinsya.domain.ids import MatchId
+from budge.api.app import build_app
+from budge.api.principal import SESSION_COOKIE, HostPrincipal, require_host, stage_principal_for
+from budge.api.security import mint_session, mint_stage_token
+from budge.api.settings import ApiSettings
+from budge.domain.ids import MatchId
 from uuid import uuid4
 
 pytestmark = pytest.mark.integration

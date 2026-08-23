@@ -18,8 +18,8 @@ from datetime import UTC, datetime, timedelta
 from itertools import count
 from uuid import UUID, uuid4
 
-from podvinsya.domain import check_invariants
-from podvinsya.domain.actions import (
+from budge.domain import check_invariants
+from budge.domain.actions import (
     AddPlayer,
     AssignSecret,
     Command,
@@ -35,16 +35,16 @@ from podvinsya.domain.actions import (
     StartMatch,
     UndoLastJudgement,
 )
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DealPlan, DealtCell, DecisionContext, JournalEntry
-from podvinsya.domain.decide import decide
-from podvinsya.domain.events import Event
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, GroupId, ImageId, MatchId, PlayerId
-from podvinsya.domain.rules import legal_targets
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchState, MatchStatus
+from budge.domain.board import BoardSize
+from budge.domain.context import DealPlan, DealtCell, DecisionContext, JournalEntry
+from budge.domain.decide import decide
+from budge.domain.events import Event
+from budge.domain.evolve import fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import CategoryId, GroupId, ImageId, MatchId, PlayerId
+from budge.domain.rules import legal_targets
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchState, MatchStatus
 
 BASE_TIME = datetime(2026, 8, 22, 12, 0, 0, tzinfo=UTC)
 COLOURS = ("#e5484d", "#3b82f6", "#22c55e", "#a855f7")
@@ -96,7 +96,7 @@ def deterministic_uuid4(start: int = 1) -> Callable[[], UUID]:
     for n = start, start + 1, ...
 
     Every id `build_rich_stream` mints goes through the bare `uuid4()` name
-    in *this* module — nothing in `podvinsya.domain` calls it — so
+    in *this* module — nothing in `budge.domain` calls it — so
     `monkeypatch.setattr(streams, "uuid4", deterministic_uuid4())` makes the
     whole stream reproducible, values included, without touching the domain
     and without changing any other test's ids.
@@ -154,7 +154,7 @@ class _Recorder:
         tagged with that judging event's own seq (`self.state.seq + 1`: the
         judging event has not been folded yet, and `evolve` assigns seq by
         incrementing once per event with genesis at seq 1). This mirrors
-        `podvinsya.runtime.materialiser._snapshot` exactly -- both replay
+        `budge.runtime.materialiser._snapshot` exactly -- both replay
         from a pre-judgement state and both must report the judgement's own
         position, not the position of whatever preceded it."""
         duel = self.state.duel

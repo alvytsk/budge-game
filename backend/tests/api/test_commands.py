@@ -12,19 +12,19 @@ from uuid import uuid4
 import pytest
 from pydantic import BaseModel, ValidationError, TypeAdapter
 
-from podvinsya.api.schemas import commands as commands_module
-from podvinsya.api.schemas import library as library_module
-from podvinsya.api.schemas import media as media_module
-from podvinsya.api.schemas import rest as rest_module
-from podvinsya.api.schemas.commands import (
+from budge.api.schemas import commands as commands_module
+from budge.api.schemas import library as library_module
+from budge.api.schemas import media as media_module
+from budge.api.schemas import rest as rest_module
+from budge.api.schemas.commands import (
     Ack,
     DeclareAttackCommand,
     Envelope,
     JudgeCorrectCommand,
     LiveCommand,
 )
-from podvinsya.domain.actions import DeclareAttack, ExpireTimer, JudgeCorrect
-from podvinsya.domain.ids import GroupId
+from budge.domain.actions import DeclareAttack, ExpireTimer, JudgeCorrect
+from budge.domain.ids import GroupId
 from support.walk import property_names
 
 # Every way a body could claim an identity. §7.4: the principal comes from

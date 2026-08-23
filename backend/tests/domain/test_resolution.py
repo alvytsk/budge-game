@@ -1,18 +1,18 @@
 from dataclasses import replace
 
-from podvinsya.domain.actions import (
+from budge.domain.actions import (
     ExpireTimer,
     JudgeCorrect,
     JudgePass,
     PauseDuel,
     UndoLastJudgement,
 )
-from podvinsya.domain.board import is_connected
-from podvinsya.domain.context import DecisionContext, JournalEntry
-from podvinsya.domain.decide import decide
-from podvinsya.domain.events import DuelPaused, DuelResolved, JudgementUndone, PassUsed
-from podvinsya.domain.ids import PlayerId
-from podvinsya.domain.state import MatchState
+from budge.domain.board import is_connected
+from budge.domain.context import DecisionContext, JournalEntry
+from budge.domain.decide import decide
+from budge.domain.events import DuelPaused, DuelResolved, JudgementUndone, PassUsed
+from budge.domain.ids import PlayerId
+from budge.domain.state import MatchState
 
 from .conftest import apply, at, build_declared_state, build_duel_state
 
@@ -114,8 +114,8 @@ def test_a_judging_command_arriving_after_the_deadline_resolves_as_expiry() -> N
 
 def test_expire_timer_without_a_duel_is_ignored() -> None:
     from .conftest import build_running_state
-    from podvinsya.domain.context import DecisionContext
-    from podvinsya.domain.decide import decide
+    from budge.domain.context import DecisionContext
+    from budge.domain.decide import decide
     from .conftest import BASE_TIME
 
     state, _ = build_running_state(4)

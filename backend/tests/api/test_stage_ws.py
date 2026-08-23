@@ -18,14 +18,14 @@ from uuid import UUID, uuid4
 import pytest
 
 from api.conftest import TEST_SECRET, running_app
-from podvinsya.api.app import build_app
-from podvinsya.api.principal import SESSION_COOKIE
-from podvinsya.api.routes import stage_ws
-from podvinsya.api.routes.stage_ws import UNAUTHORISED
-from podvinsya.api.security import mint_session, mint_stage_token
-from podvinsya.api.services import ReadOnlyMatches, Services
-from podvinsya.api.settings import ApiSettings
-from podvinsya.domain.ids import MatchId
+from budge.api.app import build_app
+from budge.api.principal import SESSION_COOKIE
+from budge.api.routes import stage_ws
+from budge.api.routes.stage_ws import UNAUTHORISED
+from budge.api.security import mint_session, mint_stage_token
+from budge.api.services import ReadOnlyMatches, Services
+from budge.api.settings import ApiSettings
+from budge.domain.ids import MatchId
 from support.asgi import ASGIWebSocketClient, WebSocketRejected
 from support.walk import every_string
 
@@ -34,7 +34,7 @@ BOARD = {"width": 3, "height": 4}
 # Every name that could put a command into a match. None of them may be
 # importable from the stage's module.
 FORBIDDEN_IMPORTS = ("CommandGateway", "MatchManager", "MatchLifecycle", "Services")
-FORBIDDEN_MODULES = ("podvinsya.domain.actions", "podvinsya.runtime")
+FORBIDDEN_MODULES = ("budge.domain.actions", "budge.runtime")
 
 # These are strings, and the guard they feed matches nothing if they name
 # modules that do not exist -- so it would pass vacuously through exactly

@@ -10,10 +10,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from api.conftest import TEST_PASSWORD, running_app
-from podvinsya.api.app import build_app
-from podvinsya.api.principal import SESSION_COOKIE
-from podvinsya.api.security import read_session
-from podvinsya.api.settings import ApiSettings
+from budge.api.app import build_app
+from budge.api.principal import SESSION_COOKIE
+from budge.api.security import read_session
+from budge.api.settings import ApiSettings
 
 pytestmark = pytest.mark.integration
 

@@ -5,9 +5,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.domain.ids import CategoryId, ImageId
-from podvinsya.library.catalogue import LibraryCatalogue
-from podvinsya.library.directory import DatabaseContentDirectory
+from budge.domain.ids import CategoryId, ImageId
+from budge.library.catalogue import LibraryCatalogue
+from budge.library.directory import DatabaseContentDirectory
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 

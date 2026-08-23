@@ -18,7 +18,7 @@ random UUIDs).
 
 `_play_to_running_duel` has the same hazard in miniature: it too picks
 `sorted(legal_targets(...))[0]`, over `GroupId`s the real `DealBoard` path
-mints via `podvinsya.runtime.materialiser.uuid4` -- unseeded, unlike the
+mints via `budge.runtime.materialiser.uuid4` -- unseeded, unlike the
 shuffle that decides which cells land where. It is provably safe today
 only because every group at the first attack is freshly dealt and
 one-cell, and a one-cell group carries no time bonus (§2.5) regardless of
@@ -36,9 +36,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.actions import (
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.actions import (
     AddPlayer,
     AssignSecret,
     Command,
@@ -51,21 +51,21 @@ from podvinsya.domain.actions import (
     StartMatch,
     UndoLastJudgement,
 )
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.errors import RejectionReason
-from podvinsya.domain.events import AnswerAccepted, DuelPaused, DuelResolved, MatchCreated
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, MatchId, PlayerId
-from podvinsya.domain.rules import legal_targets
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.runtime import materialiser as materialiser_module
-from podvinsya.runtime.manager import MatchManager
-from podvinsya.runtime.materialiser import Materialiser
-from podvinsya.runtime.origins import Accepted, CommandOutcome, Rejected
-from podvinsya.services.ports import Broadcaster
+from budge.domain.board import BoardSize
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.errors import RejectionReason
+from budge.domain.events import AnswerAccepted, DuelPaused, DuelResolved, MatchCreated
+from budge.domain.evolve import fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import CategoryId, MatchId, PlayerId
+from budge.domain.rules import legal_targets
+from budge.domain.settings import MatchSettings
+from budge.runtime import materialiser as materialiser_module
+from budge.runtime.manager import MatchManager
+from budge.runtime.materialiser import Materialiser
+from budge.runtime.origins import Accepted, CommandOutcome, Rejected
+from budge.services.ports import Broadcaster
 from support.fakes import BreakingBroadcaster, FakeCategoryBank, FakeClock, RecordingBroadcaster
 from support.streams import BASE_TIME, deterministic_uuid4
 
@@ -139,7 +139,7 @@ async def _play_to_running_duel(
     `Accepted` outcome, in order, so a caller can count exactly how many
     committed batches this produced.
 
-    `uuid_start` pins `podvinsya.runtime.materialiser.uuid4` (the module
+    `uuid_start` pins `budge.runtime.materialiser.uuid4` (the module
     `DealBoard`'s real path mints `GroupId`s through) for the duration of
     this call, so `sorted(legal_targets(...))[0]` below stops picking a
     different legal target from run to run -- see the module docstring.

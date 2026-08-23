@@ -13,15 +13,15 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from podvinsya.backup import drill
-from podvinsya.backup.dump import take
-from podvinsya.backup.paths import BackupRoot, Manifest
-from podvinsya.backup.scratch import scratch_database
-from podvinsya.db.engine import create_engine
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.events import MatchCreated
-from podvinsya.domain.ids import MatchId
+from budge.backup import drill
+from budge.backup.dump import take
+from budge.backup.paths import BackupRoot, Manifest
+from budge.backup.scratch import scratch_database
+from budge.db.engine import create_engine
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.events import MatchCreated
+from budge.domain.ids import MatchId
 from support.db import DATABASE_URL
 from support.media import InMemoryMediaStore
 from support.streams import build_rich_stream

@@ -15,9 +15,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.actions import (
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.actions import (
     AddPlayer,
     AssignSecret,
     Command,
@@ -32,12 +32,12 @@ from podvinsya.domain.actions import (
     StartMatch,
     UndoLastJudgement,
 )
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DealPlan, DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.events import (
+from budge.domain.board import BoardSize
+from budge.domain.context import DealPlan, DecisionContext
+from budge.domain.decide import decide
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.evolve import fold
+from budge.domain.events import (
     AnswerAccepted,
     AttackDeclared,
     BoardDealt,
@@ -47,13 +47,13 @@ from podvinsya.domain.events import (
     MatchCreated,
     PassUsed,
 )
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, ImageId, MatchId, PlayerId
-from podvinsya.domain.rules import legal_targets
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchState, MatchStatus
-from podvinsya.runtime.materialiser import IMAGE_PACK_SIZE, Materialiser
-from podvinsya.services.ports import ContentExhausted, Transaction
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import CategoryId, ImageId, MatchId, PlayerId
+from budge.domain.rules import legal_targets
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchState, MatchStatus
+from budge.runtime.materialiser import IMAGE_PACK_SIZE, Materialiser
+from budge.services.ports import ContentExhausted, Transaction
 from support.fakes import FakeCategoryBank, FakeClock
 from support.streams import IMAGES_PER_DUEL, Recorded, build_rich_stream, make_deal
 

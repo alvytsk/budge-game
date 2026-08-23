@@ -10,8 +10,8 @@ the only way to assert it is to read what was asked.
 from dataclasses import dataclass
 from collections.abc import Mapping
 
-from podvinsya.domain.ids import CategoryId, ImageId
-from podvinsya.services.ports import ContentDescription
+from budge.domain.ids import CategoryId, ImageId
+from budge.services.ports import ContentDescription
 
 
 @dataclass(frozen=True, slots=True)

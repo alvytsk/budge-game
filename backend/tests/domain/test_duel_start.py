@@ -2,10 +2,10 @@ from datetime import timedelta
 
 import pytest
 
-from podvinsya.domain.actions import StartDuel
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.state import DuelPhase
-from podvinsya.domain.timing import deadline_of, elapsed_ms, is_expired
+from budge.domain.actions import StartDuel
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.state import DuelPhase
+from budge.domain.timing import deadline_of, elapsed_ms, is_expired
 
 from .conftest import BASE_TIME, apply, at, build_declared_state, build_duel_state
 

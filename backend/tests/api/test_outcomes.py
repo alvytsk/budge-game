@@ -7,10 +7,10 @@ disagreeing about what happened.
 
 import pytest
 
-from podvinsya.api.outcomes import ack_for, http_outcome, malformed_ack
-from podvinsya.domain.errors import RejectionReason
-from podvinsya.runtime.origins import Accepted, CommandOutcome, Failed, NoOp, Rejected
-from podvinsya.services.ports import RuntimeCode
+from budge.api.outcomes import ack_for, http_outcome, malformed_ack
+from budge.domain.errors import RejectionReason
+from budge.runtime.origins import Accepted, CommandOutcome, Failed, NoOp, Rejected
+from budge.services.ports import RuntimeCode
 
 EVERY_OUTCOME: list[CommandOutcome] = [
     Accepted(()),

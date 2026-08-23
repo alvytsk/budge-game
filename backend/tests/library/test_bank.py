@@ -12,12 +12,12 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.models import Category
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.ids import CategoryId
-from podvinsya.library.bank import DatabaseCategoryBank
-from podvinsya.library.catalogue import LibraryCatalogue
-from podvinsya.services.ports import ContentExhausted
+from budge.db.models import Category
+from budge.db.store import UnitOfWork
+from budge.domain.ids import CategoryId
+from budge.library.bank import DatabaseCategoryBank
+from budge.library.catalogue import LibraryCatalogue
+from budge.services.ports import ContentExhausted
 from support.db import wait_until_a_backend_is_blocked_on
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]

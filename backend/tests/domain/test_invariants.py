@@ -3,14 +3,14 @@ from dataclasses import replace
 
 import pytest
 
-from podvinsya.domain import check_invariants
-from podvinsya.domain.actions import DeclareAttack, JudgeCorrect, StartDuel
-from podvinsya.domain.board import Cell
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.rules import group_containing, legal_targets
-from podvinsya.domain.state import Group, MatchState, MatchStatus
+from budge.domain import check_invariants
+from budge.domain.actions import DeclareAttack, JudgeCorrect, StartDuel
+from budge.domain.board import Cell
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.evolve import fold
+from budge.domain.rules import group_containing, legal_targets
+from budge.domain.state import Group, MatchState, MatchStatus
 
 from .conftest import IMAGE_POOL, at, build_running_state
 

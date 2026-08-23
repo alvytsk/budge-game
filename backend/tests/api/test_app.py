@@ -10,9 +10,9 @@ import pytest
 from api.conftest import running_app
 from pathlib import Path
 
-import podvinsya.api.app
-from podvinsya.api.app import build_app
-from podvinsya.api.settings import ApiSettings
+import budge.api.app
+from budge.api.app import build_app
+from budge.api.settings import ApiSettings
 from support.media import InMemoryMediaStore
 
 pytestmark = pytest.mark.integration
@@ -103,7 +103,7 @@ def test_the_health_docstring_no_longer_promises_a_missing_probe() -> None:
     Kills on: leaving the paragraph in place — a comment describing a gap
     that no longer exists is a comment that lies, and the next reader
     trusts it over the code."""
-    source = Path(podvinsya.api.app.__file__).read_text(encoding="utf-8")
+    source = Path(budge.api.app.__file__).read_text(encoding="utf-8")
 
     assert "arrives with plan 6" not in source
     assert "nothing else yet" not in source

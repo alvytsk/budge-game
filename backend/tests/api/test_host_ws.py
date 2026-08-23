@@ -13,12 +13,12 @@ from uuid import UUID, uuid4
 import pytest
 
 from api.conftest import TEST_SECRET, running_app
-from podvinsya.api.app import build_app
-from podvinsya.api.principal import SESSION_COOKIE
-from podvinsya.api.routes.host_ws import UNAUTHORISED
-from podvinsya.api.security import mint_session
-from podvinsya.api.settings import ApiSettings
-from podvinsya.domain.ids import MatchId
+from budge.api.app import build_app
+from budge.api.principal import SESSION_COOKIE
+from budge.api.routes.host_ws import UNAUTHORISED
+from budge.api.security import mint_session
+from budge.api.settings import ApiSettings
+from budge.domain.ids import MatchId
 from support.asgi import ASGIWebSocketClient, WebSocketRejected
 
 pytestmark = pytest.mark.integration

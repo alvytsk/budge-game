@@ -6,8 +6,8 @@ which is a different state from a store that is empty — and one no fake
 without a switch can produce.
 """
 
-from podvinsya.media.digest import digest_of
-from podvinsya.services.ports import MediaUnavailable
+from budge.media.digest import digest_of
+from budge.services.ports import MediaUnavailable
 
 
 class InMemoryMediaStore:

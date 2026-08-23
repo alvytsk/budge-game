@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from podvinsya.api.schemas.frames import (
+from budge.api.schemas.frames import (
     HiddenCategory,
     HostCategory,
     HostFrame,

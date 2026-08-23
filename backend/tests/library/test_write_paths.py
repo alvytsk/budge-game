@@ -8,7 +8,7 @@ why it lives apart from `test_catalogue.py` and its integration mark.
 import ast
 from pathlib import Path
 
-import podvinsya
+import budge
 
 # The one module allowed to write to the library. §5.3 makes this a
 # structural requirement, not a convention: a second writer is exactly what
@@ -40,7 +40,7 @@ def test_no_write_outside_the_catalogue() -> None:
     `categories.version`… Бамп обеспечивается ровно в одном месте, и это
     покрыто тестом.» This is that test.
 
-    It parses every module under `src/podvinsya/` and fails on any call
+    It parses every module under `src/budge/` and fails on any call
     that writes a library model outside `library/catalogue.py`. A second
     write path is precisely what §5.3 warns about: it would change what a
     category *is* without moving the row that selection locked.
@@ -50,7 +50,7 @@ def test_no_write_outside_the_catalogue() -> None:
     concurrent selection holding `FOR SHARE` would not be protected by it,
     and the match would be dealt from a library that changed underneath it.
     """
-    root = Path(podvinsya.__file__).parent
+    root = Path(budge.__file__).parent
     offenders: list[str] = []
     for module in sorted(root.rglob("*.py")):
         relative = module.relative_to(root).as_posix()

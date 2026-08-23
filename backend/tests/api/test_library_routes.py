@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 
 from api.conftest import TEST_PASSWORD, running_app
-from podvinsya.api.app import build_app
-from podvinsya.api.settings import ApiSettings
+from budge.api.app import build_app
+from budge.api.settings import ApiSettings
 from support.media import InMemoryMediaStore
 
 pytestmark = pytest.mark.integration

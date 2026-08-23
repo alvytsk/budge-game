@@ -16,8 +16,8 @@ from fastapi import FastAPI
 
 from db.conftest import clean_db, engine, migrated_schema, sessions
 from media.conftest import clean_bucket, s3_bucket
-from podvinsya.api.security import hash_password
-from podvinsya.api.settings import ApiSettings
+from budge.api.security import hash_password
+from budge.api.settings import ApiSettings
 from support.db import (
     DATABASE_URL,
     S3_ACCESS_KEY,

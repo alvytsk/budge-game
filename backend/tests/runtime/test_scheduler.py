@@ -11,15 +11,15 @@ from collections.abc import Sequence
 from datetime import datetime
 from uuid import uuid4
 
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.events import AnswerAccepted, DuelPaused, DuelStarted, Event, MatchCreated
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchState
-from podvinsya.domain.timing import deadline_of
-from podvinsya.runtime.scheduler import DeadlineScheduler
+from budge.domain.board import BoardSize
+from budge.domain.events import AnswerAccepted, DuelPaused, DuelStarted, Event, MatchCreated
+from budge.domain.evolve import fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import MatchId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchState
+from budge.domain.timing import deadline_of
+from budge.runtime.scheduler import DeadlineScheduler
 from support.fakes import FakeClock
 from support.streams import BASE_TIME, Recorded, build_rich_stream
 

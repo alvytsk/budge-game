@@ -29,7 +29,7 @@ from alembic import command
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from podvinsya.db.engine import create_engine, sessionmaker_for
+from budge.db.engine import create_engine, sessionmaker_for
 from support.db import DATABASE_URL, alembic_config
 
 THIS_DIR = Path(__file__).parent

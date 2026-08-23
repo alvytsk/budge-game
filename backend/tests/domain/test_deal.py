@@ -4,20 +4,20 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import (
+from budge.domain.actions import (
     AddPlayer,
     AssignSecret,
     CreateMatch,
     DealBoard,
     StartMatch,
 )
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DealPlan
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, MatchId, PlayerId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchState
+from budge.domain.board import BoardSize
+from budge.domain.context import DealPlan
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import CategoryId, MatchId, PlayerId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchState
 
 from .conftest import apply, build_dealt_state, build_setup_state, make_deal
 

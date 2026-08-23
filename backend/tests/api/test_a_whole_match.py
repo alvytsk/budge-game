@@ -18,11 +18,11 @@ from uuid import UUID
 import pytest
 
 from api.conftest import TEST_PASSWORD, TEST_SECRET, running_app
-from podvinsya.api.app import build_app
-from podvinsya.api.principal import SESSION_COOKIE
-from podvinsya.api.security import mint_session, mint_stage_token
-from podvinsya.api.settings import ApiSettings
-from podvinsya.domain.ids import MatchId
+from budge.api.app import build_app
+from budge.api.principal import SESSION_COOKIE
+from budge.api.security import mint_session, mint_stage_token
+from budge.api.settings import ApiSettings
+from budge.domain.ids import MatchId
 from support.asgi import ASGIWebSocketClient
 from support.walk import every_string
 

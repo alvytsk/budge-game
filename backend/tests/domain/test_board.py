@@ -1,6 +1,6 @@
 import pytest
 
-from podvinsya.domain.board import (
+from budge.domain.board import (
     BoardSize,
     Cell,
     groups_are_adjacent,
@@ -8,7 +8,7 @@ from podvinsya.domain.board import (
     orthogonal_neighbours,
     validate_board,
 )
-from podvinsya.domain.errors import Rejected, RejectionReason
+from budge.domain.errors import Rejected, RejectionReason
 
 
 def test_board_enumerates_every_cell() -> None:

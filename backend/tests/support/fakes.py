@@ -13,10 +13,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import uuid4
 
-from podvinsya.domain.events import Event
-from podvinsya.domain.ids import CategoryId, ImageId, MatchId
-from podvinsya.domain.state import MatchState
-from podvinsya.services.ports import ContentExhausted, Transaction
+from budge.domain.events import Event
+from budge.domain.ids import CategoryId, ImageId, MatchId
+from budge.domain.state import MatchState
+from budge.services.ports import ContentExhausted, Transaction
 
 
 class FakeClock:

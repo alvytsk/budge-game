@@ -13,12 +13,12 @@ from random import Random
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.actions import PauseDuel
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.events import (
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.actions import PauseDuel
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.events import (
     AnswerAccepted,
     BoardDealt,
     DuelPaused,
@@ -27,13 +27,13 @@ from podvinsya.domain.events import (
     MatchCreated,
     MatchStarted,
 )
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.state import DuelPhase, MatchState
-from podvinsya.runtime.match import MatchRuntime
-from podvinsya.runtime.materialiser import Materialiser
-from podvinsya.runtime.recovery import recover
+from budge.domain.evolve import fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import MatchId
+from budge.domain.state import DuelPhase, MatchState
+from budge.runtime.match import MatchRuntime
+from budge.runtime.materialiser import Materialiser
+from budge.runtime.recovery import recover
 from support import streams
 from support.fakes import FakeCategoryBank, FakeClock, RecordingBroadcaster
 from support.streams import BASE_TIME, Recorded, build_rich_stream, deterministic_uuid4

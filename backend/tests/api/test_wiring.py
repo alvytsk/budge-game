@@ -12,19 +12,19 @@ from typing import cast
 import pytest
 
 from api.conftest import TEST_PASSWORD, running_app
-from podvinsya.api.app import build_app
-from podvinsya.api.content import (
+from budge.api.app import build_app
+from budge.api.content import (
     CachingContentDirectory,
     UnavailableCategories,
     UnavailableContent,
 )
-from podvinsya.api.hub import MatchHub
-from podvinsya.api.services import CommandGateway, MatchLifecycle, ReadOnlyMatches
-from podvinsya.library.catalogue import LibraryCatalogue
-from podvinsya.media.s3 import S3MediaStore
-from podvinsya.api.settings import ApiSettings
-from podvinsya.domain.ids import CategoryId
-from podvinsya.services.ports import ContentExhausted, Transaction
+from budge.api.hub import MatchHub
+from budge.api.services import CommandGateway, MatchLifecycle, ReadOnlyMatches
+from budge.library.catalogue import LibraryCatalogue
+from budge.media.s3 import S3MediaStore
+from budge.api.settings import ApiSettings
+from budge.domain.ids import CategoryId
+from budge.services.ports import ContentExhausted, Transaction
 from uuid import uuid4
 
 pytestmark = pytest.mark.integration
@@ -67,7 +67,7 @@ async def test_the_hub_is_the_manager_s_broadcaster(
 
         from uuid import UUID
 
-        from podvinsya.domain.ids import MatchId
+        from budge.domain.ids import MatchId
 
         match = MatchId(UUID(match_id))
         with app.state.hub.subscribe(match) as subscriber:

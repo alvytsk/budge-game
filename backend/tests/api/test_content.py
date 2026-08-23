@@ -2,8 +2,8 @@
 
 from uuid import uuid4
 
-from podvinsya.api.content import CachingContentDirectory, UnavailableContent
-from podvinsya.domain.ids import CategoryId, ImageId
+from budge.api.content import CachingContentDirectory, UnavailableContent
+from budge.domain.ids import CategoryId, ImageId
 from support.content import RecordingContentDirectory, Request
 
 HISTORY = CategoryId(uuid4())

@@ -9,13 +9,13 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.models import Match, MatchPlayer
-from podvinsya.db.projection import rebuild
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.events import MatchCreated, MatchStarted
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.state import MatchStatus
+from budge.db.models import Match, MatchPlayer
+from budge.db.projection import rebuild
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.events import MatchCreated, MatchStarted
+from budge.domain.ids import MatchId
+from budge.domain.state import MatchStatus
 from support.streams import Recorded, build_rich_stream
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]

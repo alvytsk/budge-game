@@ -28,23 +28,23 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.exc import DBAPIError
 
-import podvinsya.runtime.commit as commit
-from podvinsya.db.errors import ConcurrentModification
-from podvinsya.db.repository import LoadedMatch
-from podvinsya.domain.actions import AddPlayer, AssignSecret, Command, CreateMatch, DealBoard
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DealPlan, DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.errors import RejectionReason
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.events import BoardDealt, Event, MatchCreated
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, MatchId, PlayerId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchState, MatchStatus, Player
-from podvinsya.runtime.commit import CommitPath
-from podvinsya.runtime.materialiser import Materialiser
-from podvinsya.runtime.origins import (
+import budge.runtime.commit as commit
+from budge.db.errors import ConcurrentModification
+from budge.db.repository import LoadedMatch
+from budge.domain.actions import AddPlayer, AssignSecret, Command, CreateMatch, DealBoard
+from budge.domain.board import BoardSize
+from budge.domain.context import DealPlan, DecisionContext
+from budge.domain.decide import decide
+from budge.domain.errors import RejectionReason
+from budge.domain.evolve import fold
+from budge.domain.events import BoardDealt, Event, MatchCreated
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import CategoryId, MatchId, PlayerId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchState, MatchStatus, Player
+from budge.runtime.commit import CommitPath
+from budge.runtime.materialiser import Materialiser
+from budge.runtime.origins import (
     Accepted,
     Failed,
     NoOp,
@@ -52,7 +52,7 @@ from podvinsya.runtime.origins import (
     Rejected,
     SystemOrigin,
 )
-from podvinsya.services.ports import Reconciliation, RuntimeCode, Transaction
+from budge.services.ports import Reconciliation, RuntimeCode, Transaction
 from support.fakes import FakeCategoryBank, FakeClock
 
 NOW = datetime(2026, 8, 23, 12, 0, tzinfo=UTC)

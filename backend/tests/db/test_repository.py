@@ -8,12 +8,12 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.errors import EventStreamCorrupt, MatchNotFound
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.events import Event, MatchCreated
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.state import DuelPhase
+from budge.db.errors import EventStreamCorrupt, MatchNotFound
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.events import Event, MatchCreated
+from budge.domain.ids import MatchId
+from budge.domain.state import DuelPhase
 from support.streams import Recorded, build_rich_stream
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]

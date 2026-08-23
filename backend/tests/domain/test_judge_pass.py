@@ -1,7 +1,7 @@
 from dataclasses import replace
 
-from podvinsya.domain.actions import JudgeCorrect, JudgePass
-from podvinsya.domain.budgets import Budgets
+from budge.domain.actions import JudgeCorrect, JudgePass
+from budge.domain.budgets import Budgets
 
 from .conftest import apply, at, build_duel_state
 

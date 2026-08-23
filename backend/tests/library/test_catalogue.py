@@ -10,8 +10,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.models import Category, Image
-from podvinsya.library.catalogue import LibraryCatalogue, UnknownCategory, UnknownImage
+from budge.db.models import Category, Image
+from budge.library.catalogue import LibraryCatalogue, UnknownCategory, UnknownImage
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 

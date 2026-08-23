@@ -3,7 +3,7 @@ import pathlib
 
 import pytest
 
-DOMAIN = pathlib.Path(__file__).resolve().parents[2] / "src" / "podvinsya" / "domain"
+DOMAIN = pathlib.Path(__file__).resolve().parents[2] / "src" / "budge" / "domain"
 
 # The path is spelled out rather than derived from an import, so a rename
 # of the package would leave this pointing at a directory that no longer
@@ -43,10 +43,10 @@ def test_domain_never_reads_a_clock(path: pathlib.Path) -> None:
 
 
 def test_decide_is_deterministic_for_the_same_inputs() -> None:
-    from podvinsya.domain.actions import DeclareAttack
-    from podvinsya.domain.context import DecisionContext
-    from podvinsya.domain.decide import decide
-    from podvinsya.domain.rules import legal_targets
+    from budge.domain.actions import DeclareAttack
+    from budge.domain.context import DecisionContext
+    from budge.domain.decide import decide
+    from budge.domain.rules import legal_targets
 
     from .conftest import IMAGE_POOL, BASE_TIME, build_running_state
 

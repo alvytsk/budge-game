@@ -2,12 +2,12 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import AddPlayer, AssignSecret
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.ids import CategoryId, PlayerId
-from podvinsya.domain.state import MatchState
+from budge.domain.actions import AddPlayer, AssignSecret
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.ids import CategoryId, PlayerId
+from budge.domain.state import MatchState
 
 from .conftest import BASE_TIME, apply, build_setup_state
 

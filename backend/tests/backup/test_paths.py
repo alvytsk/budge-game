@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from podvinsya.backup.paths import BackupRoot, Manifest, stamp
+from budge.backup.paths import BackupRoot, Manifest, stamp
 
 DIGEST = "a" * 64
 

@@ -70,7 +70,7 @@ async def test_running_the_migration_leaves_other_loggers_enabled(
     with it, in-process or otherwise, so `env.py` passes
     `disable_existing_loggers=False`. This pins that: a logger created
     before the migration runs must still be enabled after."""
-    probe = logging.getLogger("podvinsya.test.migration_logging_probe")
+    probe = logging.getLogger("budge.test.migration_logging_probe")
     assert not probe.disabled
     await asyncio.to_thread(command.upgrade, alembic_config(DATABASE_URL), "head")
     assert not probe.disabled
@@ -98,7 +98,7 @@ async def test_downgrade_removes_the_schema_and_upgrade_restores_it(
 async def test_the_migrate_command_brings_an_empty_database_to_head(
     migrated_schema: None, engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from podvinsya.cli import main
+    from budge.cli import main
 
     await asyncio.to_thread(command.downgrade, alembic_config(DATABASE_URL), "base")
     monkeypatch.setenv("PODVINSYA_DATABASE_URL", DATABASE_URL)
@@ -119,7 +119,7 @@ async def test_the_migrate_command_works_from_any_working_directory(
     file's own location. An operator applying migrations as a separate step
     (§10) is not guaranteed to be standing in `backend/` — `podvinsya
     migrate` must reach head regardless of the current working directory."""
-    from podvinsya.cli import main
+    from budge.cli import main
 
     await asyncio.to_thread(command.downgrade, alembic_config(DATABASE_URL), "base")
     monkeypatch.setenv("PODVINSYA_DATABASE_URL", DATABASE_URL)

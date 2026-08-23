@@ -2,10 +2,10 @@ from dataclasses import replace
 
 import pytest
 
-from podvinsya.domain.actions import StartMatch
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.rules import next_turn
-from podvinsya.domain.state import MatchStatus
+from budge.domain.actions import StartMatch
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.rules import next_turn
+from budge.domain.state import MatchStatus
 
 from .conftest import apply, build_dealt_state, build_setup_state
 

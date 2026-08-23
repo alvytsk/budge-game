@@ -12,10 +12,10 @@ from uuid import UUID, uuid4
 import pytest
 
 from api.conftest import TEST_PASSWORD, running_app
-from podvinsya.api.app import build_app
-from podvinsya.api.security import read_stage_token
-from podvinsya.api.settings import ApiSettings
-from podvinsya.domain.ids import MatchId
+from budge.api.app import build_app
+from budge.api.security import read_stage_token
+from budge.api.settings import ApiSettings
+from budge.domain.ids import MatchId
 
 pytestmark = pytest.mark.integration
 

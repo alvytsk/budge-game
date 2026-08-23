@@ -4,7 +4,7 @@ import asyncio
 import time
 from datetime import UTC, datetime, timedelta
 
-from podvinsya.runtime.clock import SystemClock
+from budge.runtime.clock import SystemClock
 from support.fakes import FakeClock
 
 NOW = datetime(2026, 8, 23, 12, 0, tzinfo=UTC)

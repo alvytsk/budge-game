@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from podvinsya.api.security import verify_password
-from podvinsya.cli import main
+from budge.api.security import verify_password
+from budge.cli import main
 
 
 def test_hash_password_prints_a_hash_that_verifies(
@@ -143,7 +143,7 @@ def test_export_types_check_fails_against_a_stale_file(
 
     Kills on: returning 0 on a difference, which leaves the CI job green
     over a contract that has drifted."""
-    from podvinsya.contracts import export
+    from budge.contracts import export
 
     stale = tmp_path / "contracts.ts"
     stale.write_text("nothing like the real thing\n", encoding="utf-8")
@@ -161,7 +161,7 @@ def test_export_types_check_does_not_write(
     """Kills on: `--check` calling `write`. A check that repaired what it
     was checking would report a clean tree on every second run, and the
     divergence would reach the front end anyway."""
-    from podvinsya.contracts import export
+    from budge.contracts import export
 
     stale = tmp_path / "contracts.ts"
     stale.write_text("stale\n", encoding="utf-8")
@@ -178,7 +178,7 @@ def test_export_types_writes_and_prints_where(
 ) -> None:
     """Kills on: writing silently. The operator running this needs to know
     which file to commit, and the path is the whole of that answer."""
-    from podvinsya.contracts import export
+    from budge.contracts import export
 
     target = tmp_path / "shared" / "api" / "contracts.ts"
     monkeypatch.setattr(export, "CONTRACTS_PATH", target)
@@ -217,9 +217,9 @@ def test_the_alembic_ini_travels_with_the_package() -> None:
     Kills on: the parent-walk — `backend/alembic.ini`'s parent is
     `backend/`, not the package directory.
     """
-    import podvinsya
+    import budge
 
-    from podvinsya.cli import ALEMBIC_INI
+    from budge.cli import ALEMBIC_INI
 
     assert ALEMBIC_INI.is_file()
-    assert ALEMBIC_INI.parent == Path(podvinsya.__file__).parent
+    assert ALEMBIC_INI.parent == Path(budge.__file__).parent

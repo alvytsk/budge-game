@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from podvinsya.api.security import (
+from budge.api.security import (
     hash_password,
     mint_session,
     mint_stage_token,
@@ -18,7 +18,7 @@ from podvinsya.api.security import (
     read_stage_token,
     verify_password,
 )
-from podvinsya.domain.ids import MatchId
+from budge.domain.ids import MatchId
 
 SECRET = "a-secret-that-is-only-a-test-secret"
 NOON = datetime(2026, 8, 23, 12, 0, tzinfo=timezone.utc)

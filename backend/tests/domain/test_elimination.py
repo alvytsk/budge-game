@@ -1,8 +1,8 @@
 from dataclasses import replace
 
-from podvinsya.domain.actions import ExpireTimer
-from podvinsya.domain.ids import GroupId, PlayerId
-from podvinsya.domain.state import MatchState, MatchStatus
+from budge.domain.actions import ExpireTimer
+from budge.domain.ids import GroupId, PlayerId
+from budge.domain.state import MatchState, MatchStatus
 
 from .conftest import apply, at, build_duel_state
 
@@ -84,8 +84,8 @@ def test_the_last_player_standing_wins_and_the_match_finishes() -> None:
 def test_a_finished_match_refuses_further_attacks() -> None:
     import pytest
 
-    from podvinsya.domain.actions import DeclareAttack
-    from podvinsya.domain.errors import Rejected, RejectionReason
+    from budge.domain.actions import DeclareAttack
+    from budge.domain.errors import Rejected, RejectionReason
 
     state, players, attacking, defending = build_duel_state()
     duel = state.duel

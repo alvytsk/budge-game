@@ -12,7 +12,7 @@ import asyncio
 import os
 from pathlib import Path
 
-import podvinsya.db
+import budge.db
 from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -31,7 +31,7 @@ S3_ACCESS_KEY = "podvinsya"
 S3_SECRET_KEY = "podvinsya-secret"
 S3_BUCKET = "podvinsya-media-test"
 
-ALEMBIC_INI = Path(podvinsya.__file__).resolve().parent / "alembic.ini"
+ALEMBIC_INI = Path(budge.__file__).resolve().parent / "alembic.ini"
 
 
 def alembic_config(url: str) -> Config:
@@ -40,7 +40,7 @@ def alembic_config(url: str) -> Config:
     explicitly.
 
     `script_location` (and `prepend_sys_path`) are overridden the same way
-    `podvinsya.cli._config` does it: the ini's own values are relative, and
+    `budge.cli._config` does it: the ini's own values are relative, and
     Alembic resolves a relative `script_location` (and inserts a relative
     `prepend_sys_path` into `sys.path`) against the invocation directory,
     not against the ini file's location. Anchoring both to the installed
@@ -49,7 +49,7 @@ def alembic_config(url: str) -> Config:
     """
     config = Config(str(ALEMBIC_INI))
     config.set_main_option("sqlalchemy.url", url)
-    migrations_dir = Path(podvinsya.db.__file__).parent / "migrations"
+    migrations_dir = Path(budge.db.__file__).parent / "migrations"
     config.set_main_option("script_location", str(migrations_dir))
     config.set_main_option("prepend_sys_path", str(migrations_dir.parent.parent.parent))
     return config

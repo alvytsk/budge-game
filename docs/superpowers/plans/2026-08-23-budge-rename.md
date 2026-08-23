@@ -286,13 +286,13 @@ They are the safety net for everything after, and they must be provably green *b
 cd .. && git add backend/tests && git commit -m "test: fail loudly if a name-shaped guard stops naming anything"
 ```
 
-- [ ] **Step 4: Move the package**
+- [x] **Step 4: Move the package**
 
 ```bash
 cd backend && git mv src/podvinsya src/budge; echo "exit=$?"
 ```
 
-- [ ] **Step 5: Rewrite every import**
+- [x] **Step 5: Rewrite every import**
 
 ```bash
 cd backend
@@ -314,7 +314,7 @@ That grep is restricted to `*.py`, so it will not show `src/budge/alembic.ini` �
 cd backend && grep -n 'podvinsya' src/budge/alembic.ini || echo "ok: the ini is clean"
 ```
 
-- [ ] **Step 6: Update the packaging metadata**
+- [x] **Step 6: Update the packaging metadata**
 
 `backend/pyproject.toml`:
 - line 2: `name = "podvinsya"` → `name = "budge"`
@@ -327,7 +327,7 @@ cd backend && grep -n 'podvinsya' src/budge/alembic.ini || echo "ok: the ini is 
 
 Note `script_location` is *overridden at runtime* by `cli.py`, so a mistake here is invisible to `podvinsya migrate` and shows up only under a bare `alembic -c src/budge/alembic.ini` invocation. Change it anyway: the test suite exercises the code path, not the ini, so nothing else will catch it.
 
-- [ ] **Step 7: Recreate the editable install**
+- [x] **Step 7: Recreate the editable install**
 
 R8. Until this runs, every test fails at import and it looks like the rename broke everything.
 
@@ -338,7 +338,7 @@ python -c 'import budge, budge.cli; print(budge.__file__)'; echo "exit=$?"
 
 Expected: the path prints under `src/budge/`. If a stale `_editable_impl_podvinsya.pth` shadows it, remove it from `site-packages` and reinstall — report if you had to.
 
-- [ ] **Step 8: Run everything**
+- [x] **Step 8: Run everything**
 
 ```bash
 cd backend && pytest -q; echo "pytest=$?"
@@ -348,7 +348,7 @@ ruff check .; echo "ruff=$?"
 
 Expected: all 0, with the same test count as Step 2. A *lower* count means a test file stopped being collected — find it before continuing.
 
-- [ ] **Step 9: Confirm the guards still guard**
+- [x] **Step 9: Confirm the guards still guard**
 
 The point of R2 is that these fail if their target vanished. Prove they would:
 
@@ -361,7 +361,7 @@ git checkout -- tests/api/test_stage_ws.py
 
 Expected: exit **1** with a `ModuleNotFoundError` from the guard — not a pass. If it passes, the guard is not doing its job and Task 8's review will find nothing; fix it now.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 cd .. && git add backend && git commit -m "refactor: move the package from podvinsya to budge"

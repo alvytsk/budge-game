@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from podvinsya.media.digest import ACCEPTED_TYPES, SNIFFED_TYPES, digest_of, sniff
+from budge.media.digest import ACCEPTED_TYPES, SNIFFED_TYPES, digest_of, sniff
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 32

@@ -18,21 +18,21 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import LoadedMatch, MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.actions import AddPlayer, Command, ResumeDuel
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.errors import RejectionReason
-from podvinsya.domain.events import DuelStarted, Event, MatchCreated
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import MatchId, PlayerId
-from podvinsya.domain.state import MatchState
-from podvinsya.runtime.errors import ManagerShuttingDown, MatchAlreadyRunning
-from podvinsya.runtime.manager import MatchManager
-from podvinsya.runtime.materialiser import Materialiser
-from podvinsya.runtime.origins import Accepted, Failed, FutureOrigin, Rejected
-from podvinsya.services.ports import MatchRepositoryPort, RuntimeCode, Transaction
+from budge.db.repository import LoadedMatch, MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.actions import AddPlayer, Command, ResumeDuel
+from budge.domain.context import DecisionContext
+from budge.domain.errors import RejectionReason
+from budge.domain.events import DuelStarted, Event, MatchCreated
+from budge.domain.evolve import fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import MatchId, PlayerId
+from budge.domain.state import MatchState
+from budge.runtime.errors import ManagerShuttingDown, MatchAlreadyRunning
+from budge.runtime.manager import MatchManager
+from budge.runtime.materialiser import Materialiser
+from budge.runtime.origins import Accepted, Failed, FutureOrigin, Rejected
+from budge.services.ports import MatchRepositoryPort, RuntimeCode, Transaction
 from support.fakes import FakeCategoryBank, FakeClock, RecordingBroadcaster
 from support.streams import BASE_TIME, Recorded, build_rich_stream
 

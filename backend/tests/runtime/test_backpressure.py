@@ -22,17 +22,17 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.actions import AddPlayer, AssignSecret, DealBoard
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.events import Event, MatchCreated
-from podvinsya.domain.ids import CategoryId, MatchId, PlayerId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchState
-from podvinsya.runtime.manager import MatchManager
-from podvinsya.runtime.materialiser import Materialiser
-from podvinsya.runtime.origins import Accepted
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.actions import AddPlayer, AssignSecret, DealBoard
+from budge.domain.board import BoardSize
+from budge.domain.events import Event, MatchCreated
+from budge.domain.ids import CategoryId, MatchId, PlayerId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchState
+from budge.runtime.manager import MatchManager
+from budge.runtime.materialiser import Materialiser
+from budge.runtime.origins import Accepted
 from support.fakes import FakeCategoryBank, FakeClock, Published
 from support.streams import BASE_TIME
 

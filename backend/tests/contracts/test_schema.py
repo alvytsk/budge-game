@@ -6,8 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from podvinsya.api.schemas import commands, frames, library, media, rest
-from podvinsya.contracts.schema import ROOTS, contract_schema
+from budge.api.schemas import commands, frames, library, media, rest
+from budge.contracts.schema import ROOTS, contract_schema
 
 SCHEMA_MODULES = (frames, commands, library, media, rest)
 

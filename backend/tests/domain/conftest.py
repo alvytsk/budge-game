@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import (
+from budge.domain.actions import (
     AddPlayer,
     AssignSecret,
     Command,
@@ -13,15 +13,15 @@ from podvinsya.domain.actions import (
     StartDuel,
     StartMatch,
 )
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, GroupId, ImageId, MatchId, PlayerId
-from podvinsya.domain.rules import legal_targets
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchState
+from budge.domain.board import BoardSize
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.evolve import fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import CategoryId, GroupId, ImageId, MatchId, PlayerId
+from budge.domain.rules import legal_targets
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchState
 from support.streams import make_deal as make_deal
 
 BASE_TIME = datetime(2026, 8, 22, 12, 0, 0, tzinfo=UTC)

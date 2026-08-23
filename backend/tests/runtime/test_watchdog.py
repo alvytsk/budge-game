@@ -29,24 +29,24 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.db.repository import LoadedMatch
-from podvinsya.domain.actions import AddPlayer, Command
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.events import AttackDeclared, DuelPaused, DuelStarted, Event, MatchCreated
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import MatchId, PlayerId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import DuelPhase, MatchState
-from podvinsya.domain.timing import deadline_of
-from podvinsya.runtime.commit import CommitPath
-from podvinsya.runtime.match import MatchRuntime
-from podvinsya.runtime.materialiser import Materialiser
-from podvinsya.runtime.origins import FutureOrigin, QueuedCommand
-from podvinsya.runtime.scheduler import Callback, DeadlineScheduler
-from podvinsya.runtime.watchdog import Watchdog, WatchedMatch
-from podvinsya.services.ports import Reconciliation, Transaction
+from budge.db.repository import LoadedMatch
+from budge.domain.actions import AddPlayer, Command
+from budge.domain.board import BoardSize
+from budge.domain.context import DecisionContext
+from budge.domain.events import AttackDeclared, DuelPaused, DuelStarted, Event, MatchCreated
+from budge.domain.evolve import fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import MatchId, PlayerId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import DuelPhase, MatchState
+from budge.domain.timing import deadline_of
+from budge.runtime.commit import CommitPath
+from budge.runtime.match import MatchRuntime
+from budge.runtime.materialiser import Materialiser
+from budge.runtime.origins import FutureOrigin, QueuedCommand
+from budge.runtime.scheduler import Callback, DeadlineScheduler
+from budge.runtime.watchdog import Watchdog, WatchedMatch
+from budge.services.ports import Reconciliation, Transaction
 from support.fakes import FakeCategoryBank, FakeClock, RecordingBroadcaster
 from support.streams import BASE_TIME, Recorded, build_rich_stream
 
@@ -55,7 +55,7 @@ from support.streams import BASE_TIME, Recorded, build_rich_stream
 # assertion then fails with an empty-records message that reads like a
 # behaviour change. Import the module that owns the logger instead, so a
 # rename that orphans the name fails here and says why.
-importlib.import_module("podvinsya.runtime.watchdog")
+importlib.import_module("budge.runtime.watchdog")
 
 _BOARD = BoardSize(3, 4)
 _SETTINGS = MatchSettings()
@@ -494,7 +494,7 @@ async def test_a_sweep_that_raises_is_logged_and_the_loop_survives(
         await clock.settle()  # let the loop reach its first sleep_until
         assert clock.pending() == 1, "the loop must have registered its first wait"
 
-        with caplog.at_level(logging.ERROR, logger="podvinsya.runtime.watchdog"):
+        with caplog.at_level(logging.ERROR, logger="budge.runtime.watchdog"):
             await clock.advance_to(BASE_TIME + timedelta(seconds=5))
             await clock.settle()
 

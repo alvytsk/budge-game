@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 from botocore.exceptions import ClientError
 
-from podvinsya.media.s3 import S3MediaStore
+from budge.media.s3 import S3MediaStore
 from support.db import S3_ACCESS_KEY, S3_BUCKET, S3_ENDPOINT, S3_SECRET_KEY
 
 UNREACHABLE = (

@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from podvinsya.db.codec.upcasters import UPCASTERS, Upcaster, _compose, upcast_chain
-from podvinsya.db.errors import UnknownSchemaVersion
+from budge.db.codec.upcasters import UPCASTERS, Upcaster, _compose, upcast_chain
+from budge.db.errors import UnknownSchemaVersion
 
 
 def _rename(old: str, new: str) -> Upcaster:

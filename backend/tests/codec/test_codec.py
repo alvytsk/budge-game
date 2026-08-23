@@ -9,16 +9,16 @@ from typing import Any, get_args
 
 import pytest
 
-from podvinsya.db.codec import decode, encode, normalize_utc
-from podvinsya.db.codec.registry import CURRENT_VERSION, WIRE_NAMES
-from podvinsya.db.errors import (
+from budge.db.codec import decode, encode, normalize_utc
+from budge.db.codec.registry import CURRENT_VERSION, WIRE_NAMES
+from budge.db.errors import (
     InvalidPayload,
     NaiveDatetime,
     UnknownEventType,
     UnknownSchemaVersion,
 )
-from podvinsya.domain.board import Cell
-from podvinsya.domain.events import DuelResolved, DuelStarted, Event
+from budge.domain.board import Cell
+from budge.domain.events import DuelResolved, DuelStarted, Event
 from support import streams
 from support.streams import build_rich_stream, deterministic_uuid4
 

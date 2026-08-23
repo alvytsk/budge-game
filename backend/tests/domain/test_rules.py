@@ -1,16 +1,16 @@
 from dataclasses import replace
 from uuid import uuid4
 
-from podvinsya.domain.board import Cell
-from podvinsya.domain.ids import CategoryId, GroupId, PlayerId
-from podvinsya.domain.rules import (
+from budge.domain.board import Cell
+from budge.domain.ids import CategoryId, GroupId, PlayerId
+from budge.domain.rules import (
     group_containing,
     legal_targets,
     starting_budget_ms,
     time_bonus_ms,
 )
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import Group
+from budge.domain.settings import MatchSettings
+from budge.domain.state import Group
 
 from .conftest import build_running_state
 

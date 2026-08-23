@@ -8,8 +8,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.backup.dump import take
-from podvinsya.backup.paths import BackupRoot, Manifest
+from budge.backup.dump import take
+from budge.backup.paths import BackupRoot, Manifest
 from support.db import DATABASE_URL
 from support.media import InMemoryMediaStore
 
@@ -157,7 +157,7 @@ async def test_an_interrupted_dump_is_not_offered_as_a_backup(
     a backup whose archive was never finished and report a failure that looks
     like corruption rather than an interrupted run.
     """
-    from podvinsya.backup import dump
+    from budge.backup import dump
 
     def explode(_database_url: str, into: str) -> None:
         Path(into).write_bytes(b"PGDMP")  # what an interrupted pg_dump leaves behind

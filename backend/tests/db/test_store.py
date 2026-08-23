@@ -8,12 +8,12 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.errors import ConcurrentModification
-from podvinsya.db.models import Match, MatchEventRow
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.events import Event, MatchCreated
-from podvinsya.domain.ids import MatchId
+from budge.db.errors import ConcurrentModification
+from budge.db.models import Match, MatchEventRow
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.events import Event, MatchCreated
+from budge.domain.ids import MatchId
 from support.db import wait_until_a_backend_is_blocked_on
 from support.streams import build_rich_stream
 

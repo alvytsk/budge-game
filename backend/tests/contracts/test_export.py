@@ -13,8 +13,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from domain.conftest import build_duel_state
-from podvinsya.api.projection import project_host, project_stage
-from podvinsya.contracts.export import check, render, write
+from budge.api.projection import project_host, project_stage
+from budge.contracts.export import check, render, write
 from support.content import RecordingContentDirectory
 
 NOW = datetime(2026, 8, 23, 18, 30, tzinfo=UTC)

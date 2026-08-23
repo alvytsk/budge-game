@@ -7,8 +7,8 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.models import Category, Image, Match, MatchEventRow, MatchPlayer
-from podvinsya.domain.state import MatchStatus
+from budge.db.models import Category, Image, Match, MatchEventRow, MatchPlayer
+from budge.domain.state import MatchStatus
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 

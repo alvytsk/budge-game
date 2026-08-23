@@ -1,9 +1,9 @@
 import pytest
 
-from podvinsya.domain.actions import JudgeCorrect, JudgePass, PauseDuel, UndoLastJudgement
-from podvinsya.domain.context import JournalEntry
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.state import MatchState
+from budge.domain.actions import JudgeCorrect, JudgePass, PauseDuel, UndoLastJudgement
+from budge.domain.context import JournalEntry
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.state import MatchState
 
 from .conftest import apply, at, build_duel_state
 
@@ -12,7 +12,7 @@ def _snapshot(state: MatchState) -> JournalEntry:
     """The duel as it stood immediately before one judging event, tagged
     with that judging event's own seq -- the same convention Task 3 fixed
     everywhere else a journal entry is built (see
-    `podvinsya.runtime.materialiser._snapshot`): `state.seq` is the seq of
+    `budge.runtime.materialiser._snapshot`): `state.seq` is the seq of
     whatever came *before* the judging event about to be folded, so that
     event lands at `state.seq + 1`, not `state.seq`.
     """

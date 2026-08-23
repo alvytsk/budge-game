@@ -11,10 +11,10 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.runtime.clock import SystemClock
-from podvinsya.services.ports import (
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.runtime.clock import SystemClock
+from budge.services.ports import (
     Broadcaster,
     CategoryBank,
     Clock,

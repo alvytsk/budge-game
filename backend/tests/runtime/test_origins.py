@@ -3,9 +3,9 @@ those three has cost somebody a production incident, so each gets a test."""
 
 import pytest
 
-from podvinsya.domain.actions import PauseDuel
-from podvinsya.domain.errors import RejectionReason
-from podvinsya.runtime.origins import (
+from budge.domain.actions import PauseDuel
+from budge.domain.errors import RejectionReason
+from budge.runtime.origins import (
     Accepted,
     Failed,
     FutureOrigin,
@@ -14,7 +14,7 @@ from podvinsya.runtime.origins import (
     Rejected,
     SystemOrigin,
 )
-from podvinsya.services.ports import RuntimeCode
+from budge.services.ports import RuntimeCode
 
 
 async def test_a_future_origin_hands_its_caller_the_events() -> None:

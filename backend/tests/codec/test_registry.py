@@ -3,8 +3,8 @@ injectivity — the two properties a hand-maintained table loses first."""
 
 from typing import get_args
 
-from podvinsya.db.codec.registry import CLASSES_BY_WIRE_NAME, CURRENT_VERSION, WIRE_NAMES
-from podvinsya.domain.events import Event
+from budge.db.codec.registry import CLASSES_BY_WIRE_NAME, CURRENT_VERSION, WIRE_NAMES
+from budge.domain.events import Event
 
 
 def test_every_event_in_the_union_has_a_wire_name() -> None:

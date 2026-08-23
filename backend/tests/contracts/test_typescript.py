@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from podvinsya.contracts.typescript import UnsupportedSchema, emit
+from budge.contracts.typescript import UnsupportedSchema, emit
 
 
 def document(**defs: Any) -> dict[str, Any]:

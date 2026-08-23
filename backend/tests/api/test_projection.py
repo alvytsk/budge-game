@@ -25,17 +25,17 @@ from domain.conftest import (
     build_duel_state,
     build_running_state,
 )
-from podvinsya.api.projection import project_host, project_stage
-from podvinsya.api.schemas.frames import HiddenCategory, NamedCategory
-from podvinsya.domain.actions import JudgePass, PauseDuel
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.events import Event
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.ids import CategoryId, GroupId, ImageId
-from podvinsya.domain.rules import legal_targets
-from podvinsya.domain.state import MatchState
-from podvinsya.domain.timing import deadline_of
+from budge.api.projection import project_host, project_stage
+from budge.api.schemas.frames import HiddenCategory, NamedCategory
+from budge.domain.actions import JudgePass, PauseDuel
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.events import Event
+from budge.domain.evolve import fold
+from budge.domain.ids import CategoryId, GroupId, ImageId
+from budge.domain.rules import legal_targets
+from budge.domain.state import MatchState
+from budge.domain.timing import deadline_of
 from support.content import OverAnsweringContentDirectory, RecordingContentDirectory
 from support.walk import every_string
 

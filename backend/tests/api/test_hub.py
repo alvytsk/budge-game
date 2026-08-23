@@ -10,9 +10,9 @@ from uuid import uuid4
 import pytest
 
 from domain.conftest import build_running_state
-from podvinsya.api.hub import MatchHub, Subscriber, Update
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.state import MatchState
+from budge.api.hub import MatchHub, Subscriber, Update
+from budge.domain.ids import MatchId
+from budge.domain.state import MatchState
 
 CAPACITY = 4
 

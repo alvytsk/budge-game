@@ -2,9 +2,9 @@ from dataclasses import replace
 
 import pytest
 
-from podvinsya.domain.actions import JudgeCorrect, JudgePass
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.state import MatchState
+from budge.domain.actions import JudgeCorrect, JudgePass
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.state import MatchState
 
 from .conftest import apply, at, build_duel_state
 

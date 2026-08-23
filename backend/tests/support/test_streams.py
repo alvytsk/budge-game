@@ -8,8 +8,8 @@ keep passing while covering one type less.
 from collections import Counter
 from typing import get_args
 
-from podvinsya.domain.events import Event
-from podvinsya.domain.state import MatchStatus
+from budge.domain.events import Event
+from budge.domain.state import MatchStatus
 from support.streams import build_rich_stream
 
 

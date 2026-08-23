@@ -4,9 +4,9 @@ import asyncio
 
 import pytest
 
-from podvinsya.media.digest import digest_of
-from podvinsya.media.s3 import S3MediaStore
-from podvinsya.services.ports import MediaUnavailable
+from budge.media.digest import digest_of
+from budge.media.s3 import S3MediaStore
+from budge.services.ports import MediaUnavailable
 from support.db import S3_ACCESS_KEY, S3_BUCKET, S3_ENDPOINT, S3_SECRET_KEY
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]

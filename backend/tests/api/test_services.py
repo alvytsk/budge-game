@@ -14,21 +14,21 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from podvinsya.api.hub import MatchHub
-from podvinsya.api.services import CommandGateway, MatchLifecycle
-from podvinsya.db.models import Match, MatchEventRow
-from podvinsya.db.repository import MatchRepository
-from podvinsya.db.store import UnitOfWork
-from podvinsya.domain.actions import AddPlayer, AssignSecret, DealBoard
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.errors import RejectionReason
-from podvinsya.domain.ids import CategoryId, MatchId, PlayerId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchStatus
-from podvinsya.runtime.manager import MatchManager
-from podvinsya.runtime.materialiser import Materialiser
-from podvinsya.runtime.origins import Accepted, Failed, Rejected
-from podvinsya.services.ports import RuntimeCode
+from budge.api.hub import MatchHub
+from budge.api.services import CommandGateway, MatchLifecycle
+from budge.db.models import Match, MatchEventRow
+from budge.db.repository import MatchRepository
+from budge.db.store import UnitOfWork
+from budge.domain.actions import AddPlayer, AssignSecret, DealBoard
+from budge.domain.board import BoardSize
+from budge.domain.errors import RejectionReason
+from budge.domain.ids import CategoryId, MatchId, PlayerId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchStatus
+from budge.runtime.manager import MatchManager
+from budge.runtime.materialiser import Materialiser
+from budge.runtime.origins import Accepted, Failed, Rejected
+from budge.services.ports import RuntimeCode
 from support.fakes import FakeCategoryBank, FakeClock
 from support.streams import BASE_TIME
 
@@ -297,7 +297,7 @@ async def test_a_match_id_nobody_created_cannot_be_started(
     """Kills on: `ensure_live` inventing a match. Recovery folds a log, and
     a match with no log has nothing to fold — the caller must hear that,
     not receive an empty match."""
-    from podvinsya.db.errors import MatchNotFound
+    from budge.db.errors import MatchNotFound
 
     lifecycle, _gateway, manager = build(sessions)
     try:

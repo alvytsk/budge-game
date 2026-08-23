@@ -13,10 +13,10 @@ from fastapi import FastAPI
 from starlette.types import Message, Scope
 
 from api.conftest import TEST_PASSWORD, running_app
-from podvinsya.api.app import build_app
-from podvinsya.api.principal import SESSION_COOKIE
-from podvinsya.api.settings import ApiSettings
-from podvinsya.media.digest import digest_of
+from budge.api.app import build_app
+from budge.api.principal import SESSION_COOKIE
+from budge.api.settings import ApiSettings
+from budge.media.digest import digest_of
 from support.media import InMemoryMediaStore
 from support.walk import every_string
 
