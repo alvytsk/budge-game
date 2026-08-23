@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from fastapi import HTTPException, Request, status
+from starlette.requests import HTTPConnection
 
 from podvinsya.api.security import read_session, read_stage_token
 from podvinsya.api.settings import ApiSettings
@@ -38,16 +39,18 @@ class StagePrincipal:
     match_id: MatchId
 
 
-def host_from_cookie(request: Request) -> HostPrincipal | None:
+def host_from_cookie(connection: HTTPConnection) -> HostPrincipal | None:
     """The operator's principal, or `None`. Never raises.
 
-    The WebSocket routes need the "or None" form: they must decide whether
+    It takes an `HTTPConnection` — the base both `Request` and `WebSocket`
+    derive from — because the cookie is read the same way over both, and
+    the WebSocket routes need the "or None" form: they must decide whether
     to accept the handshake at all, and an `HTTPException` raised inside a
     WebSocket scope produces a protocol error rather than a clean close.
     """
-    settings: ApiSettings = request.app.state.settings
-    clock: Clock = request.app.state.clock
-    token = request.cookies.get(SESSION_COOKIE)
+    settings: ApiSettings = connection.app.state.settings
+    clock: Clock = connection.app.state.clock
+    token = connection.cookies.get(SESSION_COOKIE)
     if token is None:
         return None
     valid = read_session(
