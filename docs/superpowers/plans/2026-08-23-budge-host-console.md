@@ -2096,7 +2096,7 @@ The live transport, and H3's move of the board geometry down a layer.
   - `useHostMatch(matchId, factory?): { frame, status, connected, refusal, send }`
   - `useSelection()` — zustand: `{ selected, select, clear }`
 
-- [ ] **Step 1: Move the geometry**
+- [x] **Step 1: Move the geometry**
 
 ```bash
 cd frontend && mkdir -p src/entities/board/lib
@@ -2113,7 +2113,7 @@ export { labelAnchor, outlinePath } from "./lib/geometry";
 
 Then in `src/widgets/board/ui/group-shape.tsx` change the import from `"../lib/geometry"` to `"@/entities/board"`, and fix the moved test's relative import of `testing/frames` — it gains one `../` level.
 
-- [ ] **Step 2: Confirm the move changed no behaviour**
+- [x] **Step 2: Confirm the move changed no behaviour**
 
 ```bash
 cd frontend && pnpm test; echo "exit=$?"
@@ -2122,7 +2122,7 @@ pnpm check; echo "exit=$?"
 
 Expected: the same test count as before the move, all passing. `steiger.config.ts` already exempts `./src/entities/**` from `fsd/insignificant-slice`, so the new slice will not fire it.
 
-- [ ] **Step 3: Commit the move on its own**
+- [x] **Step 3: Commit the move on its own**
 
 A pure move, committed separately, so the next reviewer can see at a glance that nothing in it changed.
 

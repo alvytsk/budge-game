@@ -1,6 +1,6 @@
+import { labelAnchor, outlinePath } from "@/entities/board";
 import { colourOf, inkOn } from "@/entities/match";
 import type { StageFrame, StageGroupFrame } from "@/shared/api";
-import { labelAnchor, outlinePath } from "../lib/geometry";
 
 export const CELL = 100;
 
