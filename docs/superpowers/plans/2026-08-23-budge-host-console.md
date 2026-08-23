@@ -2130,7 +2130,7 @@ A pure move, committed separately, so the next reviewer can see at a glance that
 cd .. && git add -A frontend && git commit -m "refactor(board): move board geometry to entities so both boards can share it"
 ```
 
-- [ ] **Step 4: Extend `frontend/testing/fake-socket.ts`**
+- [x] **Step 4: Extend `frontend/testing/fake-socket.ts`**
 
 `FakeSocket` has to record what was written. Add `send(data: string): void;` to the `SocketLike` interface, and to the class:
 
@@ -2142,7 +2142,7 @@ cd .. && git add -A frontend && git commit -m "refactor(board): move board geome
   }
 ```
 
-- [ ] **Step 5: Write the failing host-socket test — `frontend/src/shared/api/host-socket.test.ts`**
+- [x] **Step 5: Write the failing host-socket test — `frontend/src/shared/api/host-socket.test.ts`**
 
 ```ts
 import { describe, expect, it, vi } from "vitest";
@@ -2228,7 +2228,7 @@ describe("connectHost", () => {
 });
 ```
 
-- [ ] **Step 6: Run it, watch it fail, then write `frontend/src/shared/api/host-socket.ts`**
+- [x] **Step 6: Run it, watch it fail, then write `frontend/src/shared/api/host-socket.ts`**
 
 ```ts
 import type { Ack, Envelope, HostFrame } from "./contracts";
@@ -2351,11 +2351,11 @@ export {
 } from "./host-socket";
 ```
 
-- [ ] **Step 7: Run it and watch it pass**
+- [x] **Step 7: Run it and watch it pass**
 
 Expected: PASS, 5 tests.
 
-- [ ] **Step 8: Write `frontend/src/features/host-commands/model/selection.ts`**
+- [x] **Step 8: Write `frontend/src/features/host-commands/model/selection.ts`**
 
 H7: one field, and Task 7 checks it stayed that way.
 
@@ -2379,7 +2379,7 @@ export const useSelection = create<Selection>((set) => ({
 }));
 ```
 
-- [ ] **Step 9: Write the failing hook test — `frontend/src/features/host-commands/api/use-host-match.test.tsx`**
+- [x] **Step 9: Write the failing hook test — `frontend/src/features/host-commands/api/use-host-match.test.tsx`**
 
 ```tsx
 import { act, renderHook } from "@testing-library/react";
@@ -2461,7 +2461,7 @@ describe("useHostMatch", () => {
 });
 ```
 
-- [ ] **Step 10: Run it, watch it fail, then write `frontend/src/features/host-commands/api/use-host-match.ts`**
+- [x] **Step 10: Run it, watch it fail, then write `frontend/src/features/host-commands/api/use-host-match.ts`**
 
 ```ts
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -2534,7 +2534,7 @@ export { useSelection } from "./model/selection";
 
 If Biome objects to the `biome-ignore` comment's placement, put it on the line immediately before the `useEffect(` call — Biome anchors a suppression to the line before the diagnostic's start, which is the call, not the dependency array.
 
-- [ ] **Step 11: Green everything and commit**
+- [x] **Step 11: Green everything and commit**
 
 ```bash
 cd frontend && pnpm build; echo "exit=$?"

@@ -1,5 +1,6 @@
 export interface SocketLike {
   close(): void;
+  send(data: string): void;
   addEventListener(type: "open" | "message" | "close" | "error", listener: () => void): void;
   onopen: ((this: unknown, ev: unknown) => void) | null;
   onmessage: ((this: unknown, ev: { data: string }) => void) | null;
@@ -15,8 +16,13 @@ export class FakeSocket implements SocketLike {
   onclose: SocketLike["onclose"] = null;
   onerror: SocketLike["onerror"] = null;
   closed = false;
+  readonly sent: string[] = [];
 
   constructor(readonly url: string) {}
+
+  send(data: string): void {
+    this.sent.push(data);
+  }
 
   addEventListener(): void {}
 
