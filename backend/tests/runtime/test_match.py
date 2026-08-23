@@ -31,6 +31,7 @@ from podvinsya.domain.actions import (
     Command,
     CreateMatch,
     DealBoard,
+    DeclareAttack,
     ExpireTimer,
     StartMatch,
 )
@@ -41,7 +42,7 @@ from podvinsya.domain.errors import RejectionReason
 from podvinsya.domain.events import DuelStarted, Event, MatchCreated
 from podvinsya.domain.evolve import fold
 from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import CategoryId, MatchId, PlayerId
+from podvinsya.domain.ids import CategoryId, GroupId, MatchId, PlayerId
 from podvinsya.domain.settings import MatchSettings
 from podvinsya.domain.state import MatchState, MatchStatus, Player
 from podvinsya.domain.timing import deadline_of
@@ -645,6 +646,97 @@ async def test_a_quarantined_match_refuses_everything_afterwards() -> None:
     expected = Failed(RuntimeCode.QUARANTINED, "this match is quarantined")
     assert already_queued == expected
     assert after_quarantine == expected
+
+
+# --------------------------------------------------------------------------
+# Critical 1: the materialiser must be total over every state `decide`
+# itself handles cleanly. `build` runs before `decide` even sees the
+# command, so a crash here never reaches the domain's own guard -- it
+# reaches `CommitPath`'s broad `except Exception` instead, which is
+# INTERNAL and quarantines the match. Each test below reproduces one of
+# the three named crashes and asserts the caller gets the domain's own
+# rejection, not a quarantine.
+# --------------------------------------------------------------------------
+
+
+async def test_an_unknown_defending_group_is_a_rejection_not_a_crash() -> None:
+    """`_images` used to index `state.groups[command.defending_group]`
+    directly -- a `KeyError` for a `GroupId` that merged away, or was never
+    real to begin with. `_declare_attack` rejects this cleanly with
+    `UNKNOWN_GROUP`; the materialiser must let it."""
+    state = _fresh_state(status=MatchStatus.RUNNING)
+    clock = FakeClock(BASE_TIME)
+    commit = CommitPath(_RecordingUoW(), _materialiser(clock), clock, Random(0))
+    runtime = MatchRuntime(state.id, state, commit, _inert_scheduler(clock), RecordingBroadcaster())
+    origin = FutureOrigin()
+    queued = QueuedCommand.issue(
+        DeclareAttack(
+            attacking_group=GroupId(uuid4()), defending_group=GroupId(uuid4())
+        ),
+        origin,
+    )
+
+    await runtime._consume(queued)
+
+    outcome = await origin.result()
+    assert isinstance(outcome, Rejected), outcome
+    assert outcome.reason is RejectionReason.UNKNOWN_GROUP
+    assert not runtime.quarantined
+
+
+async def test_dealing_with_no_players_yet_is_a_rejection_not_a_crash() -> None:
+    """`_deal` used to compute `len(cells) // len(players)` -- a
+    `ZeroDivisionError` when nobody has joined yet. `_deal_board` rejects
+    this cleanly with `PLAYER_COUNT_INVALID`; the materialiser must let
+    it."""
+    state = _fresh_state(status=MatchStatus.SETUP, player_count=2)
+    assert state.players == ()
+    clock = FakeClock(BASE_TIME)
+    commit = CommitPath(_RecordingUoW(), _materialiser(clock), clock, Random(0))
+    runtime = MatchRuntime(state.id, state, commit, _inert_scheduler(clock), RecordingBroadcaster())
+    origin = FutureOrigin()
+    queued = QueuedCommand.issue(DealBoard(), origin)
+
+    await runtime._consume(queued)
+
+    outcome = await origin.result()
+    assert isinstance(outcome, Rejected), outcome
+    assert outcome.reason is RejectionReason.PLAYER_COUNT_INVALID
+    assert not runtime.quarantined
+
+
+async def test_dealing_before_every_secret_is_assigned_is_a_rejection_not_a_crash() -> None:
+    """`_deal` used to index `secrets[owner]` for every player's first
+    cell -- a `KeyError` for a player who joined but never got a secret.
+    `_deal_board` rejects this cleanly with `SECRET_MISSING`; the
+    materialiser must let it."""
+    player_a = PlayerId(uuid4())
+    player_b = PlayerId(uuid4())
+    state = MatchState(
+        id=MatchId(uuid4()),
+        seq=2,
+        status=MatchStatus.SETUP,
+        board=_BOARD,
+        settings=_SETTINGS,
+        player_count=2,
+        players=(
+            Player(player_a, "A", "#111111"),
+            Player(player_b, "B", "#222222"),
+        ),
+        secrets={},  # nobody has a secret assigned yet
+    )
+    clock = FakeClock(BASE_TIME)
+    commit = CommitPath(_RecordingUoW(), _materialiser(clock), clock, Random(0))
+    runtime = MatchRuntime(state.id, state, commit, _inert_scheduler(clock), RecordingBroadcaster())
+    origin = FutureOrigin()
+    queued = QueuedCommand.issue(DealBoard(), origin)
+
+    await runtime._consume(queued)
+
+    outcome = await origin.result()
+    assert isinstance(outcome, Rejected), outcome
+    assert outcome.reason is RejectionReason.SECRET_MISSING
+    assert not runtime.quarantined
 
 
 # --------------------------------------------------------------------------

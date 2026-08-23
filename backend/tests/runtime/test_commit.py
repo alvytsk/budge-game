@@ -363,16 +363,14 @@ async def test_a_rejection_from_decide_leaves_the_runtime_healthy() -> None:
 async def test_a_content_shortfall_is_an_ordinary_refusal() -> None:
     """«нехватка контента при отборе → обычный отказ, не авария». The
     outcome names CONTENT_UNAVAILABLE and the caller is told; the match is
-    not quarantined."""
-    state = MatchState(
-        id=MatchId(uuid4()),
-        seq=0,
-        status=MatchStatus.SETUP,
-        board=_BOARD,
-        settings=_SETTINGS,
-        player_count=_PLAYER_COUNT,
-        players=(Player(PlayerId(uuid4()), "A", "#fff"),),
-    )
+    not quarantined.
+
+    The state must otherwise be deal-ready -- full roster, every secret
+    assigned -- or the materialiser's own totality guard (Critical 1) would
+    short-circuit on the incomplete roster before ever reaching the bank,
+    and this test would stop exercising content exhaustion at all.
+    """
+    state = _deal_ready_state()
     queued = QueuedCommand.issue(DealBoard(), SystemOrigin("test"))
     bank = FakeCategoryBank(exhaust_after=0)
     materialiser = Materialiser(FakeClock(NOW), _NullRepository(), bank, Random(0))

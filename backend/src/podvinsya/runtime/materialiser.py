@@ -129,8 +129,17 @@ class Materialiser:
         The defender's category is the one played (§2.6), and the order is
         settled once and written into the event whole, so the stage screen
         can preload every image while the host explains the category.
+
+        `build` runs before `decide` ever sees the command, so a
+        `defending_group` that is not (or no longer) a real group -- a
+        console holding a `GroupId` that merged away one duel ago -- must
+        not raise here. `_declare_attack` already rejects this cleanly with
+        `UNKNOWN_GROUP`; drawing nothing lets that rejection happen instead
+        of a `KeyError` reaching `CommitPath` as an unclassified fault.
         """
-        defending = state.groups[command.defending_group]
+        defending = state.groups.get(command.defending_group)
+        if defending is None:
+            return ()
         return await self._bank.draw_images(tx, defending.category, IMAGE_PACK_SIZE)
 
     async def _deal(self, state: MatchState, tx: Transaction) -> DealPlan:
@@ -143,9 +152,21 @@ class Materialiser:
         differ from run to run — the randomness is injected rather than
         global so a test can pin it without the production path being
         deterministic.
+
+        `build` runs before `decide` ever sees the command, so a roster
+        `_deal_board` would itself reject -- nobody has joined yet, or a
+        joined player has no secret assigned -- must not crash here.
+        `_deal_board` rejects an empty or short roster with
+        `PLAYER_COUNT_INVALID` and a missing secret with `SECRET_MISSING`,
+        both checked before it ever looks at a single cell of the plan;
+        handing back an empty plan in either case lets those rejections
+        happen instead of a `ZeroDivisionError` or a `KeyError` reaching
+        `CommitPath` as an unclassified fault.
         """
         players = tuple(player.id for player in state.players)
         secrets = dict(state.secrets)
+        if not players or any(player not in secrets for player in players):
+            return DealPlan(cells=())
         cells = list(state.board.cells())
         self._random.shuffle(cells)
 
