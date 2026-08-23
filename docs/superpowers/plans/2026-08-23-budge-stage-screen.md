@@ -77,11 +77,12 @@ frontend/
         index.ts
     shared/
       api/
+        index.ts                     barrel: star re-export of contracts
         contracts.ts                 GENERATED — do not edit
         stage-socket.ts              connect, backoff, last frame
-        media.ts                     mediaUrl(digest)
       config/
-        endpoints.ts                 ws + api base
+        index.ts                     barrel
+        endpoints.ts                 ws + api base, mediaUrl(digest)
       lib/
         use-stage-frame.ts           React binding over stage-socket
         use-server-clock.ts          offset from server_now
@@ -1663,7 +1664,6 @@ cd .. && git add frontend && git commit -m "feat(stage): render the board as one
 Beat 2 of §9.1: the board goes, the picture fills the screen, two timers sit on top, and the active one is in the answering player's colour.
 
 **Files:**
-- Create: `frontend/src/shared/api/media.ts` (re-export of `mediaUrl`, so widgets do not reach into `config`)
 - Create: `frontend/src/shared/lib/use-media-prefetch.ts`
 - Create: `frontend/src/widgets/duel/ui/timer-pair.tsx`, `frontend/src/widgets/duel/ui/timer-pair.test.tsx`
 - Create: `frontend/src/widgets/duel/ui/duel-view.tsx`, `frontend/src/widgets/duel/ui/duel-view.test.tsx`
@@ -1676,11 +1676,14 @@ Beat 2 of §9.1: the board goes, the picture fills the screen, two timers sit on
   - `<DuelView frame duel now={() => number} />`
   - `prefetchImages(digests: string[]): void`
 
-- [ ] **Step 1: Write `frontend/src/shared/api/media.ts`**
+- [ ] **Step 1: (removed)**
 
-```ts
-export { mediaUrl } from "@/shared/config/endpoints";
-```
+The plan originally added `shared/api/media.ts` as a re-export of
+`mediaUrl`. It is redundant — `shared/config/index.ts` already exports it —
+and a module inside `shared` that reaches its neighbour through the `@/`
+alias violates `fsd/import-locality`. Reach `mediaUrl` as
+`import { mediaUrl } from "@/shared/config"` from outside `shared`, and as
+`import { mediaUrl } from "../config"` from inside it. Nothing to do here.
 
 - [ ] **Step 2: Write `frontend/src/shared/lib/use-media-prefetch.ts`**
 
@@ -1688,7 +1691,7 @@ export { mediaUrl } from "@/shared/config/endpoints";
 
 ```ts
 import { useEffect } from "react";
-import { mediaUrl } from "@/shared/api/media";
+import { mediaUrl } from "../config";
 
 const LANES = 4;
 
@@ -1901,7 +1904,7 @@ describe("DuelView", () => {
 
 ```tsx
 import type { StageDuelFrame, StageFrame } from "@/shared/api/contracts";
-import { mediaUrl } from "@/shared/api/media";
+import { mediaUrl } from "@/shared/config";
 import { TimerPair } from "./timer-pair";
 
 export interface DuelViewProps {
