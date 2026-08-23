@@ -111,17 +111,27 @@ async def test_it_honours_the_exclusion_set(
 
     Kills on: ignoring it — a player's own secret would land on the board
     twice, once hidden as theirs and once revealed as an ordinary cell."""
-    library = await stock(sessions, ordinary=4)
+    library = await stock(sessions, ordinary=3)
     listed = await library.list_categories()
     excluded = CategoryId(listed[0].id)
 
     uow = UnitOfWork(sessions)
     async with uow.begin() as tx:
         drawn = await DatabaseCategoryBank(sessions).draw_categories(
-            tx, 3, exclude=frozenset({excluded})
+            tx, 2, exclude=frozenset({excluded})
         )
-
     assert excluded not in drawn
+
+    # Deterministic, unlike the assertion above: with three categories, one
+    # excluded and three asked for, honouring the exclusion leaves two and
+    # must refuse. Ignoring it would succeed every time — where the check
+    # above would pass by luck whenever the random draw happened to miss
+    # the excluded row.
+    with pytest.raises(ContentExhausted):
+        async with uow.begin() as tx:
+            await DatabaseCategoryBank(sessions).draw_categories(
+                tx, 3, exclude=frozenset({excluded})
+            )
 
 
 async def test_it_raises_content_exhausted_when_the_library_is_too_small(
