@@ -565,7 +565,7 @@ Postgres role, password and database name; MinIO root credentials; the test buck
 **Files:**
 - Modify: `backend/compose.test.yaml`, `.github/workflows/ci.yml`, `backend/tests/support/db.py`, `backend/tests/api/test_app.py`
 
-- [ ] **Step 1: Stop the test stack first**
+- [x] **Step 1: Stop the test stack first**
 
 The database name changes, and a running container holds the old one.
 
@@ -573,7 +573,7 @@ The database name changes, and a running container holds the old one.
 docker compose -f backend/compose.test.yaml down; echo "exit=$?"
 ```
 
-- [ ] **Step 2: Rename all three files in one edit**
+- [x] **Step 2: Rename all three files in one edit**
 
 The coupling is the point: these six values appear in three files and nothing shares a constant between them.
 
@@ -606,7 +606,7 @@ git diff backend/tests/support/db.py
 
 Expected: `podvinsya:podvinsya@127.0.0.1:5434/podvinsya_test` → `budge:budge@127.0.0.1:5434/budge_test`, `podvinsya-media-test` → `budge-media-test`, `podvinsya-secret` → `budge-secret`. The **port 5434 must not change** — it was chosen to stay clear of a local server and of the neighbouring triviador project.
 
-- [ ] **Step 3: Recreate the test stack with the new identifiers**
+- [x] **Step 3: Recreate the test stack with the new identifiers**
 
 The Postgres image only applies `POSTGRES_USER`/`POSTGRES_DB` when it initialises an empty data directory. `compose.test.yaml` keeps its data in a tmpfs, so a `down`/`up` is enough — but confirm rather than assume:
 
@@ -618,7 +618,7 @@ docker compose -f backend/compose.test.yaml ps
 
 Expected: both services healthy. If Postgres reports `role "budge" does not exist`, the data directory survived — `down -v` and up again.
 
-- [ ] **Step 4: Green everything and commit**
+- [x] **Step 4: Green everything and commit**
 
 ```bash
 cd backend && pytest -q; echo "pytest=$?"

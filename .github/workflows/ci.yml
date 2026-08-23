@@ -16,15 +16,15 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: podvinsya
-          POSTGRES_PASSWORD: podvinsya
-          POSTGRES_DB: podvinsya_test
+          POSTGRES_USER: budge
+          POSTGRES_PASSWORD: budge
+          POSTGRES_DB: budge_test
         # 5434 matches compose.test.yaml and the default in
         # tests/support/db.py, so the suite runs here against the same URL a
         # developer uses locally — no CI-only environment variable to drift.
         ports: ["5434:5432"]
         options: >-
-          --health-cmd "pg_isready -U podvinsya -d podvinsya_test"
+          --health-cmd "pg_isready -U budge -d budge_test"
           --health-interval 1s
           --health-timeout 3s
           --health-retries 30
@@ -38,8 +38,8 @@ jobs:
       minio:
         image: minio/minio:latest
         env:
-          MINIO_ROOT_USER: podvinsya
-          MINIO_ROOT_PASSWORD: podvinsya-secret
+          MINIO_ROOT_USER: budge
+          MINIO_ROOT_PASSWORD: budge-secret
         ports: ["9002:9000"]
         options: >-
           --health-cmd "mc ready local"

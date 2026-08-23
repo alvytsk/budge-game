@@ -357,7 +357,7 @@ async def test_the_scratch_database_is_dropped_with_a_connection_still_open(
     meet it — so the job that exists to prove the backups work becomes the
     job that fails on a timer.
     """
-    name = f"podvinsya_drill_force_{uuid4().hex[:12]}"
+    name = f"budge_drill_force_{uuid4().hex[:12]}"
     lingering = None
     held = None
     try:

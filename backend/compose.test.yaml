@@ -4,9 +4,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: podvinsya
-      POSTGRES_PASSWORD: podvinsya
-      POSTGRES_DB: podvinsya_test
+      POSTGRES_USER: budge
+      POSTGRES_PASSWORD: budge
+      POSTGRES_DB: budge_test
     ports:
       - "5434:5432"
     # The test database is disposable by definition: keeping it in a tmpfs
@@ -15,7 +15,7 @@ services:
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U podvinsya -d podvinsya_test"]
+      test: ["CMD-SHELL", "pg_isready -U budge -d budge_test"]
       interval: 1s
       timeout: 3s
       retries: 30
@@ -32,8 +32,8 @@ services:
     image: minio/minio:latest
     command: server /data --address :9000
     environment:
-      MINIO_ROOT_USER: podvinsya
-      MINIO_ROOT_PASSWORD: podvinsya-secret
+      MINIO_ROOT_USER: budge
+      MINIO_ROOT_PASSWORD: budge-secret
     ports:
       - "9002:9000"
     # Disposable by definition, like the database beside it.

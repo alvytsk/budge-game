@@ -19,7 +19,7 @@ pytestmark = pytest.mark.integration
 
 # Port 1 is reserved and nothing listens on it, so a connection attempt is
 # refused immediately rather than hanging until a TCP timeout.
-UNREACHABLE_URL = "postgresql+asyncpg://podvinsya:podvinsya@127.0.0.1:1/podvinsya_test"
+UNREACHABLE_URL = "postgresql+asyncpg://budge:budge@127.0.0.1:1/budge_test"
 
 
 async def test_health_reports_both_checks(

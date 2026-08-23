@@ -17,7 +17,7 @@ from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-TEST_DATABASE_URL = "postgresql+asyncpg://podvinsya:podvinsya@127.0.0.1:5434/podvinsya_test"
+TEST_DATABASE_URL = "postgresql+asyncpg://budge:budge@127.0.0.1:5434/budge_test"
 
 DATABASE_URL = os.environ.get("BUDGE_TEST_DATABASE_URL", TEST_DATABASE_URL)
 
@@ -27,9 +27,9 @@ DATABASE_URL = os.environ.get("BUDGE_TEST_DATABASE_URL", TEST_DATABASE_URL)
 # of these so an unset variable fails loudly in production.
 TEST_S3_ENDPOINT = "http://127.0.0.1:9002"
 S3_ENDPOINT = os.environ.get("BUDGE_TEST_S3_ENDPOINT", TEST_S3_ENDPOINT)
-S3_ACCESS_KEY = "podvinsya"
-S3_SECRET_KEY = "podvinsya-secret"
-S3_BUCKET = "podvinsya-media-test"
+S3_ACCESS_KEY = "budge"
+S3_SECRET_KEY = "budge-secret"
+S3_BUCKET = "budge-media-test"
 
 ALEMBIC_INI = Path(budge.__file__).resolve().parent / "alembic.ini"
 
