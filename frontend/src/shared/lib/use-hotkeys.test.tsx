@@ -37,6 +37,37 @@ describe("useHotkeys", () => {
     expect(bare).not.toHaveBeenCalled();
   });
 
+  it("swallows the browser's own meaning of a key it handles", () => {
+    // Space scrolls the page and Ctrl+Z opens the browser's undo. Both
+    // happen *in addition* to the handler firing, so nothing about a
+    // handler-count assertion notices them. Kills on: dropping
+    // `preventDefault` — the operator judges the duel and the console
+    // scrolls out from under them at one decision every five seconds.
+    renderHook(() => useHotkeys({ Space: vi.fn(), "Ctrl+KeyZ": vi.fn() }, true));
+
+    const space = new KeyboardEvent("keydown", { code: "Space", bubbles: true, cancelable: true });
+    document.dispatchEvent(space);
+    expect(space.defaultPrevented).toBe(true);
+
+    const undo = new KeyboardEvent("keydown", {
+      code: "KeyZ",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(undo);
+    expect(undo.defaultPrevented).toBe(true);
+  });
+
+  it("leaves a key it does not handle alone", () => {
+    // The other half: `preventDefault` on everything would break Tab,
+    // F5 and the operator's own shortcuts. Only a bound key is swallowed.
+    renderHook(() => useHotkeys({ Space: vi.fn() }, true));
+    const tab = new KeyboardEvent("keydown", { code: "Tab", bubbles: true, cancelable: true });
+    document.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false);
+  });
+
   it("does nothing while inactive", () => {
     const correct = vi.fn();
     renderHook(() => useHotkeys({ Space: correct }, false));

@@ -9,6 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "biome check . && tsc --noEmit && steiger ./src",
+    "check:bundle": "vite build && node scripts/assert-route-split.mjs",
     "fix": "biome check --write ."
   },
   "dependencies": {

@@ -64,14 +64,20 @@ describe("useHostMatch", () => {
     // H1, the ruling this whole surface rests on. Kills on: patching
     // local state on send — the console would show a judgement the server
     // may still reject.
+    //
+    // The assertion is on the *whole* frame, not on a field or two:
+    // naming fields only pins the fields named, and an optimistic patch
+    // would reach for whichever one it wanted — `status`, `scores`,
+    // `duel.index`. What the socket delivered has to still be what is on
+    // screen, entirely.
     const { factory, sockets } = fakeSocketFactory();
     const { result } = renderHook(() => useHostMatch("m1", factory));
+    const delivered = hostFrame({ seq: 4, round_no: 2 });
     act(() => {
       sockets[0]?.open();
-      sockets[0]?.deliver(hostFrame({ seq: 4, round_no: 2 }));
+      sockets[0]?.deliver(delivered);
       result.current.send({ type: "judge_correct" });
     });
-    expect(result.current.frame?.seq).toBe(4);
-    expect(result.current.frame?.round_no).toBe(2);
+    expect(result.current.frame).toEqual(delivered);
   });
 });

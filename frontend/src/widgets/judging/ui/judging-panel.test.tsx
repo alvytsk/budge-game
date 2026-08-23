@@ -31,6 +31,15 @@ describe("JudgingPanel", () => {
     expect(screen.getByAltText("Титаник")).toHaveAttribute("src", `/api/media/${"b".repeat(64)}`);
   });
 
+  it("marks the answering clock with that player's own colour", () => {
+    // The console's half of §9.1, and the other call site `colourOf` was
+    // widened for: whose clock is running has to be readable at a glance,
+    // in the same colour the room is looking at on the projector. Kills
+    // on: a constant fill on the active clock.
+    panel();
+    expect(screen.getByTestId(`clock-${ATTACKER}`)).toHaveStyle({ background: "#e4572e" });
+  });
+
   it("offers the three judgements, with undo visually quieter", () => {
     // §9.2: «три кнопки внизу. Отмена рядом, но визуально тише».
     panel();

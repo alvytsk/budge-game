@@ -107,3 +107,8 @@ jobs:
       - run: pnpm build
       - run: pnpm check
       - run: pnpm test
+
+      # H8: the projector's route must not download the console's chunk.
+      # This rebuilds and greps the emitted assets, so a careless shared
+      # import fails here instead of shipping.
+      - run: pnpm check:bundle

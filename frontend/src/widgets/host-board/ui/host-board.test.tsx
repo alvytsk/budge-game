@@ -25,6 +25,18 @@ const FRAME = hostFrame({
   legal_attacks: { g1: ["g2"] },
 });
 
+/** Invoke a button's React `onClick` directly, past the `disabled`
+ * attribute that React itself honours before it ever reaches the handler.
+ * It throws rather than no-ops if the handle is gone, so a React upgrade
+ * that moved it fails here instead of making the test vacuous. */
+function press(node: HTMLElement): void {
+  const key = Object.keys(node).find((name) => name.startsWith("__reactProps$"));
+  if (key === undefined) throw new Error(`no React props handle on ${node.dataset.testid}`);
+  const props = (node as unknown as Record<string, { onClick?: () => void }>)[key];
+  if (props?.onClick === undefined) throw new Error("button has no onClick");
+  props.onClick();
+}
+
 describe("HostBoard", () => {
   beforeEach(() => {
     useSelection.getState().clear();
@@ -38,6 +50,17 @@ describe("HostBoard", () => {
     expect(screen.getByText("Спорт")).toBeInTheDocument();
     expect(screen.getByText("Еда")).toBeInTheDocument();
     expect(screen.queryByText("Секрет")).toBeNull();
+  });
+
+  it("fills each group with its owner's colour", () => {
+    // §9.1's colour rule binds the console as hard as it binds the
+    // projector: the operator narrates ownership out loud and the two
+    // screens have to agree. `colourOf` was widened to serve both boards,
+    // and until now only the stage half was held. Kills on: a constant
+    // fill, or looking the owner up in the wrong list.
+    render(<HostBoard frame={FRAME} onDeclare={vi.fn()} />);
+    expect(screen.getByTestId("group-g1")).toHaveStyle({ background: "#e4572e" });
+    expect(screen.getByTestId("group-g2")).toHaveStyle({ background: "#2e86e4" });
   });
 
   it("offers only groups that can attack as a first click", () => {
@@ -77,6 +100,24 @@ describe("HostBoard", () => {
     expect(onDeclare).not.toHaveBeenCalled();
   });
 
+  it("refuses an illegal target in the handler, not only in the markup", async () => {
+    // The test above is stopped by `disabled` — React never calls the
+    // handler for a disabled button, so it proves the dimming and nothing
+    // about the code behind it. This one invokes the handler directly, so
+    // H2 is held by the logic as well as by the attribute. Kills on:
+    // dropping the `targets.includes` guard, which leaves the whole ruling
+    // resting on one CSS-adjacent attribute.
+    const onDeclare = vi.fn();
+    render(<HostBoard frame={FRAME} onDeclare={onDeclare} />);
+    await userEvent.click(screen.getByTestId("group-g1"));
+    press(screen.getByTestId("group-g3"));
+    expect(onDeclare).not.toHaveBeenCalled();
+    // …and the same forcing does declare a legal one, so the assertion
+    // above cannot pass merely because the forcing stopped working.
+    press(screen.getByTestId("group-g2"));
+    expect(onDeclare).toHaveBeenCalledWith("g1", "g2");
+  });
+
   it("lets the operator change their mind by re-picking the attacker", async () => {
     const onDeclare = vi.fn();
     render(<HostBoard frame={FRAME} onDeclare={onDeclare} />);
@@ -91,6 +132,27 @@ describe("HostBoard", () => {
     // must not be a crash.
     render(<HostBoard frame={hostFrame({ legal_attacks: {} })} onDeclare={vi.fn()} />);
     expect(screen.getByTestId("group-g1")).toBeDisabled();
+  });
+
+  it("still lays out a group the server sent with no cells", () => {
+    // A cell-less group is a server bug, but this board is the operator's
+    // live input surface: it has to stay laid out and keep every other
+    // group clickable rather than emit `Infinity / span NaN` and collapse
+    // the grid mid-show. Kills on: dropping `span`'s empty-cells guard,
+    // where `Math.min(...[])` is `Infinity` and every arithmetic below it
+    // turns to `NaN` — silently, because CSS just ignores the rule.
+    const frame = hostFrame({
+      groups: [
+        hostGroup({ id: "g1", owner: ATTACKER, cells: [] }),
+        hostGroup({ id: "g2", owner: DEFENDER, cells: [{ col: 1, row: 0 }] }),
+      ],
+      legal_attacks: { g2: ["g1"] },
+    });
+    render(<HostBoard frame={frame} onDeclare={vi.fn()} />);
+    const empty = screen.getByTestId("group-g1");
+    expect(empty.style.gridColumn).toBe("1 / span 1");
+    expect(empty.style.gridRow).toBe("1 / span 1");
+    expect(screen.getByTestId("group-g2")).toBeEnabled();
   });
 
   it("draws one outline per group, not one per cell", () => {

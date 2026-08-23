@@ -1,8 +1,8 @@
 import { act, screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeSocketFactory } from "../../../../testing/fake-socket";
-import { hostDuel, hostFrame } from "../../../../testing/host-frames";
+import { ATTACKER, hostDuel, hostFrame, timing } from "../../../../testing/host-frames";
 import { renderWithQuery } from "../../../../testing/query";
 import { server } from "../../../../testing/server";
 import { MatchPage } from "./match-page";
@@ -30,6 +30,10 @@ function mount() {
 }
 
 describe("MatchPage", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("waits before the first frame rather than drawing an empty console", () => {
     mount();
     expect(screen.getByText("Подключение")).toBeInTheDocument();
@@ -61,6 +65,32 @@ describe("MatchPage", () => {
     send(hostFrame({ status: "running", duel: null }));
     send({ kind: "ack", correlation_id: "c1", outcome: "rejected", reason: "not_adjacent" });
     expect(screen.getByText(/not_adjacent/)).toBeInTheDocument();
+  });
+
+  it("drives the judging clocks from the frame's server_now, not the browser's", () => {
+    // §7.3 and R2, and the one wiring the type system cannot hold:
+    // `MatchPage` hands `JudgingPanel` a `() => number`, and `Date.now`
+    // type-checks exactly as well as the corrected clock does. Kills on:
+    // passing the browser's clock — this machine is five minutes fast, so
+    // an uncorrected console would show the attacker's whole 60-second
+    // budget already burnt while the stage screen beside it reads 1:00.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-23T20:05:00Z"));
+    const { send } = mount();
+    send(
+      hostFrame({
+        server_now: "2026-08-23T20:00:00Z",
+        status: "running",
+        duel: hostDuel({
+          phase: "running",
+          timing: timing({
+            anchor: "2026-08-23T20:00:00Z",
+            remaining_ms: { [ATTACKER]: 60_000 },
+          }),
+        }),
+      }),
+    );
+    expect(screen.getByTestId(`clock-${ATTACKER}`)).toHaveTextContent("1:00");
   });
 
   it("renders the answer, which is the console's alone to hold", () => {

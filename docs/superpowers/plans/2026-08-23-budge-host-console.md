@@ -3460,7 +3460,7 @@ cd .. && git add frontend && git commit -m "feat(host): the judging screen, at t
 - Create: `frontend/scripts/assert-route-split.mjs`
 - Modify: `frontend/package.json`, `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Write `frontend/scripts/assert-route-split.mjs`**
+- [x] **Step 1: Write `frontend/scripts/assert-route-split.mjs`**
 
 H8: the projector must not download the console. This reads the built chunks and fails if the stage chunk reaches console code.
 
@@ -3505,13 +3505,13 @@ if (problems.length > 0) {
 console.log(`ok: console code is confined to ${chunks.filter(isHostChunk).join(", ")}`);
 ```
 
-- [ ] **Step 2: Add the script and wire it into CI**
+- [x] **Step 2: Add the script and wire it into CI**
 
 In `frontend/package.json`: `"check:bundle": "vite build && node scripts/assert-route-split.mjs"`.
 
 In `.github/workflows/ci.yml`'s `frontend` job, add `- run: pnpm check:bundle` after `pnpm test`.
 
-- [ ] **Step 3: Run it**
+- [x] **Step 3: Run it**
 
 ```bash
 cd frontend && pnpm check:bundle; echo "exit=$?"
@@ -3521,7 +3521,7 @@ Expected: exit 0 and `ok: console code is confined to host.match._matchId-<hash>
 
 Two ways this check can go wrong, both guarded above and both worth keeping: a chunk-name prefix that matches nothing would make it pass vacuously (the `!chunks.some(isHostChunk)` branch catches that), and a needle the console no longer contains would silently stop testing anything (the `carriers.length === 0` branch catches that). If a needle has genuinely gone away, replace it with a string the console still has — do not delete it.
 
-- [ ] **Step 4: Mutation pass**
+- [x] **Step 4: Mutation pass**
 
 For each row: apply the mutation to the source, run `pnpm test`, confirm the named tests fail, then `git checkout -- <file>` and confirm green again before the next.
 
@@ -3544,7 +3544,7 @@ For each row: apply the mutation to the source, run `pnpm test`, confirm the nam
 | `useDeal` — throw on a 409 | "surfaces a refusal instead of throwing" |
 | `MatchSetup` — hide the deal button once groups exist | "offers a redeal once a board exists, rather than hiding the button" |
 
-- [ ] **Step 5: Add H7's missing test**
+- [x] **Step 5: Add H7's missing test**
 
 H7 has no test at all: nothing stops the selection store growing into a second copy of match state. Write it.
 
@@ -3571,11 +3571,11 @@ describe("useSelection", () => {
 });
 ```
 
-- [ ] **Step 6: Close every survivor**
+- [x] **Step 6: Close every survivor**
 
 A mutation the suite survives is a missing test, not a passing one. Write the test that kills it, confirm it fails under the mutation and passes without it, and report it prominently. Do not rationalise a survivor as "not worth testing".
 
-- [ ] **Step 7: Confirm clean and green**
+- [x] **Step 7: Confirm clean and green**
 
 ```bash
 cd frontend && pnpm build; echo "exit=$?"
@@ -3587,7 +3587,7 @@ cd .. && git status --porcelain
 
 Expected: all 0, and `git status` reporting nothing but intended additions — every mutation reverted.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add frontend .github/workflows/ci.yml
