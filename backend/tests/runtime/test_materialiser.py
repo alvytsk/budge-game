@@ -447,6 +447,39 @@ async def test_a_declared_attack_draws_a_pack_for_the_defenders_category(
     )
 
 
+async def test_the_image_pack_is_not_redrawn_at_start_duel(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """§3.5 names this by name -- the exact regression the design's donor
+    project shipped. The pack is drawn whole at declaration; `StartDuel`
+    must not touch the bank a second time."""
+    recorded = build_rich_stream()
+    state, _ = _setup_state_before(recorded, AttackDeclared)
+    attacker = state.current_player()
+    attacking = next(
+        group for group in state.groups_of(attacker) if legal_targets(state, group.id)
+    )
+    defending_id = sorted(legal_targets(state, attacking.id))[0]
+    defending = state.groups[defending_id]
+
+    bank = FakeCategoryBank()
+    materialiser = Materialiser(FakeClock(NOW), MatchRepository(sessions), bank, Random(0))
+
+    declare = DeclareAttack(attacking_group=attacking.id, defending_group=defending_id)
+    ctx = await materialiser.build(state, declare, _tx())
+    state = fold(state, decide(state, declare, ctx))
+    assert bank.drawn_packs == [(defending.category, IMAGE_PACK_SIZE)], (
+        "the test needs exactly one draw from declaration before StartDuel runs"
+    )
+
+    ctx = await materialiser.build(state, StartDuel(), _tx())
+
+    assert ctx.image_order is None, "StartDuel must not carry its own image order"
+    assert bank.drawn_packs == [(defending.category, IMAGE_PACK_SIZE)], (
+        "the pack must not be redrawn at StartDuel"
+    )
+
+
 async def _deal_state_and_plan(
     sessions: async_sessionmaker[AsyncSession], recorded: Recorded
 ) -> tuple[MatchState, DealPlan]:

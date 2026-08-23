@@ -8,11 +8,11 @@ is the only way to make this correct without a lock the loop cannot hold.
 Why `state.seq` names a deadline: `evolve` assigns seq by folding one event
 at a time, so the seq recorded on a state is the seq of the very last event
 that produced it. When that state's duel carries a freshly set anchor — via
-`DuelStarted`, `AnswerAccepted`, `PassUsed` or `DuelResumed`, whichever last
-touched it — that last event *is* the one that set the anchor, so
-`state.seq` is exactly the identifier a later `ExpireTimer(deadline_id)`
-must be compared against. It costs nothing extra to track: it is already on
-every state the runtime holds.
+`DuelStarted`, `AnswerAccepted`, `PassUsed`, `DuelResumed` or
+`JudgementUndone`, whichever last touched it — that last event *is* the one
+that set the anchor, so `state.seq` is exactly the identifier a later
+`ExpireTimer(deadline_id)` must be compared against. It costs nothing extra
+to track: it is already on every state the runtime holds.
 """
 
 import asyncio

@@ -8,11 +8,18 @@ from podvinsya.domain.state import MatchState
 from .conftest import apply, at, build_duel_state
 
 
-def _snapshot(state: MatchState, seq: int) -> JournalEntry:
+def _snapshot(state: MatchState) -> JournalEntry:
+    """The duel as it stood immediately before one judging event, tagged
+    with that judging event's own seq -- the same convention Task 3 fixed
+    everywhere else a journal entry is built (see
+    `podvinsya.runtime.materialiser._snapshot`): `state.seq` is the seq of
+    whatever came *before* the judging event about to be folded, so that
+    event lands at `state.seq + 1`, not `state.seq`.
+    """
     duel = state.duel
     assert duel is not None
     return JournalEntry(
-        seq=seq,
+        seq=state.seq + 1,
         budgets=duel.budgets,
         answering=duel.answering,
         image_index=duel.index,
@@ -21,7 +28,7 @@ def _snapshot(state: MatchState, seq: int) -> JournalEntry:
 
 def test_undo_restores_budgets_answerer_and_image() -> None:
     state, _, _, _ = build_duel_state()
-    snapshot = _snapshot(state, seq=state.seq)
+    snapshot = _snapshot(state)
     before = state.duel
     assert before is not None
 
@@ -37,7 +44,7 @@ def test_undo_restores_budgets_answerer_and_image() -> None:
 
 def test_time_between_the_mistake_and_the_undo_is_not_charged() -> None:
     state, _, _, _ = build_duel_state()
-    snapshot = _snapshot(state, seq=state.seq)
+    snapshot = _snapshot(state)
     before = state.duel
     assert before is not None
     start = before.budgets.get(before.answering)
@@ -54,7 +61,7 @@ def test_time_between_the_mistake_and_the_undo_is_not_charged() -> None:
 
 def test_undo_reanchors_so_the_clock_restarts_from_now() -> None:
     state, _, _, _ = build_duel_state()
-    snapshot = _snapshot(state, seq=state.seq)
+    snapshot = _snapshot(state)
     state = apply(state, JudgeCorrect(), now=at(4.2))
     state = apply(state, UndoLastJudgement(), now=at(30), duel_journal=(snapshot,))
     duel = state.duel
@@ -64,12 +71,12 @@ def test_undo_reanchors_so_the_clock_restarts_from_now() -> None:
 
 def test_undo_walks_back_a_chain() -> None:
     state, _, _, _ = build_duel_state()
-    first = _snapshot(state, seq=state.seq)
+    first = _snapshot(state)
     original = state.duel
     assert original is not None
 
     state = apply(state, JudgeCorrect(), now=at(3))
-    second = _snapshot(state, seq=state.seq)
+    second = _snapshot(state)
     state = apply(state, JudgePass(), now=at(6))
 
     state = apply(state, UndoLastJudgement(), now=at(7), duel_journal=(first, second))
@@ -103,7 +110,7 @@ def test_undo_without_a_duel_is_rejected() -> None:
 def test_undoing_while_paused_leaves_the_duel_paused() -> None:
     """Spec 4.1: anchor is None *is* the pause. Undo must not restart the clock."""
     state, _, _, _ = build_duel_state()
-    snapshot = _snapshot(state, seq=state.seq)
+    snapshot = _snapshot(state)
     state = apply(state, JudgeCorrect(), now=at(3))
     state = apply(state, PauseDuel(), now=at(5))
     state = apply(state, UndoLastJudgement(), now=at(9), duel_journal=(snapshot,))

@@ -15,6 +15,17 @@ the smallest legal board, so driving it directly sidesteps the very
 flakiness `build_rich_stream`'s own docs warn about (its event-type shape
 is deterministic; its content is not, because target selection sorts
 random UUIDs).
+
+`_play_to_running_duel` has the same hazard in miniature: it too picks
+`sorted(legal_targets(...))[0]`, over `GroupId`s the real `DealBoard` path
+mints via `podvinsya.runtime.materialiser.uuid4` -- unseeded, unlike the
+shuffle that decides which cells land where. It is provably safe today
+only because every group at the first attack is freshly dealt and
+one-cell, and a one-cell group carries no time bonus (§2.5) regardless of
+which one gets picked -- a safety that rests on a domain constant nobody
+pinned. `_play_to_running_duel` pins `materialiser.uuid4` with the same
+`deterministic_uuid4` Task 7 used for `streams.uuid4`, so which group is
+actually attacked stops varying run to run.
 """
 
 import asyncio
@@ -50,12 +61,13 @@ from podvinsya.domain.genesis import create_initial_state
 from podvinsya.domain.ids import CategoryId, MatchId, PlayerId
 from podvinsya.domain.rules import legal_targets
 from podvinsya.domain.settings import MatchSettings
+from podvinsya.runtime import materialiser as materialiser_module
 from podvinsya.runtime.manager import MatchManager
 from podvinsya.runtime.materialiser import Materialiser
 from podvinsya.runtime.origins import Accepted, CommandOutcome, Rejected
 from podvinsya.services.ports import Broadcaster
 from support.fakes import BreakingBroadcaster, FakeCategoryBank, FakeClock, RecordingBroadcaster
-from support.streams import BASE_TIME
+from support.streams import BASE_TIME, deterministic_uuid4
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
@@ -114,13 +126,28 @@ async def _submit(manager: MatchManager, match_id: MatchId, command: Command) ->
 
 
 async def _play_to_running_duel(
-    manager: MatchManager, match_id: MatchId, players: tuple[PlayerId, PlayerId]
+    manager: MatchManager,
+    match_id: MatchId,
+    players: tuple[PlayerId, PlayerId],
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    uuid_start: int,
 ) -> list[Accepted]:
     """Add both players, assign secrets, deal, start the match, declare an
     attack and start the resulting duel -- eight accepted commands, ending
     with a duel genuinely RUNNING and anchored. Returns each command's
     `Accepted` outcome, in order, so a caller can count exactly how many
-    committed batches this produced."""
+    committed batches this produced.
+
+    `uuid_start` pins `podvinsya.runtime.materialiser.uuid4` (the module
+    `DealBoard`'s real path mints `GroupId`s through) for the duration of
+    this call, so `sorted(legal_targets(...))[0]` below stops picking a
+    different legal target from run to run -- see the module docstring.
+    Each caller passes its own offset so none of this file's real,
+    randomly-generated `MatchId`s could ever collide with a `GroupId`
+    minted under the same pinned sequence.
+    """
+    monkeypatch.setattr(materialiser_module, "uuid4", deterministic_uuid4(start=uuid_start))
     outcomes: list[Accepted] = []
     for index, player_id in enumerate(players):
         outcome = await _submit(
@@ -173,7 +200,7 @@ async def _play_to_running_duel(
 
 
 async def test_a_match_survives_a_broadcaster_that_never_stops_failing(
-    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+    clean_db: None, sessions: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """§11's «ломающийся вещатель». Play several commands with a
     broadcaster that raises every time, then assert the log holds every one
@@ -194,7 +221,7 @@ async def test_a_match_survives_a_broadcaster_that_never_stops_failing(
     manager = _manager(sessions, clock, broadcaster=broadcaster)
     await manager.start(match_id)
 
-    outcomes = await _play_to_running_duel(manager, match_id, players)
+    outcomes = await _play_to_running_duel(manager, match_id, players, monkeypatch, uuid_start=1)
     final = await _submit(manager, match_id, JudgeCorrect())
     assert isinstance(final, Accepted)
 
@@ -221,7 +248,7 @@ async def test_a_match_survives_a_broadcaster_that_never_stops_failing(
 
 
 async def test_a_recovered_match_replays_to_the_same_state(
-    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+    clean_db: None, sessions: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """§11's «Восстановление». Play a match, drop the runtime, recover it
     from the log alone, and compare -- modulo the pause §4.4 adds.
@@ -250,7 +277,7 @@ async def test_a_recovered_match_replays_to_the_same_state(
     clock = FakeClock(BASE_TIME)
     manager_a = _manager(sessions, clock)
     await manager_a.start(match_id)
-    await _play_to_running_duel(manager_a, match_id, players)
+    await _play_to_running_duel(manager_a, match_id, players, monkeypatch, uuid_start=1_000)
 
     runtime_a = manager_a.runtime_for(match_id)
     assert runtime_a is not None
@@ -286,7 +313,7 @@ async def test_a_recovered_match_replays_to_the_same_state(
 
 
 async def test_a_late_judgement_loses_to_the_clock(
-    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+    clean_db: None, sessions: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """§11's «Гонка дедлайна и судейства». Submit `JudgeCorrect` after the
     deadline has passed and assert the duel resolved as an expiry. §4.2:
@@ -323,7 +350,7 @@ async def test_a_late_judgement_loses_to_the_clock(
     clock = FakeClock(BASE_TIME)
     manager = _manager(sessions, clock)
     await manager.start(match_id)
-    await _play_to_running_duel(manager, match_id, players)
+    await _play_to_running_duel(manager, match_id, players, monkeypatch, uuid_start=2_000)
 
     runtime = manager.runtime_for(match_id)
     assert runtime is not None
@@ -361,7 +388,7 @@ async def test_a_late_judgement_loses_to_the_clock(
 
 
 async def test_pause_charges_only_the_unfrozen_intervals(
-    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+    clean_db: None, sessions: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """§11: «суммарное списанное время равно сумме незамороженных
     интервалов». Pause and resume several times across a duel and check
@@ -381,7 +408,7 @@ async def test_pause_charges_only_the_unfrozen_intervals(
     clock = FakeClock(BASE_TIME)
     manager = _manager(sessions, clock)
     await manager.start(match_id)
-    await _play_to_running_duel(manager, match_id, players)
+    await _play_to_running_duel(manager, match_id, players, monkeypatch, uuid_start=3_000)
 
     runtime = manager.runtime_for(match_id)
     assert runtime is not None
@@ -428,7 +455,7 @@ async def test_pause_charges_only_the_unfrozen_intervals(
 
 
 async def test_a_chain_of_undos_returns_the_state_bit_for_bit(
-    clean_db: None, sessions: async_sessionmaker[AsyncSession]
+    clean_db: None, sessions: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """§11's «Отмена». Judge three times, undo three times, and compare the
     duel against the snapshot taken before the first judgement.
@@ -457,7 +484,7 @@ async def test_a_chain_of_undos_returns_the_state_bit_for_bit(
     clock = FakeClock(BASE_TIME)
     manager = _manager(sessions, clock)
     await manager.start(match_id)
-    await _play_to_running_duel(manager, match_id, players)
+    await _play_to_running_duel(manager, match_id, players, monkeypatch, uuid_start=4_000)
 
     runtime = manager.runtime_for(match_id)
     assert runtime is not None

@@ -196,10 +196,10 @@ class MatchRuntime:
 
     def _quarantine(self, message: str) -> None:
         """Stop trusting this process with the match. §6: nothing is
-        written to the log when this happens -- the log is what we still
-        trust -- but every origin already queued must still hear back:
-        a command left sitting in a queue nobody consumes is a hung
-        request."""
+        written to the event log when this happens -- the event log is
+        what we still trust -- but every origin already queued must still
+        hear back: a command left sitting in a queue nobody consumes is a
+        hung request."""
         if self._quarantined:
             return
         self._quarantined = True

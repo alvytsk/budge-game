@@ -33,6 +33,7 @@ packages = ["src/podvinsya"]
 pythonpath = ["src", "tests"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+filterwarnings = ["error"]
 markers = [
     "integration: needs a live PostgreSQL (see compose.test.yaml)",
 ]

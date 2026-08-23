@@ -495,7 +495,9 @@ async def test_a_sweep_that_raises_is_logged_and_the_loop_survives(
             "the log record should carry the exception, not just a bare message"
         )
         assert not task.done(), "one failing sweep must not kill the watchdog's own loop"
-        assert clock.pending() == 1, "the loop must still be waiting on the clock for the next sweep"
+        assert clock.pending() == 1, (
+            "the loop must still be waiting on the clock for the next sweep"
+        )
     finally:
         task.cancel()
         with suppress(asyncio.CancelledError):

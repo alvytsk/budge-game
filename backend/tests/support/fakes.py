@@ -62,8 +62,19 @@ class FakeClock:
         sleeper usually schedules more work, so this drains repeatedly. It
         is a scheduling barrier, not a timed wait — nothing here sleeps for
         a duration.
+
+        Ten iterations is enough for every caller today, but the failure
+        mode of running out early is a false green, not a red test: a
+        caller whose await chain happens to need an eleventh turn (for
+        instance, quarantine's own queue drain resolving several waiters,
+        each chained through more awaits) would silently see a stale read
+        instead of a failure pointing at this function. Raised well past
+        what any caller needs today rather than switched to draining the
+        loop's own ready queue directly -- that would mean reaching into
+        `asyncio`'s private scheduling internals, version-fragile and not
+        worth it against a bound this cheap to make generous.
         """
-        for _ in range(10):
+        for _ in range(200):
             await asyncio.sleep(0)
 
     def pending(self) -> int:
