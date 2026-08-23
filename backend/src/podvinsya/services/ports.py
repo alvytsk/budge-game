@@ -10,8 +10,9 @@ are data — a three-valued enum and a frozen pair — not capability, and no
 service code calls into `db` because they are here. See the plan's ruling.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
@@ -148,3 +149,35 @@ class ContentExhausted(Exception):
     transition, and §6.3 makes a content shortfall «обычный отказ, не
     авария» — so this is a rejection the operator sees, never a quarantine.
     """
+
+
+@dataclass(frozen=True, slots=True)
+class ContentDescription:
+    """What the library could say about the ids it was asked about.
+
+    An id the library cannot resolve is simply absent from the mapping. It
+    is never present with a placeholder: a missing key and a `None` value
+    are the same fact, and carrying both would give every reader two
+    branches for one state.
+    """
+
+    category_names: Mapping[CategoryId, str] = field(default_factory=dict)
+    image_answers: Mapping[ImageId, str] = field(default_factory=dict)
+
+
+class ContentDirectory(Protocol):
+    """The content library as the *API* needs it. Implemented in plan 6.
+
+    `CategoryBank` above draws identifiers for the runtime; this draws the
+    human-readable side of the same library for the two projections — the
+    names the operator and the room read, and the answers only the operator
+    ever sees.
+
+    One batched call rather than `name_of(category)`, because a projection
+    built from per-id calls would issue one query per group, inside a
+    WebSocket writer task, once per frame.
+    """
+
+    async def describe(
+        self, *, categories: frozenset[CategoryId], images: frozenset[ImageId]
+    ) -> ContentDescription: ...
