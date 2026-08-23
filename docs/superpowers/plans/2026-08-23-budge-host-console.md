@@ -1470,7 +1470,7 @@ cd .. && git add frontend && git commit -m "feat(host): the library screen — c
 **Interfaces:**
 - Produces: `useCreateMatch()`, `useAddPlayer()`, `useAssignSecret()`, `useDeal()`, `useStart()`, `<MatchSetup frame matchId stageToken />`, and the `hostFrame` / `hostDuel` / `hostGroup` / `timing` / `player` / `resolution` builders.
 
-- [ ] **Step 1: Write `frontend/testing/host-frames.ts`**
+- [x] **Step 1: Write `frontend/testing/host-frames.ts`**
 
 The host counterpart of the stage plan's `testing/frames.ts`, and the only place a `HostFrame` is built in tests — so a contract change breaks one file rather than a dozen.
 
@@ -1571,7 +1571,7 @@ export function hostFrame(overrides: Partial<HostFrame> = {}): HostFrame {
 }
 ```
 
-- [ ] **Step 2: Write the failing assembly test — `frontend/src/features/match-assembly/api/use-assembly.test.tsx`**
+- [x] **Step 2: Write the failing assembly test — `frontend/src/features/match-assembly/api/use-assembly.test.tsx`**
 
 ```tsx
 import { act, renderHook } from "@testing-library/react";
@@ -1649,7 +1649,7 @@ describe("useDeal", () => {
 });
 ```
 
-- [ ] **Step 3: Run it, watch it fail, then write `frontend/src/features/match-assembly/api/use-assembly.ts`**
+- [x] **Step 3: Run it, watch it fail, then write `frontend/src/features/match-assembly/api/use-assembly.ts`**
 
 ```ts
 import { type UseMutationResult, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1721,11 +1721,11 @@ export function useStart() {
 
 `frontend/src/features/match-assembly/index.ts` re-exports all five.
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Expected: PASS, 3 tests.
 
-- [ ] **Step 5: Write the failing setup test — `frontend/src/widgets/match-setup/ui/match-setup.test.tsx`**
+- [x] **Step 5: Write the failing setup test — `frontend/src/widgets/match-setup/ui/match-setup.test.tsx`**
 
 ```tsx
 import { screen, waitFor } from "@testing-library/react";
@@ -1832,7 +1832,7 @@ describe("MatchSetup", () => {
 });
 ```
 
-- [ ] **Step 6: Run it, watch it fail, then write `frontend/src/widgets/match-setup/ui/match-setup.tsx`**
+- [x] **Step 6: Run it, watch it fail, then write `frontend/src/widgets/match-setup/ui/match-setup.tsx`**
 
 ```tsx
 import { useState } from "react";
@@ -1960,11 +1960,11 @@ export function MatchSetup({ frame, matchId, stageToken }: MatchSetupProps) {
 
 `frontend/src/widgets/match-setup/index.ts`: `export { MatchSetup } from "./ui/match-setup";`
 
-- [ ] **Step 7: Run it and watch it pass**
+- [x] **Step 7: Run it and watch it pass**
 
 Expected: PASS, 6 tests.
 
-- [ ] **Step 8: Add match creation to the home screen**
+- [x] **Step 8: Add match creation to the home screen**
 
 §7.4 puts «сборка партии» on the REST side and in scope. Without this the
 console has no way to start a game at all, and the home screen is
@@ -2058,7 +2058,7 @@ attribute does not prevent that, and the server rejects it with an
 ordinary outcome rather than a crash — which is the right place for that
 check to live (§6.3), not a second validator here.
 
-- [ ] **Step 9: Run the home-page tests and watch them pass**
+- [x] **Step 9: Run the home-page tests and watch them pass**
 
 ```bash
 cd frontend && pnpm vitest run src/pages/host-home; echo "exit=$?"
@@ -2066,7 +2066,7 @@ cd frontend && pnpm vitest run src/pages/host-home; echo "exit=$?"
 
 Expected: PASS, 4 tests.
 
-- [ ] **Step 10: Green everything and commit**
+- [x] **Step 10: Green everything and commit**
 
 ```bash
 cd frontend && pnpm build; echo "exit=$?"

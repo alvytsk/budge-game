@@ -1,4 +1,5 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
 import { renderWithQuery } from "../../../../testing/query";
@@ -37,5 +38,32 @@ describe("HomePage", () => {
     renderWithQuery(<HomePage />);
     expect(await screen.findByTestId("player-Борис")).toHaveAttribute("data-eliminated", "true");
     expect(screen.getByTestId("player-Аня")).toHaveAttribute("data-eliminated", "false");
+  });
+  it("creates a match with the board and player count that were chosen", async () => {
+    // §2.1 allows any width and height; §2.2 any player count from two
+    // up. Kills on: a hardcoded board — the operator could run one shape
+    // of game and no other.
+    const made: unknown[] = [];
+    server.use(
+      http.get("/api/matches", () => HttpResponse.json([])),
+      http.post("/api/matches", async ({ request }) => {
+        made.push(await request.json());
+        return HttpResponse.json(
+          { outcome: "accepted", match_id: MATCH.id, stage_token: "tok" },
+          { status: 201 },
+        );
+      }),
+    );
+    renderWithQuery(<HomePage />);
+    await userEvent.clear(await screen.findByLabelText("Ширина"));
+    await userEvent.type(screen.getByLabelText("Ширина"), "5");
+    await userEvent.clear(screen.getByLabelText("Высота"));
+    await userEvent.type(screen.getByLabelText("Высота"), "3");
+    await userEvent.clear(screen.getByLabelText("Игроков"));
+    await userEvent.type(screen.getByLabelText("Игроков"), "4");
+    await userEvent.click(screen.getByRole("button", { name: "Новая партия" }));
+    await waitFor(() =>
+      expect(made).toEqual([{ board: { width: 5, height: 3 }, player_count: 4 }]),
+    );
   });
 });
