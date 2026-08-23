@@ -86,9 +86,15 @@ class Subscriber:
         return self._queue.qsize()
 
     def drain(self) -> tuple[Update, ...]:
-        """Everything waiting, oldest first. For tests, and for a writer
-        that wants to skip straight to the newest state — which §7.2 makes
-        legitimate, since the newest frame subsumes every earlier one."""
+        """Everything waiting, oldest first.
+
+        The backpressure test's reader: asserting *which* frames survived
+        an overflow is the whole of ruling 10, and it cannot be done one
+        `next()` at a time without the test blocking on the frame that was
+        dropped. No production caller drains — a writer that coalesced
+        would discard narration the queue had room for, which is a wider
+        loss than the one §7.2 licenses.
+        """
         updates: list[Update] = []
         while True:
             try:

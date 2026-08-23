@@ -40,6 +40,11 @@ async def log_in(body: LoginBody, request: Request, response: Response) -> Respo
         # Lax rather than Strict: the stage screen is opened by following a
         # link, and Strict would break a bookmarked console the same way.
         samesite="lax",
+        # No `secure`: §1.1 puts this on an isolated network, and §10 puts
+        # Caddy in front — so the flag is either redundant (Caddy
+        # terminates TLS) or fatal (a plain-http meeting-room deployment,
+        # where a `secure` cookie is simply never sent back and the
+        # operator cannot log in at all).
         max_age=settings.session_ttl_hours * 3600,
         path="/",
     )

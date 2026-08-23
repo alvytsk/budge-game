@@ -7,7 +7,6 @@ and proves no answer is in it. These tests are its pair: they walk the
 populated passes the first and fails these.
 """
 
-from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -21,6 +20,7 @@ from podvinsya.api.schemas.frames import (
     StageFrame,
     TimingFrame,
 )
+from support.walk import property_names
 
 # Anything whose name says "the correct answer". The stage never learns one.
 FORBIDDEN_PROPERTIES = frozenset(
@@ -28,43 +28,18 @@ FORBIDDEN_PROPERTIES = frozenset(
 )
 
 
-def _every_property_name(schema: dict[str, Any]) -> set[str]:
-    """Every property name reachable anywhere in a JSON Schema, including
-    inside `$defs`, unions and arrays.
-
-    Walking the whole document rather than following `$ref`s: an unreachable
-    definition in a frame's own schema is still a field somebody wrote, and
-    a test that quietly skipped it would be the one place a leak could hide.
-    """
-    found: set[str] = set()
-
-    def walk(node: object) -> None:
-        if isinstance(node, dict):
-            properties = node.get("properties")
-            if isinstance(properties, dict):
-                found.update(str(key) for key in properties)
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for item in node:
-                walk(item)
-
-    walk(schema)
-    return found
-
-
 def test_a_stage_frame_has_no_field_anywhere_that_could_hold_an_answer() -> None:
     """Kills on: adding a field named for content to any model reachable
     from `StageFrame` — the shape the §11 whole-tree test cannot catch
     until something actually sets a value in it."""
-    assert not (_every_property_name(StageFrame.model_json_schema()) & FORBIDDEN_PROPERTIES)
+    assert not (property_names(StageFrame.model_json_schema()) & FORBIDDEN_PROPERTIES)
 
 
 def test_the_host_frame_is_where_the_answer_lives() -> None:
     """The negative test above proves nothing on its own: a typo in
     `FORBIDDEN_PROPERTIES` would make it pass against every frame. This
     asserts the same walk finds the answer where it is supposed to be."""
-    assert _every_property_name(HostFrame.model_json_schema()) & FORBIDDEN_PROPERTIES
+    assert property_names(HostFrame.model_json_schema()) & FORBIDDEN_PROPERTIES
 
 
 def test_a_hidden_category_carries_no_fields() -> None:

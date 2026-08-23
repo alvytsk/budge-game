@@ -80,16 +80,31 @@ async def host_socket(websocket: WebSocket, match_id: UUID) -> None:
         await _send_frame(websocket, services, state, ())
 
         writer = asyncio.create_task(_write(websocket, services, subscriber))
+        reader = asyncio.create_task(_read(websocket, services, match))
         try:
-            await _read(websocket, services, match)
+            # Whichever ends first ends the socket. The reader ending is the
+            # ordinary case — the operator closed the console. The writer
+            # ending is not: it means a frame could not be projected or
+            # sent, and closing is the right answer, because §7.2 makes a
+            # reconnect free (the next socket opens with the whole state)
+            # while a console left open behind a dead writer would show the
+            # operator a match frozen at whatever it last received.
+            await asyncio.wait({reader, writer}, return_when=asyncio.FIRST_COMPLETED)
+            if writer.done() and not writer.cancelled():
+                failure = writer.exception()
+                if failure is not None:
+                    logger.warning(
+                        "host socket for %s: the writer stopped; closing", match,
+                        exc_info=failure,
+                    )
         finally:
-            writer.cancel()
-            # The writer is being torn down because the reader ended.
-            # Whatever it was doing is no longer interesting, and an
-            # exception from a socket that is already closing must not
-            # replace the reason the reader stopped.
-            with suppress(asyncio.CancelledError, RuntimeError, WebSocketDisconnect):
-                await writer
+            for task in (reader, writer):
+                task.cancel()
+            for task in (reader, writer):
+                # An exception from a socket that is already closing must
+                # not replace the reason it closed.
+                with suppress(asyncio.CancelledError, RuntimeError, WebSocketDisconnect):
+                    await task
 
 
 async def _send_frame(

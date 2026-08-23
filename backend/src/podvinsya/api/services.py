@@ -193,6 +193,14 @@ class ReadOnlyMatches:
     `state_of` is held as a bound callable rather than by keeping a
     `MatchLifecycle`: that class also knows how to `create`, and a
     read-only view onto an object that can write is not one.
+
+    "Read-only" is about *commands*, not about the log. `state_of` recovers
+    a match that is not running, and §4.4 makes recovery of a match caught
+    mid-duel write one `DuelPaused` — so a stage screen connecting first,
+    before the console, can be what causes that write. That is correct and
+    deliberate: recovery belongs to whoever touches the match first, and
+    the alternative is a screen that shows a duel the server has not
+    actually resumed keeping time for.
     """
 
     state_of: Callable[[MatchId], Awaitable[MatchState]]

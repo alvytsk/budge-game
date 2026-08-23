@@ -23,6 +23,7 @@ from podvinsya.api.schemas.commands import (
 )
 from podvinsya.domain.actions import DeclareAttack, ExpireTimer, JudgeCorrect
 from podvinsya.domain.ids import GroupId
+from support.walk import property_names
 
 # Every way a body could claim an identity. §7.4: the principal comes from
 # the authenticated session, never from a payload.
@@ -47,24 +48,6 @@ def _models_in(module: Any) -> list[type[BaseModel]]:
     ]
 
 
-def _property_names(schema: dict[str, Any]) -> set[str]:
-    found: set[str] = set()
-
-    def walk(node: object) -> None:
-        if isinstance(node, dict):
-            properties = node.get("properties")
-            if isinstance(properties, dict):
-                found.update(str(key) for key in properties)
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for item in node:
-                walk(item)
-
-    walk(schema)
-    return found
-
-
 def test_no_inbound_model_names_an_actor() -> None:
     """§7.4, walked over the generated schema of every inbound model.
 
@@ -77,7 +60,7 @@ def test_no_inbound_model_names_an_actor() -> None:
         for model in _models_in(module):
             if model.__name__ in ADMINISTERED_PLAYER_MODELS:
                 continue
-            named = _property_names(model.model_json_schema()) & ACTOR_PROPERTIES
+            named = property_names(model.model_json_schema()) & ACTOR_PROPERTIES
             if named:
                 offenders[model.__name__] = named
     assert not offenders
@@ -93,7 +76,7 @@ def test_the_two_administrative_exceptions_are_the_only_ones() -> None:
     assert ADMINISTERED_PLAYER_MODELS <= rest_models
     for name in ADMINISTERED_PLAYER_MODELS:
         model = next(m for m in _models_in(rest_module) if m.__name__ == name)
-        assert "player_id" in _property_names(model.model_json_schema())
+        assert "player_id" in property_names(model.model_json_schema())
 
 
 def test_no_inbound_model_names_a_player_at_all() -> None:
@@ -102,7 +85,7 @@ def test_no_inbound_model_names_a_player_at_all() -> None:
     no *live* command may. Kills on: `JudgeCorrectCommand(player_id=...)`,
     which would let the console judge on somebody's behalf."""
     for model in _models_in(commands_module):
-        assert not (_property_names(model.model_json_schema()) & {"player", "player_id"})
+        assert not (property_names(model.model_json_schema()) & {"player", "player_id"})
 
 
 def test_the_actor_property_list_is_not_vacuous() -> None:
@@ -113,7 +96,7 @@ def test_the_actor_property_list_is_not_vacuous() -> None:
     class Forged(BaseModel):
         actor: str
 
-    assert _property_names(Forged.model_json_schema()) & ACTOR_PROPERTIES
+    assert property_names(Forged.model_json_schema()) & ACTOR_PROPERTIES
 
 
 def test_expire_timer_is_not_a_client_command() -> None:

@@ -17,7 +17,6 @@ from uuid import UUID, uuid4
 import pytest
 
 from api.conftest import TEST_SECRET, running_app
-from api.test_projection import every_string
 from podvinsya.api.app import build_app
 from podvinsya.api.principal import SESSION_COOKIE
 from podvinsya.api.routes import stage_ws
@@ -27,6 +26,7 @@ from podvinsya.api.services import ReadOnlyMatches, Services
 from podvinsya.api.settings import ApiSettings
 from podvinsya.domain.ids import MatchId
 from support.asgi import ASGIWebSocketClient, WebSocketRejected
+from support.walk import every_string
 
 BOARD = {"width": 3, "height": 4}
 

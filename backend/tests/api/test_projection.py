@@ -36,7 +36,8 @@ from podvinsya.domain.ids import CategoryId, GroupId, ImageId
 from podvinsya.domain.rules import legal_targets
 from podvinsya.domain.state import MatchState
 from podvinsya.domain.timing import deadline_of
-from support.content import RecordingContentDirectory
+from support.content import OverAnsweringContentDirectory, RecordingContentDirectory
+from support.walk import every_string
 
 NOW = datetime(2026, 8, 23, 18, 30, tzinfo=UTC)
 
@@ -47,12 +48,13 @@ ANSWER_PREFIX = "ОТВЕТ-НА-КАРТИНКУ-"
 NAME_PREFIX = "НАЗВАНИЕ-КАТЕГОРИИ-"
 
 
-def directory_for(state: MatchState) -> RecordingContentDirectory:
-    """Name every category in the state and answer every image in the duel.
+def content_of(state: MatchState) -> tuple[dict[CategoryId, str], dict[ImageId, str]]:
+    """A name for every category in the state and an answer for every image
+    in its duel.
 
     Naming everything is what makes the stage's silence load-bearing: a
     directory that happened not to know an unrevealed category's name would
-    let a leaking projection pass.
+    let a leaking projection pass for the wrong reason.
     """
     names = {
         group.category: f"{NAME_PREFIX}{index}"
@@ -65,23 +67,28 @@ def directory_for(state: MatchState) -> RecordingContentDirectory:
             image: f"{ANSWER_PREFIX}{index}"
             for index, image in enumerate(state.duel.image_order)
         }
+    return names, answers
+
+
+def directory_for(state: MatchState) -> RecordingContentDirectory:
+    """An honest directory: it answers only what it was asked."""
+    names, answers = content_of(state)
     return RecordingContentDirectory(names, answers)
 
 
-def every_string(node: object) -> list[str]:
-    """Every string anywhere in a dumped frame, at any depth.
+def over_answering_directory_for(state: MatchState) -> OverAnsweringContentDirectory:
+    """A directory that hands back every name and every answer it has,
+    whatever the projection asked for.
 
-    §11 asks for a test «по всему дереву кадра, а не по известным полям» —
-    a test that listed the fields it checked would go stale the moment a
-    field was added, which is the only way this leak can happen.
+    Without this, §11's whole-tree tests below cannot fail: ruling 1 keeps
+    unrevealed names and image answers out of the projection's scope
+    entirely, so a frame layer that had lost its `revealed` check would
+    still have nothing to put in a frame. Over-answering separates the two
+    layers, so ruling 1's tests assert what was *asked* and §11's assert
+    what the frame does with content it did not ask for.
     """
-    if isinstance(node, str):
-        return [node]
-    if isinstance(node, dict):
-        return [s for key, value in node.items() for s in every_string(key) + every_string(value)]
-    if isinstance(node, (list, tuple)):
-        return [s for item in node for s in every_string(item)]
-    return []
+    names, answers = content_of(state)
+    return OverAnsweringContentDirectory(names, answers)
 
 
 def dumped(frame: Any) -> dict[str, Any]:
@@ -96,7 +103,10 @@ async def test_no_answer_string_appears_anywhere_in_a_stage_frame() -> None:
     debug field, a whole `ContentDescription` attached "for the client's
     convenience"."""
     state, *_ = build_duel_state()
-    directory = directory_for(state)
+    # Over-answering on purpose — see the helper's own docstring. Against an
+    # honest directory this assertion cannot fail, because ruling 1 keeps
+    # every answer out of the projection's scope one layer earlier.
+    directory = over_answering_directory_for(state)
 
     frame = await project_stage(state, now=NOW, events=(), directory=directory)
 
@@ -110,7 +120,7 @@ async def test_no_unrevealed_category_name_appears_anywhere_in_a_stage_frame() -
     Kills on: projecting `group.category` through the host's view, which is
     the one-line change that would put every secret on the big screen."""
     state, *_ = build_duel_state()
-    directory = directory_for(state)
+    directory = over_answering_directory_for(state)
     hidden_names = {
         f"{NAME_PREFIX}{index}"
         for index, group in enumerate(state.groups.values())

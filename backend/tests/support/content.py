@@ -62,3 +62,40 @@ class RecordingContentDirectory:
             },
             image_answers={i: self._image_answers[i] for i in images if i in self._image_answers},
         )
+
+
+class OverAnsweringContentDirectory:
+    """Answers with everything it knows, whatever it was asked for.
+
+    This exists to make §11's whole-tree frame test able to fail at all.
+
+    Ruling 1 means `project_stage` never *asks* for an unrevealed
+    category's name or for an image answer — so against an honest
+    directory there is nothing in the projection's scope to leak, and the
+    frame-level test passes no matter what the frame layer does. That is
+    the design working; it is also a backstop that cannot fire.
+
+    Driving the frame test with a directory that over-answers separates the
+    two layers: ruling 1's own tests assert what was *asked*, and the
+    whole-tree tests assert what the frame does when handed content it did
+    not ask for. The second is not a hypothetical — over-answering is
+    exactly what a caching or batching bug in plan 6's directory would look
+    like from here.
+    """
+
+    def __init__(
+        self,
+        category_names: Mapping[CategoryId, str] | None = None,
+        image_answers: Mapping[ImageId, str] | None = None,
+    ) -> None:
+        self._description = ContentDescription(
+            category_names=dict(category_names or {}),
+            image_answers=dict(image_answers or {}),
+        )
+        self.requests: list[Request] = []
+
+    async def describe(
+        self, *, categories: frozenset[CategoryId], images: frozenset[ImageId]
+    ) -> ContentDescription:
+        self.requests.append(Request(categories=categories, images=images))
+        return self._description
