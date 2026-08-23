@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from podvinsya.api.content import CachingContentDirectory
 from podvinsya.api.hub import MatchHub
-from podvinsya.api.routes import host_ws, library, matches, session, stage_ws
+from podvinsya.api.routes import host_ws, library, matches, media, session, stage_ws
 from podvinsya.api.services import CommandGateway, MatchLifecycle, Services
 from podvinsya.api.settings import ApiSettings
 from podvinsya.db.engine import create_engine, sessionmaker_for
@@ -43,6 +43,7 @@ from podvinsya.db.store import UnitOfWork
 from podvinsya.library.bank import DatabaseCategoryBank
 from podvinsya.library.catalogue import LibraryCatalogue
 from podvinsya.library.directory import DatabaseContentDirectory
+from podvinsya.media.s3 import S3MediaStore
 from podvinsya.runtime.clock import SystemClock
 from podvinsya.runtime.manager import MatchManager
 from podvinsya.runtime.materialiser import Materialiser
@@ -88,6 +89,13 @@ def build_app(settings: ApiSettings) -> FastAPI:
         # which carries a `.gateway` — one attribute away from a command.
         app.state.read_only = services.read_only()
         app.state.catalogue = LibraryCatalogue(sessions)
+        app.state.media = S3MediaStore(
+            endpoint=settings.s3_endpoint,
+            access_key=settings.s3_access_key,
+            secret_key=settings.s3_secret_key,
+            bucket=settings.s3_bucket,
+            region=settings.s3_region,
+        )
         try:
             yield
         finally:
@@ -102,6 +110,7 @@ def build_app(settings: ApiSettings) -> FastAPI:
     app.include_router(session.router)
     app.include_router(matches.router)
     app.include_router(library.router)
+    app.include_router(media.router)
     app.include_router(host_ws.router)
     app.include_router(stage_ws.router)
 

@@ -311,3 +311,9 @@ export interface TimingFrame {
 export interface UndoLastJudgementCommand {
   type: "undo_last_judgement";
 }
+
+export interface UploadedMediaBody {
+  media_sha256: string;
+  content_type: string;
+  bytes: number;
+}

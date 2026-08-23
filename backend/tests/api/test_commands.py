@@ -14,6 +14,7 @@ from pydantic import BaseModel, ValidationError, TypeAdapter
 
 from podvinsya.api.schemas import commands as commands_module
 from podvinsya.api.schemas import library as library_module
+from podvinsya.api.schemas import media as media_module
 from podvinsya.api.schemas import rest as rest_module
 from podvinsya.api.schemas.commands import (
     Ack,
@@ -38,7 +39,7 @@ ACTOR_PROPERTIES = frozenset(
 # an operator adds four players, and none of those four is the caller.
 ADMINISTERED_PLAYER_MODELS = frozenset({"AddPlayerBody", "AssignSecretBody"})
 
-INBOUND_MODULES = [commands_module, rest_module, library_module]
+INBOUND_MODULES = [commands_module, rest_module, library_module, media_module]
 
 
 def _models_in(module: Any) -> list[type[BaseModel]]:

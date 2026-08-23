@@ -30,6 +30,7 @@ from podvinsya.api.schemas.library import (
     SetActiveBody,
     ThinCategoryBody,
 )
+from podvinsya.api.schemas.media import UploadedMediaBody
 from podvinsya.api.schemas.rest import (
     AddPlayerBody,
     AssignSecretBody,
@@ -57,6 +58,7 @@ ROOTS: tuple[tuple[type[BaseModel], JsonSchemaMode], ...] = (
     (ImageBody, "serialization"),
     (ReadinessBody, "serialization"),
     (ThinCategoryBody, "serialization"),
+    (UploadedMediaBody, "serialization"),
     (Envelope, "validation"),
     (LoginBody, "validation"),
     (CreateMatchBody, "validation"),

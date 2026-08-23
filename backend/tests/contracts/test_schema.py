@@ -6,10 +6,10 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from podvinsya.api.schemas import commands, frames, library, rest
+from podvinsya.api.schemas import commands, frames, library, media, rest
 from podvinsya.contracts.schema import ROOTS, contract_schema
 
-SCHEMA_MODULES = (frames, commands, library, rest)
+SCHEMA_MODULES = (frames, commands, library, media, rest)
 
 # Base classes, not contract members: they carry configuration and no
 # fields, and emitting them would put two empty interfaces in the artifact
