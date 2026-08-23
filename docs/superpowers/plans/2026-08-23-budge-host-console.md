@@ -2555,7 +2555,7 @@ cd .. && git add frontend && git commit -m "feat(host): the command socket, and 
 **Interfaces:**
 - Produces: `<HostBoard frame onDeclare={(attacking, defending) => void} />`
 
-- [ ] **Step 1: Write the failing test — `frontend/src/widgets/host-board/ui/host-board.test.tsx`**
+- [x] **Step 1: Write the failing test — `frontend/src/widgets/host-board/ui/host-board.test.tsx`**
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -2675,7 +2675,7 @@ describe("HostBoard", () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 cd frontend && pnpm vitest run src/widgets/host-board; echo "exit=$?"
@@ -2683,7 +2683,7 @@ cd frontend && pnpm vitest run src/widgets/host-board; echo "exit=$?"
 
 Expected: FAIL — `Failed to resolve import "./host-board"`.
 
-- [ ] **Step 3: Write `frontend/src/widgets/host-board/ui/host-board.tsx`**
+- [x] **Step 3: Write `frontend/src/widgets/host-board/ui/host-board.tsx`**
 
 Unlike the stage board, this one is an **input surface**: every group has to be a real, focusable, disable-able control. So the groups are HTML `<button>`s laid out on a CSS grid, with the true group outlines drawn in a non-interactive SVG overlay above them — which is how a multi-cell group still reads as one object while each click target stays a button.
 
@@ -2813,11 +2813,11 @@ export function HostBoard({ frame, onDeclare }: HostBoardProps) {
 
 `frontend/src/widgets/host-board/index.ts`: `export { HostBoard } from "./ui/host-board";`
 
-- [ ] **Step 4: Run it and watch it pass**
+- [x] **Step 4: Run it and watch it pass**
 
 Expected: PASS, 8 tests.
 
-- [ ] **Step 5: Green everything and commit**
+- [x] **Step 5: Green everything and commit**
 
 ```bash
 cd frontend && pnpm build; echo "exit=$?"

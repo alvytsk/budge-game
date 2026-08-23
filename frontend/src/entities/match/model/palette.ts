@@ -1,11 +1,12 @@
-import type { StageFrame } from "@/shared/api";
+import type { PlayerFrame } from "@/shared/api";
 
 const UNOWNED = "#39414f";
 
 /** A group is drawn in its owner's colour (§9.1). The colour lives on the
  * player, so an unknown owner is a server bug, not a case to branch on —
- * it renders grey rather than throwing on the projector. */
-export function colourOf(frame: StageFrame, playerId: string): string {
+ * it renders grey rather than throwing on the projector. Both frames carry
+ * the same player list, so this asks for no more than that. */
+export function colourOf(frame: { players: PlayerFrame[] }, playerId: string): string {
   return frame.players.find((player) => player.id === playerId)?.colour ?? UNOWNED;
 }
 
