@@ -1254,7 +1254,7 @@ The field of §9.1: owner-colour fill, a thick border on the group boundary and 
   - `labelAnchor(cells: CellFrame[], size: number): { x: number; y: number }`
   - `<Board frame highlight?: string[] arriving?: CellFrame[] />`
 
-- [ ] **Step 1: Write `frontend/src/entities/match/model/palette.ts`**
+- [x] **Step 1: Write `frontend/src/entities/match/model/palette.ts`**
 
 ```ts
 import type { StageFrame } from "@/shared/api/contracts";
@@ -1287,7 +1287,7 @@ export function inkOn(background: string): string {
 export { colourOf, inkOn } from "./model/palette";
 ```
 
-- [ ] **Step 2: Write the failing geometry test — `frontend/src/widgets/board/lib/geometry.test.ts`**
+- [x] **Step 2: Write the failing geometry test — `frontend/src/widgets/board/lib/geometry.test.ts`**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1345,9 +1345,9 @@ describe("labelAnchor", () => {
 });
 ```
 
-- [ ] **Step 3: Run it and watch it fail**
+- [x] **Step 3: Run it and watch it fail**
 
-- [ ] **Step 4: Write `frontend/src/widgets/board/lib/geometry.ts`**
+- [x] **Step 4: Write `frontend/src/widgets/board/lib/geometry.ts`**
 
 ```ts
 import type { CellFrame } from "@/shared/api/contracts";
@@ -1393,11 +1393,11 @@ export function labelAnchor(cells: CellFrame[], size: number): { x: number; y: n
 }
 ```
 
-- [ ] **Step 5: Run it and watch it pass**
+- [x] **Step 5: Run it and watch it pass**
 
 Expected: PASS, 6 tests.
 
-- [ ] **Step 6: Write the failing board test — `frontend/src/widgets/board/ui/board.test.tsx`**
+- [x] **Step 6: Write the failing board test — `frontend/src/widgets/board/ui/board.test.tsx`**
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -1482,9 +1482,9 @@ describe("Board", () => {
 });
 ```
 
-- [ ] **Step 7: Run it and watch it fail**
+- [x] **Step 7: Run it and watch it fail**
 
-- [ ] **Step 8: Write `frontend/src/widgets/board/ui/group-shape.tsx`**
+- [x] **Step 8: Write `frontend/src/widgets/board/ui/group-shape.tsx`**
 
 ```tsx
 import { colourOf, inkOn } from "@/entities/match";
@@ -1571,7 +1571,7 @@ export function GroupShape({ frame, group, highlighted, arriving }: GroupShapePr
 }
 ```
 
-- [ ] **Step 9: Write `frontend/src/widgets/board/ui/board.tsx`**
+- [x] **Step 9: Write `frontend/src/widgets/board/ui/board.tsx`**
 
 ```tsx
 import type { CellFrame, StageFrame } from "@/shared/api/contracts";
@@ -1616,7 +1616,7 @@ export function Board({ frame, highlight = [], arriving = [] }: BoardProps) {
 }
 ```
 
-- [ ] **Step 10: Add the capture keyframes to `frontend/src/app/styles.css`**
+- [x] **Step 10: Add the capture keyframes to `frontend/src/app/styles.css`**
 
 Appended below the `@theme` block:
 
@@ -1634,14 +1634,14 @@ Appended below the `@theme` block:
 }
 ```
 
-- [ ] **Step 11: Write `frontend/src/widgets/board/index.ts`**
+- [x] **Step 11: Write `frontend/src/widgets/board/index.ts`**
 
 ```ts
 export { Board } from "./ui/board";
 export { CELL } from "./ui/group-shape";
 ```
 
-- [ ] **Step 12: Run the board test and watch it pass**
+- [x] **Step 12: Run the board test and watch it pass**
 
 ```bash
 cd frontend && pnpm vitest run src/widgets/board
@@ -1649,7 +1649,7 @@ cd frontend && pnpm vitest run src/widgets/board
 
 Expected: PASS, 9 tests + 6 geometry tests.
 
-- [ ] **Step 13: Green everything and commit**
+- [x] **Step 13: Green everything and commit**
 
 ```bash
 cd frontend && pnpm test && pnpm check
