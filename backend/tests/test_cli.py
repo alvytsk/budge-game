@@ -55,12 +55,12 @@ def serve_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     a password hash, and the object store §10 asks for.
     """
     for name, value in {
-        "PODVINSYA_DATABASE_URL": "postgresql+asyncpg://u:p@127.0.0.1:1/x",
-        "PODVINSYA_SECRET_KEY": "a-key",
-        "PODVINSYA_HOST_PASSWORD": "a-hash",
-        "PODVINSYA_S3_ENDPOINT": "http://127.0.0.1:1",
-        "PODVINSYA_S3_ACCESS_KEY": "an-access-key",
-        "PODVINSYA_S3_SECRET_KEY": "a-secret-key",
+        "BUDGE_DATABASE_URL": "postgresql+asyncpg://u:p@127.0.0.1:1/x",
+        "BUDGE_SECRET_KEY": "a-key",
+        "BUDGE_HOST_PASSWORD": "a-hash",
+        "BUDGE_S3_ENDPOINT": "http://127.0.0.1:1",
+        "BUDGE_S3_ACCESS_KEY": "an-access-key",
+        "BUDGE_S3_SECRET_KEY": "a-secret-key",
     }.items():
         monkeypatch.setenv(name, value)
 
@@ -76,7 +76,7 @@ def test_serve_needs_every_setting_that_has_no_default(
     from pydantic import ValidationError
 
     serve_environment(monkeypatch)
-    monkeypatch.delenv("PODVINSYA_S3_ENDPOINT")
+    monkeypatch.delenv("BUDGE_S3_ENDPOINT")
     monkeypatch.setattr(uvicorn, "run", lambda *a, **k: None)
 
     with pytest.raises(ValidationError):
@@ -196,7 +196,7 @@ def test_backup_needs_the_media_settings(monkeypatch: pytest.MonkeyPatch) -> Non
     from pydantic import ValidationError
 
     serve_environment(monkeypatch)
-    for name in ("PODVINSYA_S3_ENDPOINT", "PODVINSYA_S3_ACCESS_KEY", "PODVINSYA_S3_SECRET_KEY"):
+    for name in ("BUDGE_S3_ENDPOINT", "BUDGE_S3_ACCESS_KEY", "BUDGE_S3_SECRET_KEY"):
         monkeypatch.delenv(name, raising=False)
 
     with pytest.raises(ValidationError):

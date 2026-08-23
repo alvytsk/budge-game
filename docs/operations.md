@@ -7,9 +7,9 @@ operator. Everything below assumes that.
 
 ```bash
 cp .env.example .env
-# Fill in PODVINSYA_SECRET_KEY with a long random string:
+# Fill in BUDGE_SECRET_KEY with a long random string:
 #   openssl rand -hex 32
-# Fill in PODVINSYA_HOST_PASSWORD with the hash of the operator's password:
+# Fill in BUDGE_HOST_PASSWORD with the hash of the operator's password:
 #   echo -n 'the password' | docker compose run --rm --no-deps api budge hash-password
 docker compose up -d
 ```
@@ -91,5 +91,5 @@ echo -n 'the new password' | docker compose run --rm --no-deps api budge hash-pa
 ```
 
 Put the output in `.env` and `docker compose up -d api`. Existing sessions
-survive: they are signed with `PODVINSYA_SECRET_KEY`, which has not
+survive: they are signed with `BUDGE_SECRET_KEY`, which has not
 changed. Changing *that* invalidates every session and every stage link.

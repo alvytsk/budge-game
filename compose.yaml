@@ -7,13 +7,13 @@
 name: budge
 
 x-postgres-url: &postgres-url
-  PODVINSYA_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  BUDGE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
 
 x-s3: &s3
-  PODVINSYA_S3_ENDPOINT: http://minio:9000
-  PODVINSYA_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
-  PODVINSYA_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-  PODVINSYA_S3_BUCKET: budge-media
+  BUDGE_S3_ENDPOINT: http://minio:9000
+  BUDGE_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+  BUDGE_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+  BUDGE_S3_BUCKET: budge-media
 
 services:
   postgres:
@@ -96,8 +96,8 @@ services:
         condition: service_completed_successfully
     environment:
       <<: [*postgres-url, *s3]
-      PODVINSYA_SECRET_KEY: ${PODVINSYA_SECRET_KEY}
-      PODVINSYA_HOST_PASSWORD: ${PODVINSYA_HOST_PASSWORD}
+      BUDGE_SECRET_KEY: ${BUDGE_SECRET_KEY}
+      BUDGE_HOST_PASSWORD: ${BUDGE_HOST_PASSWORD}
     healthcheck:
       # §10's own healthcheck endpoint, which already probes both stores.
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)\""]
@@ -141,8 +141,8 @@ services:
       # validation before it opens a connection. The backup process reads
       # neither; a narrower settings object for the backup branch is the
       # right fix and belongs with the CLI, not here.
-      PODVINSYA_SECRET_KEY: ${PODVINSYA_SECRET_KEY}
-      PODVINSYA_HOST_PASSWORD: ${PODVINSYA_HOST_PASSWORD}
+      BUDGE_SECRET_KEY: ${BUDGE_SECRET_KEY}
+      BUDGE_HOST_PASSWORD: ${BUDGE_HOST_PASSWORD}
       BUDGE_BACKUP_INTERVAL: ${BUDGE_BACKUP_INTERVAL:-3600}
       BUDGE_DRILL_INTERVAL: ${BUDGE_DRILL_INTERVAL:-86400}
     volumes:

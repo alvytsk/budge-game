@@ -19,14 +19,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 TEST_DATABASE_URL = "postgresql+asyncpg://podvinsya:podvinsya@127.0.0.1:5434/podvinsya_test"
 
-DATABASE_URL = os.environ.get("PODVINSYA_TEST_DATABASE_URL", TEST_DATABASE_URL)
+DATABASE_URL = os.environ.get("BUDGE_TEST_DATABASE_URL", TEST_DATABASE_URL)
 
 # The object store beside it (§10), on the port `compose.test.yaml` maps.
 # Owned here for the same reason `DATABASE_URL` is: the suite's own default
 # is a suite concern, and `ApiSettings` deliberately has no default for any
 # of these so an unset variable fails loudly in production.
 TEST_S3_ENDPOINT = "http://127.0.0.1:9002"
-S3_ENDPOINT = os.environ.get("PODVINSYA_TEST_S3_ENDPOINT", TEST_S3_ENDPOINT)
+S3_ENDPOINT = os.environ.get("BUDGE_TEST_S3_ENDPOINT", TEST_S3_ENDPOINT)
 S3_ACCESS_KEY = "podvinsya"
 S3_SECRET_KEY = "podvinsya-secret"
 S3_BUCKET = "podvinsya-media-test"

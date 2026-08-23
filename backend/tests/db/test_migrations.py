@@ -101,7 +101,7 @@ async def test_the_migrate_command_brings_an_empty_database_to_head(
     from budge.cli import main
 
     await asyncio.to_thread(command.downgrade, alembic_config(DATABASE_URL), "base")
-    monkeypatch.setenv("PODVINSYA_DATABASE_URL", DATABASE_URL)
+    monkeypatch.setenv("BUDGE_DATABASE_URL", DATABASE_URL)
     assert await asyncio.to_thread(main, ["migrate"]) == 0
     async with engine.connect() as connection:
         tables = await connection.run_sync(lambda sync: set(inspect(sync).get_table_names()))
@@ -122,7 +122,7 @@ async def test_the_migrate_command_works_from_any_working_directory(
     from budge.cli import main
 
     await asyncio.to_thread(command.downgrade, alembic_config(DATABASE_URL), "base")
-    monkeypatch.setenv("PODVINSYA_DATABASE_URL", DATABASE_URL)
+    monkeypatch.setenv("BUDGE_DATABASE_URL", DATABASE_URL)
     monkeypatch.chdir(tmp_path)
     assert await asyncio.to_thread(main, ["migrate"]) == 0
     async with engine.connect() as connection:

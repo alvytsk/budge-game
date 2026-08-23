@@ -45,7 +45,7 @@ TEST_PASSWORD = "correct horse battery staple"
 def api_settings() -> ApiSettings:
     """A settings object built explicitly rather than from the environment.
 
-    `ApiSettings()` would read `PODVINSYA_*` and make every test depend on
+    `ApiSettings()` would read `BUDGE_*` and make every test depend on
     the shell it ran in. The password hash is computed in the fixture, not
     hardcoded, because `hash_password` salts randomly.
     """

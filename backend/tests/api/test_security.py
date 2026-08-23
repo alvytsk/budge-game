@@ -52,7 +52,7 @@ def test_two_hashes_of_one_password_differ() -> None:
 )
 def test_a_malformed_hash_verifies_nothing(encoded: str) -> None:
     """Kills on: letting the ValueError out of `verify_password`. A
-    misconfigured PODVINSYA_HOST_PASSWORD must refuse every login, not turn
+    misconfigured BUDGE_HOST_PASSWORD must refuse every login, not turn
     the login endpoint into a 500 that reveals the parse failure."""
     assert not verify_password("hunter2", encoded)
 

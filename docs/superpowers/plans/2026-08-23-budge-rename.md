@@ -502,7 +502,7 @@ Expected: `ok: every invoker renamed`. Plan documents are excluded because Task 
 - Modify: `backend/tests/test_cli.py`, `tests/db/test_migrations.py`, `tests/api/conftest.py`, `tests/api/test_security.py`, `tests/support/db.py`
 - Modify: `.env.example`, `compose.yaml` (both from the infra plan)
 
-- [ ] **Step 1: Rename the prefix and every setter together**
+- [x] **Step 1: Rename the prefix and every setter together**
 
 The single definition is `backend/src/budge/config.py:12` — `env_prefix="PODVINSYA_"` → `"BUDGE_"`.
 
@@ -526,7 +526,7 @@ cd backend && grep -rl 'PODVINSYA_' src tests | xargs sed -i 's/PODVINSYA_/BUDGE
 cd .. && grep -rl 'PODVINSYA_' .env.example compose.yaml 2>/dev/null | xargs -r sed -i 's/PODVINSYA_/BUDGE_/g'; echo "exit=$?"
 ```
 
-- [ ] **Step 2: Catch the two variables the prefix rename does not reach**
+- [x] **Step 2: Catch the two variables the prefix rename does not reach**
 
 `backend/tests/support/db.py:22,29` read `PODVINSYA_TEST_DATABASE_URL` and `PODVINSYA_TEST_S3_ENDPOINT`. These are **not** derived from `env_prefix` — pydantic-settings never sees them; the test suite reads them directly with `os.environ.get`. Anyone searching from `config.py` would miss them entirely. The `sed` above catches them because it matches the literal prefix, but confirm:
 
@@ -536,7 +536,7 @@ cd backend && grep -n 'BUDGE_TEST_' tests/support/db.py; echo "exit=$?"
 
 Expected: both lines, now `BUDGE_TEST_DATABASE_URL` and `BUDGE_TEST_S3_ENDPOINT`.
 
-- [ ] **Step 3: Confirm nothing anywhere still sets the old prefix**
+- [x] **Step 3: Confirm nothing anywhere still sets the old prefix**
 
 ```bash
 grep -rn 'PODVINSYA_' . 2>/dev/null | grep -v node_modules | grep -v 'docs/superpowers/plans' \
@@ -545,7 +545,7 @@ grep -rn 'PODVINSYA_' . 2>/dev/null | grep -v node_modules | grep -v 'docs/super
 
 Expected: `ok: no PODVINSYA_ variable remains`. Plan documents are Task 7's.
 
-- [ ] **Step 4: Green everything and commit**
+- [x] **Step 4: Green everything and commit**
 
 ```bash
 cd backend && pytest -q; echo "pytest=$?"

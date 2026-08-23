@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     migrate.add_argument("--revision", default="head")
     subcommands.add_parser(
         "hash-password",
-        help="read a password on stdin and print the value for PODVINSYA_HOST_PASSWORD",
+        help="read a password on stdin and print the value for BUDGE_HOST_PASSWORD",
     )
     serve = subcommands.add_parser("serve", help="run the API (migrate first — see §10)")
     serve.add_argument("--host", default="127.0.0.1")
