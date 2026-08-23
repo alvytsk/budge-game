@@ -3469,26 +3469,40 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ASSETS = join(import.meta.dirname, "..", "dist", "assets");
-// Text that exists only in the console. If any of it appears in the chunk
-// the stage route loads, the two route trees have been merged and the
-// projector is downloading answers it never renders (§9, H8).
+// Text that exists only in the console. H8: the projector must not
+// download the answers, so this may live ONLY in a host chunk — checking
+// the stage chunk alone would miss the case that actually matters, where
+// console code lands in the shared entry chunk that both routes load.
 const CONSOLE_ONLY = ["judge_correct", "Начать дуэль", "current_answer"];
+const isHostChunk = (name) => name.startsWith("host.");
 
-const files = readdirSync(ASSETS);
-const stageChunk = files.find((name) => /^stage\..*\.js$/.test(name));
-if (!stageChunk) {
-  console.error(`no stage chunk in ${ASSETS}; found:\n  ${files.join("\n  ")}`);
+const chunks = readdirSync(ASSETS).filter((name) => name.endsWith(".js"));
+if (!chunks.some(isHostChunk)) {
+  console.error(`no host chunk in ${ASSETS}; found:\n  ${chunks.join("\n  ")}`);
   process.exit(1);
 }
 
-const source = readFileSync(join(ASSETS, stageChunk), "utf8");
-const leaked = CONSOLE_ONLY.filter((needle) => source.includes(needle));
-if (leaked.length > 0) {
-  console.error(`${stageChunk} carries console-only code: ${leaked.join(", ")}`);
+const problems = [];
+for (const needle of CONSOLE_ONLY) {
+  const carriers = chunks.filter((name) =>
+    readFileSync(join(ASSETS, name), "utf8").includes(needle),
+  );
+  const strays = carriers.filter((name) => !isHostChunk(name));
+  if (strays.length > 0) {
+    problems.push(`${needle} reached non-console chunks: ${strays.join(", ")}`);
+  } else if (carriers.length === 0) {
+    // A needle nothing contains makes this check vacuous — most likely
+    // the console stopped using that string, not that the split improved.
+    problems.push(`${needle} appears in no chunk at all; the check is stale`);
+  }
+}
+
+if (problems.length > 0) {
+  console.error(problems.join("\n"));
   process.exit(1);
 }
 
-console.log(`ok: ${stageChunk} is free of console code`);
+console.log(`ok: console code is confined to ${chunks.filter(isHostChunk).join(", ")}`);
 ```
 
 - [ ] **Step 2: Add the script and wire it into CI**
@@ -3503,7 +3517,9 @@ In `.github/workflows/ci.yml`'s `frontend` job, add `- run: pnpm check:bundle` a
 cd frontend && pnpm check:bundle; echo "exit=$?"
 ```
 
-Expected: exit 0 and `ok: stage.<hash>.js is free of console code`. If the stage chunk is not named `stage.*`, correct the regex to whatever `autoCodeSplitting` actually emits — do **not** weaken the check to a pattern that matches nothing, which would make it pass by finding no chunk at all. (The `!stageChunk` branch already guards that, so a wrong pattern fails loudly; keep it that way.)
+Expected: exit 0 and `ok: console code is confined to host.match._matchId-<hash>.js, …`. The build currently emits `stage._token-*.js` (~34 kB) and `host.match._matchId-*.js` (~11 kB) as separate chunks, so this should hold as written.
+
+Two ways this check can go wrong, both guarded above and both worth keeping: a chunk-name prefix that matches nothing would make it pass vacuously (the `!chunks.some(isHostChunk)` branch catches that), and a needle the console no longer contains would silently stop testing anything (the `carriers.length === 0` branch catches that). If a needle has genuinely gone away, replace it with a string the console still has — do not delete it.
 
 - [ ] **Step 4: Mutation pass**
 
