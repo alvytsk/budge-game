@@ -44,6 +44,9 @@ def main(argv: list[str] | None = None) -> int:
         "hash-password",
         help="read a password on stdin and print the value for PODVINSYA_HOST_PASSWORD",
     )
+    serve = subcommands.add_parser("serve", help="run the API (migrate first — see §10)")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
 
     args = parser.parse_args(argv)
     if args.command == "migrate":
@@ -55,6 +58,20 @@ def main(argv: list[str] | None = None) -> int:
         # stdin, not argv: a password on a command line lands in shell
         # history and in `ps` output for every user on the machine.
         print(hash_password(sys.stdin.readline().rstrip("\n")))
+        return 0
+    if args.command == "serve":
+        # Imported here rather than at module scope: `podvinsya migrate`
+        # must not pull in FastAPI, uvicorn and the whole API graph to run
+        # one Alembic command — and `ApiSettings()` is constructed inside
+        # this branch for the same reason `Settings()` is constructed
+        # inside `migrate`'s, so neither command demands the other's
+        # environment (§10, and the plan's ruling 11).
+        import uvicorn
+
+        from podvinsya.api.app import build_app
+        from podvinsya.api.settings import ApiSettings
+
+        uvicorn.run(build_app(ApiSettings()), host=args.host, port=args.port)
         return 0
     return 1  # pragma: no cover - argparse rejects anything else first
 
