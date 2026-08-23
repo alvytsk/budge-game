@@ -1827,9 +1827,34 @@ COPY scripts/ ./scripts/
 
 and remove `scripts/` from `backend/.dockerignore` if it matched.
 
-- [ ] **Step 3: Uncomment the `backup` service in `compose.yaml`**
+- [ ] **Step 3: Uncomment the `backup` service in `compose.yaml`, with two corrections**
 
-It was left commented in Task 2 Step 3 because the script did not exist yet.
+It was left commented in Task 2 Step 3 because the script did not exist yet. Two things the plan's original block gets wrong, both found while bringing the stack up in Task 2:
+
+**It needs the bucket.** `backup:` depends only on `migrate`, but `take()` reads every referenced blob out of S3 and the drill cross-checks them. Add the same condition `api` carries:
+
+```yaml
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      create-bucket:
+        condition: service_completed_successfully
+```
+
+**It cannot write to its own volume.** The API image runs as uid 10001 (`budge`), and a named volume mounted at `/backups` is created root-owned, so the first `podvinsya backup --to /backups` fails on `mkdir`. Fix it in the image rather than by running the loop as root — a backup process with root in the container is a worse trade than one directory:
+
+```yaml
+    user: root
+    entrypoint: ["/bin/sh", "-c", "chown budge:budge /backups && exec su budge -s /bin/sh /app/scripts/backup-loop.sh"]
+```
+
+If `su` is absent from the slim image, use `setpriv --reuid=10001 --regid=10001 --clear-groups` or add `gosu` to the Dockerfile — whichever works, and say which. Verify the running process is **not** root:
+
+```bash
+docker compose exec backup ps -o user,args | head -3
+```
+
+Expected: the loop running as `budge`, not `root`.
 
 - [ ] **Step 4: Prove the loop actually backs up and drills**
 
@@ -1873,7 +1898,29 @@ Expected: `ok: no scratch database left behind`.
 docker compose down -v
 ```
 
-- [ ] **Step 7: Write `docs/operations.md`**
+- [ ] **Step 7: Give CI the tools the backup suite shells out to**
+
+`dump.py` and `drill.py` invoke `pg_dump` and `pg_restore` as subprocesses. The GitHub runner does not have them, so the backend job now fails on `tests/backup/` — a gap this plan introduced in Task 3 and nothing has yet closed.
+
+In `.github/workflows/ci.yml`, in the backend job before the test step:
+
+```yaml
+      # `tests/backup` shells out to pg_dump and pg_restore (I4, I5). The
+      # client major must be >= the server's; the service below is 16.
+      - name: Install the PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+          pg_dump --version
+```
+
+Confirm the workflow still parses:
+
+```bash
+python -c "import yaml,sys; yaml.safe_load(open('.github/workflows/ci.yml')); print('ok')"; echo "exit=$?"
+```
+
+- [ ] **Step 8: Write `docs/operations.md`**
 
 ```markdown
 # Running budge
@@ -1970,10 +2017,10 @@ survive: they are signed with `PODVINSYA_SECRET_KEY`, which has not
 changed. Changing *that* invalidates every session and every stage link.
 ```
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add backend/scripts backend/Dockerfile backend/.dockerignore compose.yaml docs/operations.md
+git add backend/scripts backend/Dockerfile backend/.dockerignore compose.yaml docs/operations.md .github/workflows/ci.yml
 git commit -m "feat(ops): back up on a schedule, and rehearse the restore on a slower one"
 ```
 
@@ -2033,7 +2080,18 @@ async def test_a_manifest_without_its_archive_is_not_a_backup(
 
 Any other survivor is a missing test on the same terms: write it, confirm it fails under the mutation and passes without it, and report it prominently. Do not rationalise a survivor as "not worth testing" — this is the plan whose whole subject is that unverified things fail when they are needed.
 
-- [ ] **Step 3: Verify the stack still comes up from a clean checkout**
+- [ ] **Step 3: Prove the backup suite really needs what CI now installs**
+
+Task 5 added `postgresql-client` to CI on the claim that the suite shells out to it. Verify the claim rather than the fix — a dependency added on a guess is one nobody removes later:
+
+```bash
+cd backend
+PATH=/usr/bin:/bin .venv/bin/pytest tests/backup -q 2>&1 | tail -5; echo "exit=$?"
+```
+
+Expected: failures naming `pg_dump` or `pg_restore` (`FileNotFoundError`, or `BackupFailed`), proving the tools are genuinely required. If it passes with them off PATH, the CI step is unnecessary — remove it and say so.
+
+- [ ] **Step 4: Verify the stack still comes up from a clean checkout**
 
 The most likely thing to have rotted is the compose file, and nothing in the test suite touches it.
 
@@ -2049,7 +2107,7 @@ docker compose down -v
 
 Expected: `migrate` exited 0, `api` healthy, `/health` reporting `ok` for both checks.
 
-- [ ] **Step 4: Confirm clean and green**
+- [ ] **Step 5: Confirm clean and green**
 
 ```bash
 cd backend && pytest -q; echo "pytest=$?"
@@ -2060,7 +2118,7 @@ cd .. && git status --porcelain
 
 Expected: all 0, and `git status` reporting nothing but intended additions — every mutation reverted.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add backend && git commit -m "test(backup): close the gaps the mutation pass found"
