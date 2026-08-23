@@ -9,12 +9,17 @@ a process with it.
 `command.upgrade`; an application started against an unmigrated database
 fails its health check and says so.
 
-Two of the graph's leaves are plan 6's and do not exist yet, and both are
-wired to explicitly-named unavailable implementations rather than left as
-`None`: `UnavailableCategories` refuses a draw the way §6.3 routes as an
-ordinary rejection, and `UnavailableContent` names nothing, which ruling 3
-already made a state both projections handle. A `None` in either place
-would be an `AttributeError` inside a writer task instead.
+Both content leaves are now the real library (§5.3). `DatabaseCategoryBank`
+draws under the `FOR SHARE` §5.3 requires, and `DatabaseContentDirectory`
+names categories and answers images. An empty library behaves exactly as
+the unavailable implementations they replaced did — `ContentExhausted`,
+which §6.3 routes as an ordinary rejection — so a server started against a
+database nobody has stocked refuses a deal cleanly rather than quarantining
+the match.
+
+`UnavailableCategories` and `UnavailableContent` remain in `api/content.py`
+as the null implementations the tests use to describe that state
+deliberately.
 """
 
 import logging
@@ -27,11 +32,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from podvinsya.api.content import (
-    CachingContentDirectory,
-    UnavailableCategories,
-    UnavailableContent,
-)
+from podvinsya.api.content import CachingContentDirectory
 from podvinsya.api.hub import MatchHub
 from podvinsya.api.routes import host_ws, library, matches, session, stage_ws
 from podvinsya.api.services import CommandGateway, MatchLifecycle, Services
@@ -39,7 +40,9 @@ from podvinsya.api.settings import ApiSettings
 from podvinsya.db.engine import create_engine, sessionmaker_for
 from podvinsya.db.repository import MatchRepository
 from podvinsya.db.store import UnitOfWork
+from podvinsya.library.bank import DatabaseCategoryBank
 from podvinsya.library.catalogue import LibraryCatalogue
+from podvinsya.library.directory import DatabaseContentDirectory
 from podvinsya.runtime.clock import SystemClock
 from podvinsya.runtime.manager import MatchManager
 from podvinsya.runtime.materialiser import Materialiser
@@ -56,7 +59,7 @@ def build_app(settings: ApiSettings) -> FastAPI:
         repository = MatchRepository(sessions)
         uow = UnitOfWork(sessions)
         hub = MatchHub(capacity=settings.frame_queue_capacity)
-        bank = UnavailableCategories()
+        bank = DatabaseCategoryBank(sessions)
 
         def materialiser_factory() -> Materialiser:
             return Materialiser(clock, repository, bank, Random())
@@ -73,7 +76,11 @@ def build_app(settings: ApiSettings) -> FastAPI:
             lifecycle=lifecycle,
             gateway=CommandGateway(lifecycle, manager),
             manager=manager,
-            directory=CachingContentDirectory(UnavailableContent()),
+            # The cache stays: §8 makes the library permanent, so a name
+            # read once cannot become wrong. It never caches a miss, which
+            # is what keeps it correct against a library the operator is
+            # still filling in during setup.
+            directory=CachingContentDirectory(DatabaseContentDirectory(sessions)),
             clock=clock,
         )
         app.state.services = services

@@ -20,6 +20,7 @@ from podvinsya.api.content import (
 )
 from podvinsya.api.hub import MatchHub
 from podvinsya.api.services import CommandGateway, MatchLifecycle, ReadOnlyMatches
+from podvinsya.library.catalogue import LibraryCatalogue
 from podvinsya.api.settings import ApiSettings
 from podvinsya.domain.ids import CategoryId
 from podvinsya.services.ports import ContentExhausted, Transaction
@@ -41,6 +42,7 @@ async def test_the_lifespan_builds_the_whole_graph(api_settings: ApiSettings) ->
         assert isinstance(state.services.lifecycle, MatchLifecycle)
         assert isinstance(state.services.gateway, CommandGateway)
         assert isinstance(state.services.directory, CachingContentDirectory)
+        assert isinstance(state.catalogue, LibraryCatalogue)
         assert isinstance(state.read_only, ReadOnlyMatches)
         assert state.clock is state.services.clock
 
@@ -116,10 +118,14 @@ async def test_shutdown_stops_the_manager_before_disposing_the_engine(
     assert order == ["manager", "engine"]
 
 
-async def test_dealing_with_no_library_is_a_rejection_not_a_quarantine(
+async def test_dealing_with_an_empty_library_is_a_rejection_not_a_quarantine(
     clean_db: None, api_settings: ApiSettings
 ) -> None:
     """§6.3 and §8: a content shortfall is «обычный отказ, не авария».
+
+    With the real `DatabaseCategoryBank` wired, this is now a test about an
+    *empty* library rather than an absent one — a database nobody has
+    stocked yet, which is the state every fresh deployment starts in.
 
     Kills on: wiring a bank whose failure §6.3 quarantines on — the match
     would go off the air for a gap §8 calls an administrator's problem, and
@@ -153,13 +159,14 @@ async def test_dealing_with_no_library_is_a_rejection_not_a_quarantine(
     assert snapshot.status_code == 200
 
 
-async def test_the_unwritten_leaves_are_named_rather_than_absent() -> None:
-    """Plan 6 supplies both. Until then they are explicit implementations,
-    not `None`.
+async def test_the_null_implementations_still_behave_as_documented() -> None:
+    """`UnavailableCategories` and `UnavailableContent` are no longer wired
+    into `build_app` — the real library replaced them — but they remain as
+    the way a test says "no content at all" deliberately.
 
-    Kills on: wiring `None` for either, which turns "no library yet" into
-    an `AttributeError` inside a writer task — a frame that never arrives,
-    with a traceback in a log nobody is reading during a show."""
+    Kills on: either of them starting to raise something §6.3 quarantines
+    on, or `UnavailableContent` raising at all, which would take a live
+    match off the air for a content gap §8 calls ordinary."""
     # The transaction is never touched — the raise is the first statement —
     # so any object satisfies the signature here.
     tx = cast(Transaction, object())

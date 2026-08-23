@@ -171,14 +171,24 @@ async def test_it_takes_for_share_on_every_category_it_draws(
     selection and the commit that writes the deal."""
     await stock(sessions, ordinary=1)
     uow = UnitOfWork(sessions)
+    # Two barriers, and both are load-bearing. `held` is the one this test
+    # cannot do without: `create_task` only schedules, so without it the
+    # contender can take its exclusive lock *first*, finish immediately,
+    # and leave nothing for the poller below to ever see blocked — a
+    # failure that looks like "FOR SHARE is missing" and is not.
+    held = asyncio.Event()
     released = asyncio.Event()
 
     async def hold_the_lock() -> None:
         async with uow.begin() as tx:
             await DatabaseCategoryBank(sessions).draw_categories(tx, 1, exclude=frozenset())
+            # The draw has returned, so the lock is taken and the
+            # transaction is still open.
+            held.set()
             await released.wait()
 
     holder = asyncio.create_task(hold_the_lock())
+    await asyncio.wait_for(held.wait(), timeout=5)
 
     async def take_exclusive() -> None:
         async with sessions() as session, session.begin():
