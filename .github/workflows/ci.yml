@@ -65,6 +65,18 @@ jobs:
       - name: Typecheck
         run: mypy
 
+      # `tests/backup` shells out to pg_dump and pg_restore (I4, I5). The
+      # client major must *match* the server's — an archive is restorable
+      # only into its own major or newer, so a 17 client dumping the 16
+      # service below produces a file that same service refuses. Today
+      # `ubuntu-latest` ships 16, which is what the service is; if that
+      # drifts, pin `postgresql-client-16` the way backend/Dockerfile does.
+      - name: Install the PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+          pg_dump --version
+
       # The integration suite fails rather than skips when PostgreSQL is
       # unreachable (see tests/db/conftest.py), so a broken service
       # container surfaces here as a failure and not as a green run that

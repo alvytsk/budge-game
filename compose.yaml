@@ -120,23 +120,49 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
 
   # §10: «бэкапы по расписанию с учениями по восстановлению» (I9).
-  #
-  # Commented out until Task 5 writes `/app/scripts/backup-loop.sh`: a
-  # compose file that cannot come up is not a deliverable.
-  # backup:
-  #   image: budge-api
-  #   build: ./backend
-  #   restart: unless-stopped
-  #   depends_on:
-  #     migrate:
-  #       condition: service_completed_successfully
-  #   environment:
-  #     <<: [*postgres-url, *s3]
-  #     BUDGE_BACKUP_INTERVAL: ${BUDGE_BACKUP_INTERVAL:-3600}
-  #     BUDGE_DRILL_INTERVAL: ${BUDGE_DRILL_INTERVAL:-86400}
-  #   volumes:
-  #     - backups:/backups
-  #   entrypoint: ["/bin/sh", "/app/scripts/backup-loop.sh"]
+  backup:
+    image: budge-api
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      # The bucket, not just the schema: `backup` reads every referenced
+      # blob out of S3 to mirror it (I6) and the drill cross-checks the
+      # mirror against the restored rows (I3). Without this the first run
+      # of the loop races `create-bucket` and fails on a missing bucket.
+      create-bucket:
+        condition: service_completed_successfully
+    environment:
+      <<: [*postgres-url, *s3]
+      # `podvinsya backup` builds `ApiSettings` to get the S3 half of it,
+      # and pydantic validates the whole model — so the two API-only
+      # secrets have to be present or the very first run dies in
+      # validation before it opens a connection. The backup process reads
+      # neither; a narrower settings object for the backup branch is the
+      # right fix and belongs with the CLI, not here.
+      PODVINSYA_SECRET_KEY: ${PODVINSYA_SECRET_KEY}
+      PODVINSYA_HOST_PASSWORD: ${PODVINSYA_HOST_PASSWORD}
+      BUDGE_BACKUP_INTERVAL: ${BUDGE_BACKUP_INTERVAL:-3600}
+      BUDGE_DRILL_INTERVAL: ${BUDGE_DRILL_INTERVAL:-86400}
+    volumes:
+      - backups:/backups
+    # A named volume is created root-owned, so the image's uid 10001
+    # cannot `mkdir` inside it and the very first backup dies. Fix the one
+    # directory as root and immediately drop back to `budge`: a backup
+    # loop that keeps root for the life of the container is a worse trade
+    # than a chown at start-up.
+    #
+    # `setpriv`, not `su`: `su` stays alive as a root PID 1 forwarding
+    # signals, so the container would hold a root process for its whole
+    # life. `setpriv` execs, which leaves the loop itself as PID 1 under
+    # uid 10001 and no root process at all. `env HOME=` because setpriv
+    # does not set it the way `su` would.
+    user: root
+    entrypoint:
+      - /bin/sh
+      - -c
+      - chown budge:budge /backups && exec setpriv --reuid=10001 --regid=10001 --clear-groups env HOME=/home/budge /bin/sh /app/scripts/backup-loop.sh
 
 volumes:
   postgres-data:

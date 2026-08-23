@@ -5,8 +5,25 @@ FROM python:3.12-slim
 # `pg_restore` AND import `podvinsya.domain` to fold the restored log, so
 # the tools and the domain must live in one image. `--no-install-recommends`
 # keeps that to the client binaries rather than a server.
+#
+# Major 16 from PGDG rather than whatever Debian ships. The base image is
+# trixie, whose `postgresql-client` is 17, and a 17 archive restored into
+# this stack's `postgres:16-alpine` fails on `SET transaction_timeout = 0`
+# — a parameter 16 has never heard of. That made every drill fail on the
+# dump it had itself just taken. A dump is only restorable into a server
+# of its own major or newer, so the client major has to be the server's:
+# 16 here, in `compose.test.yaml` and in CI alike.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends postgresql-client \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
+ && install -d /etc/apt/keyrings \
+ && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+      -o /etc/apt/keyrings/pgdg.asc \
+ && echo "deb [signed-by=/etc/apt/keyrings/pgdg.asc] https://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
+      > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends postgresql-client-16 \
+ && apt-get purge -y curl \
+ && apt-get autoremove -y \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -18,6 +35,7 @@ RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir .
 
 COPY src/ ./src/
+COPY scripts/ ./scripts/
 COPY alembic.ini ./
 # Editable, and that is load-bearing rather than a convenience. `cli.py`
 # locates `alembic.ini` three directories above itself — `backend/` in the
