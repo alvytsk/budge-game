@@ -34,6 +34,15 @@ logger = logging.getLogger(__name__)
 
 _QUARANTINED_MESSAGE = "this match is quarantined"
 
+# Important 4: an allowlist, not a negative test against one member. A
+# negative test against CONTENT_UNAVAILABLE alone makes the destructive
+# classification -- quarantine -- the default for every code that exists
+# today, and silently for every one added later. §6.3 only ever asks these
+# two codes -- an unclassified bug (INTERNAL) or a database that stopped
+# answering (DATABASE_UNAVAILABLE) -- to take a match off the air; a future
+# RuntimeCode now defaults to *not* quarantining unless it is added here.
+_QUARANTINING_CODES = frozenset({RuntimeCode.INTERNAL, RuntimeCode.DATABASE_UNAVAILABLE})
+
 
 class MatchRuntime:
     """One live match: one queue, one consumer, one deadline."""
@@ -154,7 +163,7 @@ class MatchRuntime:
             case Rejected(reason):
                 queued.origin.resolve_rejected(reason)
             case Failed(code, message):
-                if code is not RuntimeCode.CONTENT_UNAVAILABLE:
+                if code in _QUARANTINING_CODES:
                     self._quarantine(message)
                 queued.origin.resolve_failed(code, message)
             case Accepted(events):

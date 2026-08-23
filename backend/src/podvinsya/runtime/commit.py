@@ -88,7 +88,8 @@ class CommitPath:
             outcome = await self._attempt(state, queued)
             if not isinstance(outcome, _Retry):
                 return outcome
-            await self._backoff(attempt)
+            if attempt + 1 < self._max_attempts:
+                await self._backoff(attempt)
         return Failed(RuntimeCode.DATABASE_UNAVAILABLE, "retries exhausted")
 
     async def _attempt(

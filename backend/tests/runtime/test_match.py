@@ -23,6 +23,7 @@ from random import Random
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.exc import DBAPIError
 
 from podvinsya.db.repository import LoadedMatch
 from podvinsya.domain.actions import (
@@ -125,6 +126,39 @@ class _RecordingUoW:
         events: Sequence[Event],
     ) -> Reconciliation:
         raise AssertionError("reconcile must not be called when the commit never raised")
+
+
+class _DatabaseUnavailableTransaction:
+    """`append` always raises a `DBAPIError` carrying an unretryable
+    SQLSTATE -- the shortest path to `Failed(DATABASE_UNAVAILABLE, ...)`."""
+
+    async def append(
+        self,
+        match_id: MatchId,
+        *,
+        expected_last_seq: int,
+        events: Sequence[Event],
+        operation_id: str,
+    ) -> None:
+        driver_error = RuntimeError("connection lost")
+        driver_error.sqlstate = "08006"  # type: ignore[attr-defined]
+        raise DBAPIError("statement", {}, driver_error)
+
+
+class _DatabaseUnavailableUoW:
+    @asynccontextmanager
+    async def begin(self) -> AsyncIterator[Transaction]:
+        yield _DatabaseUnavailableTransaction()
+
+    async def reconcile(
+        self,
+        match_id: MatchId,
+        operation_id: str,
+        *,
+        expected_last_seq: int,
+        events: Sequence[Event],
+    ) -> Reconciliation:
+        raise AssertionError("an unambiguous rollback must never reconcile")
 
 
 class _NullRepository:
@@ -633,6 +667,30 @@ async def test_a_failed_outcome_quarantines_and_tells_the_caller() -> None:
     assert outcome.code is RuntimeCode.INTERNAL
     assert runtime.quarantined
     assert broadcaster.frames == []
+
+
+async def test_a_database_unavailable_outcome_also_quarantines() -> None:
+    """Important 4: the quarantine check is an allowlist of the codes that
+    do quarantine, not a negative test against the one that does not.
+    INTERNAL alone (the test above) cannot tell an allowlist that is
+    missing DATABASE_UNAVAILABLE apart from a negative test that happens
+    to catch it anyway -- this pins the other member explicitly."""
+    state = _fresh_state()
+    clock = FakeClock(BASE_TIME)
+    commit = CommitPath(_DatabaseUnavailableUoW(), _materialiser(clock), clock, Random(0))
+    broadcaster = RecordingBroadcaster()
+    runtime = MatchRuntime(state.id, state, commit, _inert_scheduler(clock), broadcaster)
+    origin = FutureOrigin()
+    queued = QueuedCommand.issue(
+        CreateMatch(board=_BOARD, settings=_SETTINGS, player_count=_PLAYER_COUNT), origin
+    )
+
+    await runtime._consume(queued)
+
+    outcome = await origin.result()
+    assert isinstance(outcome, Failed)
+    assert outcome.code is RuntimeCode.DATABASE_UNAVAILABLE
+    assert runtime.quarantined
 
 
 async def test_a_content_shortfall_does_not_quarantine() -> None:

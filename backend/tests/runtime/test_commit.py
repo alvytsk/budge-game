@@ -689,3 +689,33 @@ async def test_the_retry_delay_is_taken_from_the_clock() -> None:
     outcome = await task
 
     assert outcome == Accepted((_expected_match_created(),))
+
+
+async def test_no_backoff_sleeps_after_the_final_attempt() -> None:
+    """Important 5: sleeping a full backoff before returning
+    DATABASE_UNAVAILABLE just delays a diagnosis that is already final --
+    with the real clock, dead latency right before a quarantine. The fake
+    clock masked this (a retry test only needs `advance_to` called once
+    per genuine backoff), which is exactly why it went unnoticed; this
+    proves the terminal attempt never parks on one at all."""
+    clock = FakeClock(NOW)
+    uow = _FlakyBodyUoW("40001", fails=99)  # never recovers
+    path = CommitPath(uow, _materialiser(), clock, Random(0), max_attempts=3)
+    state, queued = _create_match_request()
+
+    task = asyncio.create_task(path.run(state, queued))
+
+    # Exactly two backoffs cover three attempts. If the guard were missing,
+    # a third `sleep_until` would park the task forever after this loop --
+    # nothing below advances the clock a third time -- and the
+    # `wait_for` below would time out instead of completing.
+    for _ in range(2):
+        await clock.settle()
+        assert clock.pending() == 1, "each retry but the last must park on a real backoff"
+        await clock.advance_to(clock.now() + timedelta(days=1))
+
+    outcome = await asyncio.wait_for(task, timeout=2)
+
+    assert outcome == Failed(RuntimeCode.DATABASE_UNAVAILABLE, "retries exhausted")
+    assert uow.attempts == 3
+    assert clock.pending() == 0, "the final, terminal attempt must not sleep a backoff nobody uses"
