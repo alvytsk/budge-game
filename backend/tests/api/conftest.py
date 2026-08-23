@@ -1,0 +1,59 @@
+"""Fixtures for the API suite.
+
+The database-backed modules reuse `tests/db`'s engine and schema fixtures,
+the same way `tests/runtime`'s conftest does, and carry both
+`pytest.mark.integration` and `pytest.mark.asyncio(loop_scope="session")`.
+Modules that touch no database — the projection, the hub, the security
+primitives — carry neither and run in the fast lane.
+"""
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+import httpx
+import pytest
+from fastapi import FastAPI
+
+from db.conftest import clean_db, engine, migrated_schema, sessions
+from podvinsya.api.settings import ApiSettings
+from support.db import DATABASE_URL
+
+__all__ = ["clean_db", "engine", "migrated_schema", "sessions", "api_settings", "running_app"]
+
+TEST_SECRET = "test-secret-key-not-used-anywhere-real"
+TEST_PASSWORD = "correct horse battery staple"
+
+# Replaced in Task 2 with a real `hash_password(TEST_PASSWORD)` call. Until
+# `podvinsya.api.security` exists there is nothing to import, and a fixture
+# importing a module that does not exist would fail collection for the whole
+# suite rather than for the one task that is not written yet.
+_PLACEHOLDER_PASSWORD_HASH = "scrypt$placeholder-replaced-in-task-2"
+
+
+@pytest.fixture
+def api_settings() -> ApiSettings:
+    """A settings object built explicitly rather than from the environment.
+
+    `ApiSettings()` would read `PODVINSYA_*` and make every test depend on
+    the shell it ran in. The password hash is computed in the fixture, not
+    hardcoded, because `hash_password` salts randomly.
+    """
+    return ApiSettings(
+        database_url=DATABASE_URL,
+        secret_key=TEST_SECRET,
+        host_password=_PLACEHOLDER_PASSWORD_HASH,
+    )
+
+
+@asynccontextmanager
+async def running_app(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
+    """Run the app's lifespan and yield a client bound to it.
+
+    `httpx.ASGITransport` never sends the `lifespan` scope, so without this
+    the engine on `app.state` would never exist and every test would fail
+    on an attribute that the production server always has.
+    """
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            yield client
