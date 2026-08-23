@@ -40,10 +40,21 @@ def main(argv: list[str] | None = None) -> int:
     subcommands = parser.add_subparsers(dest="command", required=True)
     migrate = subcommands.add_parser("migrate", help="apply migrations up to a revision")
     migrate.add_argument("--revision", default="head")
+    subcommands.add_parser(
+        "hash-password",
+        help="read a password on stdin and print the value for PODVINSYA_HOST_PASSWORD",
+    )
 
     args = parser.parse_args(argv)
     if args.command == "migrate":
         command.upgrade(_config(Settings().database_url), args.revision)
+        return 0
+    if args.command == "hash-password":
+        from podvinsya.api.security import hash_password
+
+        # stdin, not argv: a password on a command line lands in shell
+        # history and in `ps` output for every user on the machine.
+        print(hash_password(sys.stdin.readline().rstrip("\n")))
         return 0
     return 1  # pragma: no cover - argparse rejects anything else first
 

@@ -15,6 +15,7 @@ import pytest
 from fastapi import FastAPI
 
 from db.conftest import clean_db, engine, migrated_schema, sessions
+from podvinsya.api.security import hash_password
 from podvinsya.api.settings import ApiSettings
 from support.db import DATABASE_URL
 
@@ -22,12 +23,6 @@ __all__ = ["clean_db", "engine", "migrated_schema", "sessions", "api_settings", 
 
 TEST_SECRET = "test-secret-key-not-used-anywhere-real"
 TEST_PASSWORD = "correct horse battery staple"
-
-# Replaced in Task 2 with a real `hash_password(TEST_PASSWORD)` call. Until
-# `podvinsya.api.security` exists there is nothing to import, and a fixture
-# importing a module that does not exist would fail collection for the whole
-# suite rather than for the one task that is not written yet.
-_PLACEHOLDER_PASSWORD_HASH = "scrypt$placeholder-replaced-in-task-2"
 
 
 @pytest.fixture
@@ -41,7 +36,7 @@ def api_settings() -> ApiSettings:
     return ApiSettings(
         database_url=DATABASE_URL,
         secret_key=TEST_SECRET,
-        host_password=_PLACEHOLDER_PASSWORD_HASH,
+        host_password=hash_password(TEST_PASSWORD),
     )
 
 
