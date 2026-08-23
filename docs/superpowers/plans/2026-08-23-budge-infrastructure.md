@@ -100,7 +100,7 @@ Two Dockerfiles and their ignore files. Nothing runs yet; the deliverable is tha
 **Files:**
 - Create: `backend/Dockerfile`, `backend/.dockerignore`, `frontend/Dockerfile`, `frontend/.dockerignore`
 
-- [ ] **Step 1: Write `backend/.dockerignore`**
+- [x] **Step 1: Write `backend/.dockerignore`**
 
 ```
 tests/
@@ -113,7 +113,7 @@ __pycache__/
 compose.test.yaml
 ```
 
-- [ ] **Step 2: Write `backend/Dockerfile`**
+- [x] **Step 2: Write `backend/Dockerfile`**
 
 ```dockerfile
 # The API, and the backup tooling that shares its code (I5).
@@ -149,7 +149,7 @@ USER budge
 CMD ["podvinsya", "serve", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-- [ ] **Step 3: Verify the API image builds and the CLI runs**
+- [x] **Step 3: Verify the API image builds and the CLI runs**
 
 ```bash
 docker build -t budge-api:dev backend/; echo "exit=$?"
@@ -159,14 +159,14 @@ docker run --rm budge-api:dev pg_restore --version; echo "exit=$?"
 
 Expected: all 0, the help text lists `migrate`, `serve`, `hash-password` and `export-types`, and `pg_restore` prints a version. If `pip install .` fails because `pyproject.toml` references files not yet copied, move the `COPY src/` line above the first install and drop the second — report which you did.
 
-- [ ] **Step 4: Write `frontend/.dockerignore`**
+- [x] **Step 4: Write `frontend/.dockerignore`**
 
 ```
 node_modules/
 dist/
 ```
 
-- [ ] **Step 5: Write `frontend/Dockerfile`**
+- [x] **Step 5: Write `frontend/Dockerfile`**
 
 The output is static files. The final stage is Caddy itself, so compose has one image to run for the web tier rather than a builder plus a volume dance.
 
@@ -192,7 +192,7 @@ COPY ../Caddyfile /etc/caddy/Caddyfile
 
 `COPY ../Caddyfile` cannot work — a Dockerfile may not read above its build context. Leave the last line **out** of this file; compose supplies the Caddyfile as a bind mount instead (Task 2), which also means editing it does not require a rebuild. Delete that line before building.
 
-- [ ] **Step 6: Verify the frontend image builds and holds the built SPA**
+- [x] **Step 6: Verify the frontend image builds and holds the built SPA**
 
 ```bash
 docker build -t budge-web:dev frontend/; echo "exit=$?"
@@ -202,7 +202,7 @@ docker run --rm budge-web:dev sh -c 'ls /srv/assets | head'; echo "exit=$?"
 
 Expected: exit 0, `/srv` contains `index.html` and an `assets/` directory, and `assets/` lists the hashed chunks including a `stage._token-*.js` and a `host.match._matchId-*.js`. If `pnpm-workspace.yaml` does not exist, drop it from the COPY line and say so.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/Dockerfile backend/.dockerignore frontend/Dockerfile frontend/.dockerignore
