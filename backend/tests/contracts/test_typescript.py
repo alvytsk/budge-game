@@ -227,3 +227,37 @@ def test_an_unknown_keyword_beside_a_known_type_is_refused() -> None:
     Kills on: matching on `type` alone and ignoring every sibling key."""
     with pytest.raises(UnsupportedSchema):
         emit(document(A=obj({"f": {"type": "string", "pattern": "^a"}}, ["f"])))
+
+
+def test_a_long_union_is_wrapped_one_member_to_a_line() -> None:
+    """The artifact is committed and its CI failure is read as a diff.
+
+    Kills on: emitting a union on one line — adding one command to the
+    seven-member union would rewrite a 158-character line, and the reviewer
+    would have to diff it by eye to see which member was new."""
+    long_union = {"anyOf": [{"$ref": f"#/$defs/AVeryLongCommandName{i}"} for i in range(7)]}
+    emitted = emit(document(A=obj({"command": long_union}, ["command"])))
+    assert "  command:\n    | AVeryLongCommandName0\n" in emitted
+    assert all(len(line) <= 100 for line in emitted.splitlines())
+
+
+def test_a_short_union_stays_on_one_line() -> None:
+    """Kills on: wrapping everything, which would make every nullable
+    field in the contract three lines long."""
+    emitted = emit(
+        document(A=obj({"n": {"anyOf": [{"type": "string"}, {"type": "null"}]}}, ["n"]))
+    )
+    assert "  n: string | null;" in emitted
+
+
+def test_a_union_nested_inside_brackets_is_not_split() -> None:
+    """Kills on: splitting on every ` | `, which would cut
+    `Record<string, A | B>` in half and emit two members that are not
+    types — TypeScript that does not parse, in a file compared as text."""
+    inner = {"anyOf": [{"$ref": f"#/$defs/LongEnoughToForceWrapping{i}"} for i in range(4)]}
+    emitted = emit(
+        document(
+            A=obj({"m": {"type": "object", "additionalProperties": inner}}, ["m"])
+        )
+    )
+    assert "Record<string, LongEnoughToForceWrapping0 | LongEnoughToForceWrapping1" in emitted

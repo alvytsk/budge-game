@@ -111,6 +111,53 @@ def _type_of(node: dict[str, Any], path: str) -> str:
     raise UnsupportedSchema(path, node)
 
 
+# Past this, a property is wrapped one union member to a line. The number
+# is not a style rule: this file is committed, and the CI check's failure is
+# read as a diff. A union on one line changes that whole line when a single
+# member is added — which, for the command union, is every later plan.
+_LINE_BUDGET = 100
+
+
+def _split_top_level_union(expression: str) -> list[str]:
+    """Split on ` | ` at bracket depth zero.
+
+    Naive splitting would cut inside `Record<string, A | B>` and
+    `(A | B)[]`, producing members that are not types.
+    """
+    parts: list[str] = []
+    depth = 0
+    current = ""
+    index = 0
+    while index < len(expression):
+        char = expression[index]
+        if char in "<([":
+            depth += 1
+        elif char in ">)]":
+            depth -= 1
+        if depth == 0 and expression[index : index + 3] == " | ":
+            parts.append(current)
+            current = ""
+            index += 3
+            continue
+        current += char
+        index += 1
+    parts.append(current)
+    return parts
+
+
+def _property(field: str, mark: str, expression: str) -> str:
+    one_line = f"  {field}{mark}: {expression};"
+    if len(one_line) <= _LINE_BUDGET:
+        return one_line
+    members = _split_top_level_union(expression)
+    if len(members) == 1:
+        # Long, but not a union — nothing to wrap on, and breaking it
+        # anywhere else would be a guess about where it reads best.
+        return one_line
+    wrapped = "\n".join(f"    | {member}" for member in members)
+    return f"  {field}{mark}:\n{wrapped};"
+
+
 def _interface(name: str, node: dict[str, Any]) -> str:
     required = set(node.get("required", ()))
     lines = [f"export interface {name} {{"]
@@ -119,7 +166,7 @@ def _interface(name: str, node: dict[str, Any]) -> str:
         # on, so it is required whatever `required` says.
         optional = field not in required and "const" not in schema
         mark = "?" if optional else ""
-        lines.append(f"  {field}{mark}: {_type_of(schema, f'{name}.{field}')};")
+        lines.append(_property(field, mark, _type_of(schema, f"{name}.{field}")))
     lines.append("}")
     return "\n".join(lines)
 

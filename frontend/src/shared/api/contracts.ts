@@ -60,7 +60,14 @@ export type DuelPhase = "declared" | "running";
 
 export interface Envelope {
   correlation_id?: string | null;
-  command: DeclareAttackCommand | StartDuelCommand | JudgeCorrectCommand | JudgePassCommand | PauseDuelCommand | ResumeDuelCommand | UndoLastJudgementCommand;
+  command:
+    | DeclareAttackCommand
+    | StartDuelCommand
+    | JudgeCorrectCommand
+    | JudgePassCommand
+    | PauseDuelCommand
+    | ResumeDuelCommand
+    | UndoLastJudgementCommand;
 }
 
 export interface HiddenCategory {

@@ -8,6 +8,7 @@ which is what `test_the_frames_agree_with_what_the_server_actually_sends` is
 for: it is the only test here that consults reality.
 """
 
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -24,11 +25,17 @@ def interface_body(emitted: str, name: str) -> str:
     return emitted[start : emitted.index("}", start)]
 
 
+# A property line, and only a property line: a long union is wrapped one
+# member to a line, and `    | StartDuelCommand` must not read as a field
+# called "| StartDuelCommand".
+_PROPERTY = re.compile(r"^  (\w+)\??:")
+
+
 def declared_properties(emitted: str, name: str) -> set[str]:
     return {
-        line.strip().split(":")[0].rstrip("?")
+        match.group(1)
         for line in interface_body(emitted, name).splitlines()[1:]
-        if line.strip()
+        if (match := _PROPERTY.match(line)) is not None
     }
 
 
@@ -155,3 +162,13 @@ async def test_the_nested_frames_agree_too() -> None:
     dumped = stage.model_dump(mode="json")["duel"]
     assert set(dumped) == declared_properties(emitted, "StageDuelFrame")
     assert set(dumped["timing"]) == declared_properties(emitted, "TimingFrame")
+
+
+def test_a_wrapped_union_does_not_read_as_a_property_name() -> None:
+    """`declared_properties` underpins the reality checks above, and a
+    wrapped union is indented like a property without being one.
+
+    Kills on: parsing property names by splitting on ":" — every member of
+    `Envelope.command` would become a field name, and the two agreement
+    tests would compare a real frame against nonsense."""
+    assert declared_properties(render(), "Envelope") == {"correlation_id", "command"}
