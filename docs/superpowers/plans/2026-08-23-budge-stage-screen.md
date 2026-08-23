@@ -123,7 +123,7 @@ Recorded here because each one closes a question the spec leaves open, and becau
 Scaffold the project so that `pnpm check`, `pnpm test` and `pnpm build` are all green on an app that renders one word. Nothing after this task touches configuration.
 
 **Files:**
-- Create: `frontend/package.json`, `frontend/tsconfig.json`, `frontend/tsconfig.node.json`, `frontend/vite.config.ts`, `frontend/vitest.config.ts`, `frontend/biome.json`, `frontend/steiger.config.ts`, `frontend/index.html`, `frontend/.gitignore`
+- Create: `frontend/package.json`, `frontend/tsconfig.json`, `frontend/vite.config.ts`, `frontend/vitest.config.ts`, `frontend/biome.json`, `frontend/steiger.config.ts`, `frontend/index.html`, `frontend/.gitignore`
 - Create: `frontend/testing/setup.ts`
 - Create: `frontend/src/app/main.tsx`, `frontend/src/app/styles.css`, `frontend/src/app/routes/__root.tsx`, `frontend/src/app/routes/index.tsx`
 - Create: `frontend/src/shared/lib/cn.ts`, `frontend/src/shared/lib/cn.test.ts`
@@ -134,7 +134,7 @@ Scaffold the project so that `pnpm check`, `pnpm test` and `pnpm build` are all 
 - Consumes: nothing.
 - Produces: the `@/` path alias resolving to `frontend/src/`; `cn(...classes)` from `@/shared/lib/cn`; the scripts `dev`, `build`, `test`, `check`, `fix`.
 
-- [ ] **Step 1: Write `frontend/package.json`**
+- [x] **Step 1: Write `frontend/package.json`**
 
 ```json
 {
@@ -180,7 +180,7 @@ Scaffold the project so that `pnpm check`, `pnpm test` and `pnpm build` are all 
 }
 ```
 
-- [ ] **Step 2: Install, and stop if the network refuses**
+- [x] **Step 2: Install, and stop if the network refuses**
 
 ```bash
 cd frontend && pnpm install
@@ -188,7 +188,7 @@ cd frontend && pnpm install
 
 Expected: a `pnpm-lock.yaml` appears and the install completes. If the registry is unreachable, **stop and report** — nothing else in this plan can proceed, and inventing a smaller dependency set is not a fix.
 
-- [ ] **Step 3: Write `frontend/tsconfig.json`**
+- [x] **Step 3: Write `frontend/tsconfig.json`**
 
 ```json
 {
@@ -220,7 +220,7 @@ Expected: a `pnpm-lock.yaml` appears and the install completes. If the registry 
 
 There is no separate `tsconfig.node.json`: `include` above already covers the config files, and a second project file that nothing references is a thing to keep in sync for no benefit. (Delete the `tsconfig.node.json` entry from the file list above if it was created.)
 
-- [ ] **Step 4: Write `frontend/vite.config.ts`**
+- [x] **Step 4: Write `frontend/vite.config.ts`**
 
 The dev proxy is what makes `/api` and `/ws` reach the FastAPI server during `pnpm dev`; in production Caddy (§10) serves both from one origin, so every URL in the source is same-origin and relative.
 
@@ -256,7 +256,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 5: Write `frontend/vitest.config.ts`**
+- [x] **Step 5: Write `frontend/vitest.config.ts`**
 
 ```ts
 import { resolve } from "node:path";
@@ -276,7 +276,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 6: Write `frontend/testing/setup.ts`**
+- [x] **Step 6: Write `frontend/testing/setup.ts`**
 
 jsdom implements neither `requestAnimationFrame`-driven layout nor several DOM APIs this app touches. Stubbing them here rather than in each test keeps the tests about behaviour.
 
@@ -297,7 +297,7 @@ if (!globalThis.URL.createObjectURL) {
 }
 ```
 
-- [ ] **Step 7: Write `frontend/biome.json`**
+- [x] **Step 7: Write `frontend/biome.json`**
 
 ```json
 {
@@ -320,7 +320,7 @@ if (!globalThis.URL.createObjectURL) {
 
 Both generated files are excluded: `routeTree.gen.ts` is written by the router plugin and `contracts.ts` by `podvinsya export-types`. Formatting either would put the formatter and the generator into a fight that CI loses.
 
-- [ ] **Step 8: Write `frontend/steiger.config.ts`**
+- [x] **Step 8: Write `frontend/steiger.config.ts`**
 
 ```ts
 import fsd from "@feature-sliced/steiger-plugin";
@@ -337,7 +337,7 @@ export default defineConfig([
 ]);
 ```
 
-- [ ] **Step 9: Write `frontend/index.html`**
+- [x] **Step 9: Write `frontend/index.html`**
 
 ```html
 <!doctype html>
@@ -354,7 +354,7 @@ export default defineConfig([
 </html>
 ```
 
-- [ ] **Step 10: Write `frontend/src/app/styles.css`**
+- [x] **Step 10: Write `frontend/src/app/styles.css`**
 
 The board tokens live here so the SVG in Task 3 and the overlays in Task 5 read the same values.
 
@@ -386,7 +386,7 @@ body {
 }
 ```
 
-- [ ] **Step 11: Write the root route and the index route**
+- [x] **Step 11: Write the root route and the index route**
 
 `frontend/src/app/routes/__root.tsx`:
 
@@ -408,7 +408,7 @@ export const Route = createFileRoute("/")({
 });
 ```
 
-- [ ] **Step 12: Write `frontend/src/app/main.tsx`**
+- [x] **Step 12: Write `frontend/src/app/main.tsx`**
 
 ```tsx
 import { RouterProvider, createRouter } from "@tanstack/react-router";
@@ -435,7 +435,7 @@ createRoot(root).render(
 );
 ```
 
-- [ ] **Step 13: Write the first test — `frontend/src/shared/lib/cn.test.ts`**
+- [x] **Step 13: Write the first test — `frontend/src/shared/lib/cn.test.ts`**
 
 `cn` is one line, but it is the only place the whole app resolves Tailwind class conflicts, and a test here is what proves the toolchain runs at all.
 
@@ -454,7 +454,7 @@ describe("cn", () => {
 });
 ```
 
-- [ ] **Step 14: Run it and watch it fail**
+- [x] **Step 14: Run it and watch it fail**
 
 ```bash
 cd frontend && pnpm test
@@ -462,7 +462,7 @@ cd frontend && pnpm test
 
 Expected: FAIL — `Failed to resolve import "./cn"`.
 
-- [ ] **Step 15: Write `frontend/src/shared/lib/cn.ts`**
+- [x] **Step 15: Write `frontend/src/shared/lib/cn.ts`**
 
 ```ts
 import { type ClassValue, clsx } from "clsx";
@@ -473,7 +473,7 @@ export function cn(...classes: ClassValue[]): string {
 }
 ```
 
-- [ ] **Step 16: Write `frontend/.gitignore`**
+- [x] **Step 16: Write `frontend/.gitignore`**
 
 ```
 node_modules/
@@ -482,7 +482,7 @@ dist/
 
 `routeTree.gen.ts` is deliberately **not** ignored: committing it keeps `tsc --noEmit` runnable on a fresh clone before any Vite process has started, and CI type-checks before it builds.
 
-- [ ] **Step 17: Green the whole toolchain**
+- [x] **Step 17: Green the whole toolchain**
 
 ```bash
 cd frontend && pnpm build && pnpm check && pnpm test
@@ -490,7 +490,7 @@ cd frontend && pnpm build && pnpm check && pnpm test
 
 Expected: all three pass. `pnpm build` runs first because it is what generates `routeTree.gen.ts`; `pnpm check` then type-checks against it. Run `pnpm fix` if Biome reports formatting.
 
-- [ ] **Step 18: Rewrite `frontend/README.md`**
+- [x] **Step 18: Rewrite `frontend/README.md`**
 
 ```markdown
 # budge — front end
@@ -528,7 +528,7 @@ without regenerating fails the build rather than reaching the front end as
 a type that quietly disagrees with the server (§7.6, §11).
 ```
 
-- [ ] **Step 19: Add the `frontend` CI job**
+- [x] **Step 19: Add the `frontend` CI job**
 
 In `.github/workflows/ci.yml`, alongside the existing jobs:
 
@@ -553,7 +553,7 @@ In `.github/workflows/ci.yml`, alongside the existing jobs:
       - run: pnpm test
 ```
 
-- [ ] **Step 20: Commit**
+- [x] **Step 20: Commit**
 
 ```bash
 cd .. && git add frontend .github/workflows/ci.yml

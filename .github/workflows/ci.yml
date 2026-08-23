@@ -77,3 +77,33 @@ jobs:
       # failure names exactly what drifted and who has to regenerate.
       - name: Contracts
         run: podvinsya export-types --check
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The pnpm version comes from `packageManager` in frontend/package.json,
+      # so the pin lives in one place and CI cannot drift from the machine.
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # Build first: it is what regenerates routeTree.gen.ts, and `check`
+      # then type-checks against exactly what the build produced.
+      - run: pnpm build
+      - run: pnpm check
+      - run: pnpm test
