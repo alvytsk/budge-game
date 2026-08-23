@@ -1969,7 +1969,7 @@ cd .. && git add frontend && git commit -m "feat(stage): the duel beat — pictu
   - `CAPTURE_MS`
   - `<PauseOverlay />`, `<EndgameOverlay frame winner />`
 
-- [ ] **Step 1: Write the failing beat test — `frontend/src/entities/match/model/beat.test.ts`**
+- [x] **Step 1: Write the failing beat test — `frontend/src/entities/match/model/beat.test.ts`**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -2047,9 +2047,9 @@ describe("beatOf", () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
-- [ ] **Step 3: Write `frontend/src/entities/match/model/beat.ts`**
+- [x] **Step 3: Write `frontend/src/entities/match/model/beat.ts`**
 
 ```ts
 import type { ResolutionFrame, StageFrame } from "@/shared/api/contracts";
@@ -2093,18 +2093,18 @@ export function beatOf(frame: StageFrame, sinceFrameMs: number): Beat {
 }
 ```
 
-- [ ] **Step 4: Extend `frontend/src/entities/match/index.ts`**
+- [x] **Step 4: Extend `frontend/src/entities/match/index.ts`**
 
 ```ts
 export { CAPTURE_MS, beatOf, type Beat } from "./model/beat";
 export { colourOf, inkOn } from "./model/palette";
 ```
 
-- [ ] **Step 5: Run the beat test and watch it pass**
+- [x] **Step 5: Run the beat test and watch it pass**
 
 Expected: PASS, 9 tests.
 
-- [ ] **Step 6: Write the failing overlay test — `frontend/src/widgets/overlay/ui/overlay.test.tsx`**
+- [x] **Step 6: Write the failing overlay test — `frontend/src/widgets/overlay/ui/overlay.test.tsx`**
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -2146,9 +2146,9 @@ describe("EndgameOverlay", () => {
 });
 ```
 
-- [ ] **Step 7: Run it and watch it fail**
+- [x] **Step 7: Run it and watch it fail**
 
-- [ ] **Step 8: Write `frontend/src/widgets/overlay/ui/pause-overlay.tsx`**
+- [x] **Step 8: Write `frontend/src/widgets/overlay/ui/pause-overlay.tsx`**
 
 ```tsx
 export function PauseOverlay() {
@@ -2160,7 +2160,7 @@ export function PauseOverlay() {
 }
 ```
 
-- [ ] **Step 9: Write `frontend/src/widgets/overlay/ui/endgame-overlay.tsx`**
+- [x] **Step 9: Write `frontend/src/widgets/overlay/ui/endgame-overlay.tsx`**
 
 ```tsx
 import { colourOf } from "@/entities/match";
@@ -2203,14 +2203,14 @@ export function EndgameOverlay({ frame, winner }: EndgameOverlayProps) {
 }
 ```
 
-- [ ] **Step 10: Write `frontend/src/widgets/overlay/index.ts`**
+- [x] **Step 10: Write `frontend/src/widgets/overlay/index.ts`**
 
 ```ts
 export { EndgameOverlay } from "./ui/endgame-overlay";
 export { PauseOverlay } from "./ui/pause-overlay";
 ```
 
-- [ ] **Step 11: Green everything and commit**
+- [x] **Step 11: Green everything and commit**
 
 ```bash
 cd frontend && pnpm test && pnpm check
