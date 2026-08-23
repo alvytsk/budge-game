@@ -301,7 +301,11 @@ grep -rl 'podvinsya' src tests --include='*.py' --include='*.mako' \
 echo "exit=$?"
 ```
 
-`\b` word boundaries matter: without them this would also rewrite `podvinsya_test`, `podvinsya-media` and `podvinsya_session`, which belong to Tasks 4 and 5 and must not move yet (R1). Verify nothing outside the intended set changed:
+`\b` word boundaries matter, **but they protect less than they look like they do**. Underscore is a word character, so `podvinsya_test` and `podvinsya_session` are genuinely safe. Hyphen, colon and slash are *not* — `\bpodvinsya\b` matches inside `podvinsya-media`, `podvinsya-secret`, `podvinsya-media-test` and `//podvinsya:podvinsya@host/…`. Those belong to Tasks 5 and 6 and this sed will take them anyway.
+
+So the sed is a first pass, not the whole step: restore every identifier it took that a later task owns. In `backend/tests/support/db.py` and `backend/tests/api/test_app.py` the Postgres role and password inside the URL; in `backend/tests/support/db.py` the three `S3_*` constants; in `backend/src/budge/api/settings.py` the `s3_bucket` default. Restoring the Postgres role is not cosmetic — `compose.test.yaml` is not a `.py` file, so the running stack still answers to the old role and the suite goes red without it.
+
+The sed also takes strings **Task 3** owns, and those must be restored too or Task 3's tests stop being able to fail: `prog="podvinsya"` in `cli.py`, the two-line `HEADER` in `contracts/typescript.py`, its assertion in `tests/contracts/test_typescript.py`, and the CLI-invocation prose in `cli.py`, `api/app.py`, `api/settings.py`, `api/routes/session.py` and `tests/db/test_migrations.py`. `test_export_types_check_passes_against_the_committed_file` runs the real generator against the committed `contracts.ts`, which is not a `.py` file — leave the header renamed here and the suite is red until Task 3 Step 4 regenerates it. Verify nothing outside the intended set changed:
 
 ```bash
 cd backend && git diff --stat | tail -3
@@ -332,9 +336,11 @@ Note `script_location` is *overridden at runtime* by `cli.py`, so a mistake here
 R8. Until this runs, every test fails at import and it looks like the rename broke everything.
 
 ```bash
-cd backend && pip install -e . ; echo "exit=$?"
-python -c 'import budge, budge.cli; print(budge.__file__)'; echo "exit=$?"
+cd backend && VIRTUAL_ENV="$PWD/.venv" uv pip install -e . ; echo "exit=$?"
+.venv/bin/python -c 'import budge, budge.cli; print(budge.__file__)'; echo "exit=$?"
 ```
+
+`backend/.venv` was created by **uv** and has no `pip` in it — `uv pip install` is the equivalent. It also leaves the previous distribution's metadata behind (`podvinsya-0.1.0.dist-info/`, `_editable_impl_podvinsya.pth`); neither shadows the new install, but they leave the venv advertising a distribution that no longer exists. Remove both.
 
 Expected: the path prints under `src/budge/`. If a stale `_editable_impl_podvinsya.pth` shadows it, remove it from `site-packages` and reinstall — report if you had to.
 
@@ -354,12 +360,15 @@ The point of R2 is that these fail if their target vanished. Prove they would:
 
 ```bash
 cd backend
+cp tests/api/test_stage_ws.py /tmp/guard-backup.py
 sed -i 's/"budge.domain.actions"/"podvinsya.domain.actions"/' tests/api/test_stage_ws.py
 pytest tests/api/test_stage_ws.py -q; echo "exit=$?"
-git checkout -- tests/api/test_stage_ws.py
+cp /tmp/guard-backup.py tests/api/test_stage_ws.py
 ```
 
-Expected: exit **1** with a `ModuleNotFoundError` from the guard — not a pass. If it passes, the guard is not doing its job and Task 8's review will find nothing; fix it now.
+Restore from a **file copy, not `git checkout --`**: the move is not committed until Step 10, so a checkout here would revert the file to the guards commit and silently undo Step 5's sed on it.
+
+Expected: **non-zero** — and specifically exit **2**, not 1. The guard runs at module scope, so pytest reports a collection error rather than a test failure. Either way it must not pass. If it passes, the guard is decoration and Task 8's review will find nothing; fix it now.
 
 - [x] **Step 10: Commit**
 
@@ -570,10 +579,13 @@ The coupling is the point: these six values appear in three files and nothing sh
 | MinIO root password | 36 | 42 | `S3_SECRET_KEY`, 31 |
 | Test bucket | — | — | `S3_BUCKET`, 32 |
 
+One more, in none of those three files: `backend/tests/backup/test_drill.py` builds a scratch-database name as `f"podvinsya_drill_force_{uuid4().hex[:12]}"`. Underscore protected it from Task 2's sed and no grep in this plan would have caught it before Task 7's final sweep. Rename it here.
+
 ```bash
 cd /home/alexey/projects/sandbox/budge-game
 sed -i 's/podvinsya/budge/g' backend/compose.test.yaml .github/workflows/ci.yml
-sed -i 's/podvinsya/budge/g' backend/tests/support/db.py backend/tests/api/test_app.py
+sed -i 's/podvinsya/budge/g' backend/tests/support/db.py backend/tests/api/test_app.py \
+  backend/tests/backup/test_drill.py
 echo "exit=$?"
 ```
 
@@ -754,7 +766,7 @@ pytest tests/runtime/test_watchdog.py -q; echo "watchdog=$?"
 git checkout -- tests/runtime/test_watchdog.py
 ```
 
-Expected: all three exit **1**. Any that exits 0 was passing vacuously the whole time — write the guard that catches it and report it prominently.
+Expected: all three **non-zero** — exit **2**, in fact, because the guards run at module scope and pytest reports a collection error rather than a test failure. Any that exits 0 was passing vacuously the whole time — write the guard that catches it and report it prominently.
 
 - [ ] **Step 2: Prove the import ban is still enforced**
 
