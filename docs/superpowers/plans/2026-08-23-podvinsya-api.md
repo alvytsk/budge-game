@@ -759,3 +759,615 @@ git commit -m "Hash one operator's password, and sign the two things a client ma
 ```
 
 ---
+
+> **Note on this plan's second half.** Tasks 1 and 2 were written out in full
+> before the plan was cut off mid-draft. Tasks 3–12 below were written from
+> the plan's own *File Structure*, *Interfaces* and *Rulings* sections, which
+> were complete, and follow the same rules: every file in the structure table
+> is claimed by exactly one task, every load-bearing test names the mutation
+> that kills it, and no ruling is re-litigated. They are more compact than
+> tasks 1–2 — interfaces and test contracts rather than transcribed source —
+> because the design they implement is already fixed above.
+
+### Task 3: What the library can be asked, and the two ways of asking it
+
+The projection needs category names and image answers, and nothing in this
+codebase can supply either until plan 6. So the *protocol* lands here, the
+tests drive a fake, and production gets a null implementation that names
+nothing — which, by ruling 3, is a state the two projections already handle:
+`hidden` on the stage, `null` on the host.
+
+**Files:**
+- Modify: `backend/src/podvinsya/services/ports.py`
+- Create: `backend/src/podvinsya/api/content.py`
+- Create: `backend/tests/support/content.py`
+- Test: `backend/tests/api/test_content.py`
+
+**Interfaces:**
+- Produces: `ContentDescription`, `ContentDirectory` (in `ports.py`);
+  `UnavailableContent`, `CachingContentDirectory` (in `api/content.py`);
+  `RecordingContentDirectory` (in `tests/support/content.py`).
+- Consumes: `CategoryId`, `ImageId`.
+
+- [ ] **Step 1: `ContentDirectory` in `services/ports.py`**
+
+One method, batched, taking both sets at once:
+
+```python
+async def describe(
+    self, *, categories: frozenset[CategoryId], images: frozenset[ImageId]
+) -> ContentDescription: ...
+```
+
+Batched rather than `name_of(category)` because a projection built from
+per-id calls would issue one query per group and do it inside a WebSocket
+writer task. `ContentDescription` carries two mappings — `category_names`
+and `image_answers` — and an id the library cannot resolve is simply absent
+from them, never present with a placeholder: a `None` and a missing key are
+the same fact, and having both would give the projection two branches for
+one state.
+
+- [ ] **Step 2: `UnavailableContent` and `CachingContentDirectory`**
+
+`UnavailableContent.describe` returns an empty description for any input,
+and its docstring names plan 6 as what replaces it. `CachingContentDirectory`
+wraps another directory and remembers every id it has ever resolved: §8 makes
+the library permanent («библиотека постоянная и переиспользуется между
+выпусками»), so a name that has been read once cannot become wrong, and the
+cache is unbounded on purpose — a match touches at most `cells + duels` ids.
+It asks the delegate only for what it is missing, and asks nothing at all
+when both sets are already covered.
+
+- [ ] **Step 3: `RecordingContentDirectory`**
+
+Answers from two dicts handed in at construction, and records every
+`(categories, images)` pair it was asked for. Ruling 1's second test reads
+that record, so it must be the request as received, not a union accumulated
+across calls.
+
+- [ ] **Step 4: Tests**
+
+- `test_a_directory_that_knows_nothing_answers_with_nothing` — kills on
+  `UnavailableContent` raising instead of returning empty, which would make
+  a live match's projection fail before plan 6 lands.
+- `test_the_cache_asks_the_delegate_once_per_id` — kills on caching the
+  whole call rather than the ids, which would re-query on any set that is
+  not byte-identical to a previous one.
+- `test_the_cache_asks_for_nothing_when_it_already_knows_everything` —
+  kills on always delegating: the delegate records zero calls.
+- `test_the_cache_asks_only_for_what_it_is_missing` — kills on asking for
+  the whole set when one id is new.
+- `test_an_id_the_library_cannot_resolve_stays_unresolved` — kills on
+  caching a negative answer as if it were a name, which would make a
+  category added to the library after the first miss permanently nameless.
+
+- [ ] **Step 5:** `pytest`, `mypy`, `ruff check`, commit
+  `"Declare what the library can be asked, and answer it from nothing"`.
+
+---
+
+### Task 4: Two frames, and the leak that is impossible in one of them
+
+The Pydantic models §7.6 makes plan 5's codegen input. No projection logic
+here — only the shapes, and the fact that `StageFrame`'s type graph has
+nowhere to put an answer.
+
+**Files:**
+- Create: `backend/src/podvinsya/api/schemas/__init__.py`
+- Create: `backend/src/podvinsya/api/schemas/frames.py`
+- Test: `backend/tests/api/test_frames.py`
+
+**Interfaces:**
+- Produces: `CellFrame`, `BoardFrame`, `PlayerFrame`, `TimingFrame`,
+  `ResolutionFrame`, `NamedCategory`, `HiddenCategory`, `StageCategory`,
+  `HostCategory`, `StageGroupFrame`, `HostGroupFrame`, `StageDuelFrame`,
+  `HostDuelFrame`, `StageFrame`, `HostFrame`.
+
+- [ ] **Step 1: The parts both frames share**
+
+`CellFrame(col, row)`, `BoardFrame(width, height)`,
+`PlayerFrame(id, name, colour, eliminated)`, and — §7.3 in one model —
+`TimingFrame(remaining_ms: dict[UUID, int], answering, anchor, paused,
+deadline_at)`. `remaining_ms` carries *both* players, always, because §7.3
+names both and a frame carrying only the answering player's remainder would
+make the idle player's timer a client-side guess.
+
+`ResolutionFrame(winner, loser, surviving_group, absorbed_group,
+absorbed_cells)` is ruling 13's capture-animation payload. It carries no
+category — §9.1 needs to know which cells moved, not what was burned, and a
+frame is easier to keep leak-proof when it has nothing optional in it.
+
+- [ ] **Step 2: The two category views**
+
+Ruling 3, as types:
+
+```python
+class NamedCategory(BaseModel):
+    kind: Literal["named"] = "named"
+    name: str
+
+class HiddenCategory(BaseModel):
+    kind: Literal["hidden"] = "hidden"
+
+StageCategory = NamedCategory | HiddenCategory
+```
+
+`HiddenCategory` has no fields at all — not even the category id. The id
+leaks no name, but a field that exists is a field a later change can fill,
+and an empty model cannot be filled by accident.
+
+`HostCategory(id: UUID, name: str | None)` is the other half of ruling 3:
+the operator sees the id whatever happens, and a `None` name is the content
+defect made visible rather than silent.
+
+- [ ] **Step 3: The two frames**
+
+`StageFrame` — `match_id`, `seq`, `server_now`, `status`, `board`,
+`players`, `current_player`, `round_no`, `groups: tuple[StageGroupFrame,
+...]`, `duel: StageDuelFrame | None`, `winner`, `last_event_types`,
+`resolution`. `StageGroupFrame` carries `category: StageCategory`;
+`StageDuelFrame` carries `attacker`, `defender`, `attacking_group`,
+`defending_group`, `category: StageCategory`, `image_order: tuple[UUID,
+...]`, `index`, `phase`, `timing`. The image *order* is on the stage frame
+on purpose (§3.5, §9.1): the whole pack is preloaded at declaration, and
+ids are not answers.
+
+`HostFrame` — the same skeleton with `HostGroupFrame` (`category:
+HostCategory`), `HostDuelFrame` (which adds `current_answer: str | None`
+and `image_count`), and `legal_attacks: dict[UUID, tuple[UUID, ...]]`,
+which is §9.2's «правило смежности не проверяется, а делается невозможным»
+put on the wire.
+
+- [ ] **Step 4: Tests**
+
+- `test_a_stage_frame_has_no_field_anywhere_that_could_hold_an_answer` —
+  walks `StageFrame.model_json_schema()` and asserts no reachable property
+  is named `answer`, `current_answer`, `answers` or `image_answers`. Kills
+  on adding one, which is the shape the §11 whole-tree test cannot catch
+  until a value happens to be set.
+- `test_a_hidden_category_carries_no_fields` — kills on giving
+  `HiddenCategory` a `name: str | None`, which would make «Секрет» a value
+  the server could fill by mistake rather than a variant it cannot.
+- `test_the_stage_category_union_has_exactly_two_variants` — kills on a
+  third variant appearing without the leak analysis being redone.
+- `test_a_host_category_may_be_nameless` — ruling 3's `null`.
+- `test_timing_carries_both_players` — kills on projecting only the
+  answering player's remainder.
+
+- [ ] **Step 5:** `pytest`, `mypy`, `ruff check`, commit
+  `"Shape the two frames so only one of them could ever hold an answer"`.
+
+---
+
+### Task 5: The projection, which never asks for what it may not show
+
+Ruling 1 in code: `project_stage` collects the category ids of revealed
+groups *only* and passes `images=frozenset()`. The leak is impossible one
+layer before the frame, because there is nothing in the function's scope to
+leak.
+
+**Files:**
+- Create: `backend/src/podvinsya/api/projection.py`
+- Test: `backend/tests/api/test_projection.py`
+
+**Interfaces:**
+- Produces: `project_stage(state, *, now, events, directory) -> StageFrame`,
+  `project_host(state, *, now, events, directory) -> HostFrame`.
+- Consumes: `MatchState`, `Event`, `ContentDirectory`, `WIRE_NAMES`,
+  `legal_targets`, `deadline_of`.
+
+- [ ] **Step 1: `project_stage`**
+
+Both functions are `async` — they await the directory, which is exactly why
+ruling 9 puts them in the subscriber's writer task and not in `publish`.
+
+`last_event_types` maps each event through plan 2's `WIRE_NAMES`, the frozen
+names, not `type(event).__name__`: the wire is the wire in both directions.
+`resolution` is built from the batch's `DuelResolved` if it has one.
+
+- [ ] **Step 2: `project_host`**
+
+Asks for every group's category plus the duel's, and for exactly one image —
+the current one (§7.1: «правильный ответ текущей картинки»). `legal_attacks`
+is built with the domain's own `legal_targets`, restricted to the groups of
+the player whose turn it is: recomputing adjacency here would be a second
+source of truth against `decide`.
+
+- [ ] **Step 3: Tests**
+
+The §11 whole-tree test first, because it is the one the spec names:
+
+- `test_no_answer_string_appears_anywhere_in_a_stage_frame` — walks the
+  entire dumped frame recursively, not a list of known fields, and asserts
+  no answer string from the fake directory occurs in any string anywhere.
+  Kills on: any future field carrying content into the stage frame.
+- `test_no_unrevealed_category_name_appears_anywhere_in_a_stage_frame` —
+  the same walk against every name of an unrevealed group's category.
+  Kills on: projecting `group.category` through the host's view.
+- `test_the_stage_projection_never_asks_for_an_unrevealed_category` —
+  ruling 1's stronger property, read off `RecordingContentDirectory`.
+  Kills on: collecting every group's category and filtering on the way out.
+- `test_the_stage_projection_never_asks_for_an_image` — same, for
+  `images=frozenset()`.
+- `test_a_revealed_group_is_named_and_an_unrevealed_one_is_hidden`
+- `test_a_revealed_group_the_library_cannot_name_is_hidden` — ruling 3.
+- `test_the_host_sees_the_current_answer_and_the_unrevealed_names`
+- `test_the_host_sees_a_nameless_category_as_null` — ruling 3's other half.
+- `test_legal_attacks_lists_only_adjacent_enemy_groups_of_the_current_player`
+  — kills on listing every enemy group, which would put an illegal attack
+  in front of the operator that `decide` then refuses.
+- `test_both_frames_carry_the_batch_s_wire_names`
+- `test_a_resolved_duel_puts_its_capture_in_the_frame` — ruling 13.
+- `test_a_frame_carries_the_deadline_and_the_server_s_own_now` — §7.3.
+- `test_a_paused_duel_has_no_deadline` — kills on computing a deadline
+  from a null anchor.
+
+- [ ] **Step 4:** `pytest`, `mypy`, `ruff check`, commit
+  `"Project a state the stage screen has no way to leak"`.
+
+---
+
+### Task 6: The hub — one bounded queue per subscriber, and a `publish` that cannot block
+
+§6.1's contract made executable: `publish` projects nothing, awaits nothing,
+and lets nothing escape. Ruling 9 means it enqueues the immutable triple;
+ruling 10 means a full queue loses its *oldest* frame.
+
+**Files:**
+- Create: `backend/src/podvinsya/api/hub.py`
+- Test: `backend/tests/api/test_hub.py`
+
+**Interfaces:**
+- Produces: `Update(base_seq, state, events)`, `Subscriber`, `MatchHub`.
+- Consumes: `Broadcaster` (satisfied structurally).
+
+- [ ] **Step 1: `MatchHub`**
+
+`subscribe(match_id)` is a context manager yielding a `Subscriber` and
+removing it on exit — including on an exception, because a socket that dies
+mid-frame must not leave a queue nobody drains attached to a live match.
+`publish` looks the match up, and for every subscriber calls
+`subscriber.offer(update)`, wrapped so one broken subscriber cannot stop the
+next from being told.
+
+- [ ] **Step 2: `Subscriber.offer`**
+
+Bounded by `frame_queue_capacity`. On overflow it discards the oldest queued
+update, counts the drop, and logs at debug — never at error (ruling 10: the
+drop is not a fault). `next()` awaits the queue.
+
+- [ ] **Step 3: Tests**
+
+- `test_publish_never_awaits` — asserts `MatchHub.publish` is not a
+  coroutine function and that a call to it completes without yielding to the
+  loop, by checking a sentinel task queued before it has not run after it.
+  Kills on: making `publish` async, which §6.1 forbids outright.
+- `test_publish_survives_a_subscriber_that_raises` — a subscriber whose
+  `offer` raises does not stop the second subscriber from receiving.
+  Kills on: letting the exception escape into the runtime's `_publish`,
+  which logs it and continues — meaning the *second* subscriber silently
+  stops receiving, forever, and nothing says so.
+- `test_publish_to_a_match_with_no_subscribers_is_a_no_op` — kills on a
+  `KeyError` reaching the command loop.
+- `test_a_slow_subscriber_loses_its_oldest_frame_and_keeps_the_newest` —
+  §11's «Противодавление». Fills the queue past capacity and asserts the
+  surviving frames are the *last* `capacity`, and that `dropped` counts the
+  rest. Kills on: dropping the newest, which §7.2 is written to make safe
+  in exactly one direction.
+- `test_a_slow_subscriber_does_not_delay_publish` — publishes far past
+  capacity against a subscriber that never reads and asserts every call
+  returned; kills on any bounded-queue `await put`.
+- `test_unsubscribing_stops_delivery`, and
+  `test_a_subscriber_removed_by_an_exception_stops_delivery` — kills on
+  removing the subscriber outside a `finally`.
+- `test_two_subscribers_of_one_match_both_receive`
+- `test_a_subscriber_receives_nothing_for_another_match`
+
+- [ ] **Step 4:** `pytest`, `mypy`, `ruff check`, commit
+  `"Give every subscriber a bounded queue, and the loop no reason to wait"`.
+
+---
+
+### Task 7: What a client may send, and what every outcome becomes
+
+The inbound union and the one place a `CommandOutcome` turns into an HTTP
+status or an acknowledgement. The constraint this task carries is the global
+one: no inbound model anywhere names an actor.
+
+**Files:**
+- Create: `backend/src/podvinsya/api/schemas/commands.py`
+- Create: `backend/src/podvinsya/api/outcomes.py`
+- Test: `backend/tests/api/test_commands.py`
+- Test: `backend/tests/api/test_outcomes.py`
+
+**Interfaces:**
+- Produces: `LiveCommand` (the WS union), `Envelope`, `Ack`,
+  `to_command(...)`, `http_status_for(outcome)`, `body_for(outcome)`,
+  `ack_for(outcome, ...)`.
+
+- [ ] **Step 1: The inbound union**
+
+One model per §3.3 command the console sends live — `DeclareAttack`,
+`StartDuel`, `JudgeCorrect`, `JudgePass`, `PauseDuel`, `ResumeDuel`,
+`UndoLastJudgement` — discriminated on `type`, each carrying only what the
+domain command carries and never a player. `Envelope` wraps one with an
+optional `correlation_id`, which is echoed into the ack and used for
+nothing else (§5.1: the `operation_id` is minted in `QueuedCommand.issue`
+and is not this).
+
+`ExpireTimer` is deliberately absent from the union: it is the server's own
+command, and a client able to name one could resolve a duel by pretending a
+deadline fired.
+
+- [ ] **Step 2: The outcome mapping**
+
+`Accepted` → 200, `NoOp` → 200, `Rejected` → 409 with the reason's string
+value (ruling 4), `Failed` by code: `CONTENT_UNAVAILABLE` → 409 (§6.3 calls
+it «обычный отказ, не авария»), `QUARANTINED` and `DATABASE_UNAVAILABLE` →
+503, `INTERNAL` → 500. Written as a `match` over the union so a new outcome
+member is a type error here rather than a silent 200.
+
+- [ ] **Step 3: Tests**
+
+- `test_no_inbound_model_names_an_actor` — the global constraint's own
+  test. It walks the generated JSON Schema of *every* model in
+  `schemas/commands.py` and `schemas/rest.py`, at every depth, and fails on
+  a property named `actor`, `player`, `player_id`, `as_player`, `role`,
+  `seat` or `principal` — with the two documented exceptions, `AddPlayer`
+  and `AssignSecret`, which name the player being *administered*, not the
+  sender. Kills on: adding a "who am I" field to any inbound model, which
+  §7.4 says makes «названный актор действительно участник» a check that
+  can be passed by lying.
+- `test_expire_timer_is_not_a_client_command` — kills on adding it.
+- `test_a_correlation_id_is_echoed_and_is_not_the_operation_id`
+- `test_every_outcome_maps_to_a_status` — parametrized over all four
+  outcome types and all four runtime codes; kills on a `case _: return 200`.
+- `test_a_rejection_carries_the_domain_s_own_reason_string` — kills on
+  translating reasons into API-local strings, which is ruling 4's second
+  source of truth arriving by another door.
+- `test_a_quarantined_match_is_a_503_and_an_internal_error_is_a_500`
+
+- [ ] **Step 4:** `pytest`, `mypy`, `ruff check`, commit
+  `"Accept only what a client may say, and answer every outcome the same way twice"`.
+
+---
+
+### Task 8: The principal, and the two services every route funnels through
+
+**Files:**
+- Create: `backend/src/podvinsya/api/principal.py`
+- Create: `backend/src/podvinsya/api/services.py`
+- Test: `backend/tests/api/test_principal.py`
+- Test: `backend/tests/api/test_services.py`
+
+**Interfaces:**
+- Produces: `HostPrincipal`, `StagePrincipal`, `require_host`,
+  `stage_principal_for`, `SESSION_COOKIE`; `MatchLifecycle`,
+  `CommandGateway`, `Services`.
+
+- [ ] **Step 1: `principal.py`**
+
+`HostPrincipal` is an empty frozen dataclass — there is one operator, and a
+principal with a name would invite a second source of identity. `StagePrincipal`
+carries the `MatchId` its token named and nothing else. `require_host` reads
+the cookie off the request, verifies it against `settings.secret_key` and
+`session_ttl_hours` with the app's clock, and raises `401` otherwise. The
+one thing neither ever does is read a body.
+
+- [ ] **Step 2: `services.py`**
+
+`MatchLifecycle` owns the two things that are not `manager.submit`:
+creating a match (`decide(CreateMatch)` on a fresh initial state, then
+`repository.create` — genesis is the one append with nothing to be
+optimistic about) and *ensuring* a match is live (`manager.start` unless
+`manager.runtime_for` already has it, translating `MatchAlreadyRunning`
+into "already live" rather than an error, because two sockets opening at
+once is normal).
+
+`CommandGateway.submit(match_id, command)` ensures the match is live and
+then hands the command to the manager, returning the `CommandOutcome`
+verbatim. `Services` is the frozen bundle `build_app` puts on `app.state`.
+
+- [ ] **Step 3: Tests**
+
+- `test_a_request_with_no_cookie_is_refused` / `..._with_a_forged_cookie_...`
+  / `..._with_an_expired_cookie_...` — kills on trusting the cookie's
+  presence rather than its signature.
+- `test_a_stage_token_names_the_match_it_was_minted_for`
+- `test_the_gateway_starts_a_match_that_is_not_yet_live` (integration)
+- `test_two_concurrent_first_touches_start_one_runtime` — kills on
+  letting `MatchAlreadyRunning` escape, which would turn the second of two
+  simultaneous sockets into a 500.
+- `test_creating_a_match_writes_genesis_and_nothing_else` (integration)
+- `test_an_invalid_board_is_rejected_before_anything_is_written` — ruling
+  4: the domain refuses it, and the log stays empty.
+
+- [ ] **Step 4:** `pytest`, `mypy`, `ruff check`, commit
+  `"Derive the principal from the transport, and funnel every command through one gateway"`.
+
+---
+
+### Task 9: REST — the session, and assembling a match
+
+Ruling 5's line: everything up to and including `StartMatch` is REST.
+
+**Files:**
+- Create: `backend/src/podvinsya/api/schemas/rest.py`
+- Create: `backend/src/podvinsya/api/routes/__init__.py`
+- Create: `backend/src/podvinsya/api/routes/session.py`
+- Create: `backend/src/podvinsya/api/routes/matches.py`
+- Modify: `backend/src/podvinsya/api/app.py` (mount the routers)
+- Test: `backend/tests/api/test_session_routes.py`
+- Test: `backend/tests/api/test_match_routes.py`
+
+- [ ] **Step 1: `POST /api/session`, `DELETE /api/session`**
+
+The body carries a password and nothing else. A correct password mints a
+session and sets it as an `HttpOnly`, `SameSite=Lax` cookie; a wrong one is
+a `401` whose body says nothing about which half was wrong. `DELETE` clears
+the cookie and is not itself authenticated — logging out must work from a
+session that has already expired.
+
+- [ ] **Step 2: The assembly routes**
+
+`POST /api/matches` (board, settings, player_count) → the new match's id
+*and its stage link token*, which is the only place the operator can get
+one (ruling 7: derived, never stored, so there is nothing to look up
+later). Then `POST /api/matches/{id}/players`, `/secrets`, `/deal`,
+`/start`, each mapping straight onto the §3.3 command of the same name and
+each answering through Task 7's outcome mapping. Every one of them requires
+`HostPrincipal`.
+
+`GET /api/matches` reads the §5.2 projection tables (ruling 14) — the first
+and only reader they have ever had. `GET /api/matches/{id}` is §7.4's
+«снапшот для первичной загрузки»: the host frame for a match, built through
+the same `project_host` the socket uses, so a console that loads and a
+console that reconnects see the identical shape.
+
+- [ ] **Step 3: Tests** (integration)
+
+- `test_the_right_password_sets_a_session_cookie` /
+  `test_a_wrong_password_sets_nothing` — kills on setting the cookie before
+  verifying.
+- `test_the_session_cookie_is_http_only` — kills on dropping the flag,
+  which would put the operator's session inside reach of any script on the
+  page.
+- `test_logging_out_clears_the_cookie_without_a_valid_session`
+- `test_every_assembly_route_refuses_an_unauthenticated_caller` —
+  parametrized over all six; kills on forgetting the dependency on one of
+  them, which is exactly the failure a per-route test would miss.
+- `test_a_match_can_be_assembled_and_started_end_to_end`
+- `test_an_invalid_board_is_a_409_carrying_the_domain_s_reason`
+- `test_the_list_shows_what_the_read_model_holds`
+- `test_the_snapshot_is_the_same_shape_the_socket_sends`
+- `test_a_snapshot_of_a_match_that_does_not_exist_is_a_404`
+
+- [ ] **Step 4:** `pytest`, `mypy`, `ruff check`, commit
+  `"Assemble a match over REST, and let one operator in"`.
+
+---
+
+### Task 10: The operator's socket
+
+**Files:**
+- Create: `backend/src/podvinsya/api/routes/host_ws.py`
+- Modify: `backend/src/podvinsya/api/app.py`
+- Test: `backend/tests/api/test_host_ws.py`
+
+- [ ] **Step 1: `GET /ws/host/{match_id}`**
+
+Authenticated by the session cookie *before* `accept` — an unauthenticated
+socket is closed with `1008`, never accepted and then closed, so nothing is
+ever sent to a caller who was refused. On accept it subscribes, sends one
+full frame immediately (§7.2: a client that just connected is a client with
+a gap, and the answer to every gap is the whole state), then runs two tasks:
+a writer that projects and sends whatever the subscriber's queue yields, and
+a reader that parses `Envelope`s and submits.
+
+A malformed frame gets an ack with `outcome: "rejected"` and closes nothing:
+a typo in a hand-written client should not cost the operator their socket
+mid-match.
+
+- [ ] **Step 2: Tests**
+
+- `test_an_unauthenticated_socket_is_refused_before_it_is_accepted`
+- `test_a_connected_host_receives_a_full_frame_immediately`
+- `test_a_command_sent_over_the_socket_reaches_the_match_and_is_acked`
+- `test_an_acknowledgement_echoes_the_correlation_id`
+- `test_a_rejected_command_is_acked_with_the_domain_s_reason`
+- `test_a_malformed_frame_is_acked_and_the_socket_stays_open` — kills on
+  letting the `ValidationError` propagate, which closes the socket.
+- `test_a_frame_arrives_when_the_match_advances`
+- `test_a_disconnecting_host_is_unsubscribed` — kills on subscribing
+  outside a context manager, which leaks a queue per reconnect for the
+  life of the process.
+
+- [ ] **Step 3:** `pytest`, `mypy`, `ruff check`, commit
+  `"Put the operator on a socket that talks both ways"`.
+
+---
+
+### Task 11: The stage's socket, which structurally cannot send a command
+
+Ruling 12: this module does not import `CommandGateway`, `MatchManager` or
+any domain `Command`, and a test reads the import graph to keep it that way.
+
+**Files:**
+- Create: `backend/src/podvinsya/api/routes/stage_ws.py`
+- Modify: `backend/src/podvinsya/api/app.py`
+- Test: `backend/tests/api/test_stage_ws.py`
+
+- [ ] **Step 1: `GET /ws/stage/{token}`**
+
+The token names the match (ruling 7). An unreadable token is a `1008`
+before accept. Otherwise: subscribe, send one `StageFrame`, and run a
+writer — and *only* a writer. Nothing reads from this socket, so an
+incoming frame is not parsed, not dispatched and not answered.
+
+- [ ] **Step 2: Tests**
+
+- `test_the_stage_module_imports_no_way_to_submit_a_command` — parses
+  `stage_ws.py` with `ast` and asserts that no import in it names
+  `CommandGateway`, `MatchManager`, `podvinsya.domain.actions` or
+  `podvinsya.runtime`. This is §7.5's «конструктивно», checked. Kills on:
+  importing the gateway "just to look at the match", which is how a
+  read-only surface stops being one.
+- `test_a_bad_token_is_refused_before_accept`
+- `test_a_token_for_one_match_does_not_open_another_s_socket`
+- `test_the_stage_receives_a_full_frame_immediately`
+- `test_the_stage_frame_carries_no_answer_and_no_unrevealed_name` — the
+  §11 whole-tree walk again, this time over what actually went down the
+  socket rather than what the projection returned.
+- `test_a_command_sent_to_the_stage_changes_nothing` — sends a
+  well-formed host command down the stage socket and asserts the match's
+  state is untouched afterwards. Kills on: adding a reader.
+
+- [ ] **Step 3:** `pytest`, `mypy`, `ruff check`, commit
+  `"Give the room a socket with no way back"`.
+
+---
+
+### Task 12: `podvinsya serve`, and the whole thing wired together
+
+**Files:**
+- Modify: `backend/src/podvinsya/api/app.py`
+- Modify: `backend/src/podvinsya/cli.py`
+- Test: `backend/tests/api/test_wiring.py`
+- Test: `backend/tests/test_cli.py`
+
+- [ ] **Step 1: Build the real graph in the lifespan**
+
+Engine → sessionmaker → `MatchRepository` + `UnitOfWork` → `MatchHub` →
+`MatchManager` (with `SystemClock`, the hub as its `Broadcaster`, and a
+materialiser factory) → `MatchLifecycle` + `CommandGateway` → `Services` on
+`app.state`. Shutdown is the reverse, and `manager.shutdown()` runs *before*
+`engine.dispose()`: the manager resolves every waiting origin as it goes,
+and doing that against a disposed engine would turn a clean stop into a
+quarantine.
+
+The `CategoryBank` the materialiser needs is plan 6's, and does not exist.
+It is wired as an explicitly-named unavailable implementation whose
+`draw_*` methods raise `ContentExhausted` — which §6.3 already routes as an
+ordinary rejection, so a `DealBoard` against a server with no library
+refuses cleanly instead of quarantining the match. The same applies to
+`ContentDirectory`: `UnavailableContent` from Task 3.
+
+- [ ] **Step 2: `podvinsya serve`**
+
+`--host`, `--port`, and `uvicorn.run` over `build_app(ApiSettings())` —
+constructed here, not at import (§10, and Task 1's own docstring).
+
+- [ ] **Step 3: Tests**
+
+- `test_the_lifespan_builds_and_tears_down_the_whole_graph` (integration)
+- `test_shutdown_stops_the_manager_before_disposing_the_engine` — kills on
+  reversing the two, which resolves outstanding origins against a dead pool.
+- `test_dealing_with_no_library_is_a_rejection_not_a_quarantine` — kills
+  on wiring a bank that raises something §6.3 quarantines on, which would
+  take a match off the air for a content gap §8 calls ordinary.
+- `test_serve_starts_uvicorn_with_the_app` — monkeypatched `uvicorn.run`.
+
+- [ ] **Step 4:** full `pytest`, `mypy`, `ruff check`, commit
+  `"Wire the whole graph once, and give it a command to run under"`.
+
+- [ ] **Step 5:** Use superpowers:finishing-a-development-branch.
