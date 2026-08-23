@@ -219,7 +219,7 @@ Compose, Caddy, and the environment contract. After this the whole thing runs.
 - Create: `compose.yaml`, `Caddyfile`, `.env.example`
 - Modify: `.gitignore` (ignore `.env`)
 
-- [ ] **Step 1: Write `Caddyfile`**
+- [x] **Step 1: Write `Caddyfile`**
 
 ```caddyfile
 # §1.1 puts this on an isolated LAN with no TLS, and the session cookie is
@@ -261,7 +261,7 @@ http://:80 {
 }
 ```
 
-- [ ] **Step 2: Write `.env.example`**
+- [x] **Step 2: Write `.env.example`**
 
 ```bash
 # Copy to `.env` and fill in. `.env` is not committed.
@@ -291,7 +291,7 @@ BUDGE_DRILL_INTERVAL=86400
 
 Add `.env` to `.gitignore`.
 
-- [ ] **Step 3: Write `compose.yaml`**
+- [x] **Step 3: Write `compose.yaml`**
 
 ```yaml
 # The whole deployment (§10). One file, one `docker compose up -d`.
@@ -413,7 +413,7 @@ volumes:
 
 The `backup` service references `/app/scripts/backup-loop.sh`, which Task 5 writes. Until then, comment the whole `backup:` service out — a compose file that cannot come up is not a deliverable. Uncomment it in Task 5.
 
-- [ ] **Step 4: Bring the stack up and prove it serves**
+- [x] **Step 4: Bring the stack up and prove it serves**
 
 ```bash
 cp .env.example .env
@@ -441,7 +441,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/stage/nonsense
 
 Expected: `/health` is `200` with `{"status":"ok","checks":{"database":true,"storage":true}}`; `/host` and `/stage/nonsense` both `200` and serve `index.html` (the SPA owns those routes — the 404 for a bad token happens on the socket, not here).
 
-- [ ] **Step 5: Prove the login path works end to end**
+- [x] **Step 5: Prove the login path works end to end**
 
 ```bash
 curl -sS -i -X POST http://127.0.0.1:8080/api/session \
@@ -458,7 +458,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:8080/api/sess
 
 Expected: `401`.
 
-- [ ] **Step 6: Prove migrations really are a separate step**
+- [x] **Step 6: Prove migrations really are a separate step**
 
 ```bash
 docker compose down
@@ -469,7 +469,7 @@ docker compose up -d api 2>&1 | tail -5; echo "exit=$?"
 
 Expected: compose starts `migrate` first because `api` depends on it, and `api` only starts after `migrate` exits 0. Confirm with `docker compose logs migrate` showing Alembic running, and `docker compose logs api` showing no migration output at all. If `api` ever migrates, I8 is broken — fix it and say what you found.
 
-- [ ] **Step 7: Tear down and commit**
+- [x] **Step 7: Tear down and commit**
 
 ```bash
 docker compose down -v
@@ -477,7 +477,7 @@ git add compose.yaml Caddyfile .env.example .gitignore
 git commit -m "build: the deployable stack, with migrations as their own step"
 ```
 
-- [ ] **Step 8: Confirm `.env` is not staged**
+- [x] **Step 8: Confirm `.env` is not staged**
 
 ```bash
 git status --porcelain | grep -F '.env' || echo "ok: .env is ignored"

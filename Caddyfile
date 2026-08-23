@@ -1,0 +1,37 @@
+# §1.1 puts this on an isolated LAN with no TLS, and the session cookie is
+# deliberately not `Secure`. So: plain HTTP, and automatic HTTPS off (I7).
+# Left on, Caddy would try to provision a certificate for a name that has
+# no public DNS, and serve nothing while it retried.
+{
+	auto_https off
+	admin off
+}
+
+http://:80 {
+	# One origin for everything, which is what the front end assumes: every
+	# URL it builds is relative (§7.4, and the stage plan's endpoints.ts).
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# The stage screen and the host console both hold their sockets here.
+	# `reverse_proxy` upgrades WebSocket connections without extra config
+	# in Caddy 2; the matcher is what routes them.
+	handle /ws/* {
+		reverse_proxy api:8000
+	}
+
+	handle /health {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		encode gzip
+		# The SPA owns its routes: /stage/:token and /host/... exist only in
+		# the browser, so anything that is not a file falls through to
+		# index.html rather than 404ing on a reload.
+		try_files {path} /index.html
+		file_server
+	}
+}

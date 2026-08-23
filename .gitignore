@@ -6,3 +6,7 @@ backend/.mypy_cache/
 backend/.ruff_cache/
 **/__pycache__/
 *.egg-info/
+
+# `.env` holds the signing key and both store passwords. Committing it
+# would publish them.
+.env
