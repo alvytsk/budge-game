@@ -14,6 +14,7 @@ repository method, and this calls that.
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from uuid import uuid4
 
@@ -36,7 +37,7 @@ from podvinsya.domain.state import MatchState
 from podvinsya.runtime.errors import MatchAlreadyRunning
 from podvinsya.runtime.manager import MatchManager
 from podvinsya.runtime.origins import Accepted, CommandOutcome, Rejected
-from podvinsya.services.ports import Clock, MatchRepositoryPort
+from podvinsya.services.ports import Clock, ContentDirectory, MatchRepositoryPort
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +181,26 @@ class CommandGateway:
 
 
 @dataclass(frozen=True, slots=True)
+class ReadOnlyMatches:
+    """Everything a read-only surface may reach, and nothing else.
+
+    This exists so ruling 12 can be true of *values* as well as of imports.
+    A stage socket handed the full `Services` would have `.gateway` in
+    scope — one attribute away from submitting a command — and «отправить
+    команду он не может конструктивно» would be back to being a promise
+    rather than a property.
+
+    `state_of` is held as a bound callable rather than by keeping a
+    `MatchLifecycle`: that class also knows how to `create`, and a
+    read-only view onto an object that can write is not one.
+    """
+
+    state_of: Callable[[MatchId], Awaitable[MatchState]]
+    directory: ContentDirectory
+    clock: Clock
+
+
+@dataclass(frozen=True, slots=True)
 class Services:
     """What `build_app` puts on `app.state` and every route reads back."""
 
@@ -188,3 +209,8 @@ class Services:
     manager: MatchManager
     directory: CachingContentDirectory
     clock: Clock
+
+    def read_only(self) -> ReadOnlyMatches:
+        return ReadOnlyMatches(
+            state_of=self.lifecycle.state_of, directory=self.directory, clock=self.clock
+        )

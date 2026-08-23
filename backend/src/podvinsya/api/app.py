@@ -33,7 +33,7 @@ from podvinsya.api.content import (
     UnavailableContent,
 )
 from podvinsya.api.hub import MatchHub
-from podvinsya.api.routes import host_ws, matches, session
+from podvinsya.api.routes import host_ws, matches, session, stage_ws
 from podvinsya.api.services import CommandGateway, MatchLifecycle, Services
 from podvinsya.api.settings import ApiSettings
 from podvinsya.db.engine import create_engine, sessionmaker_for
@@ -68,13 +68,17 @@ def build_app(settings: ApiSettings) -> FastAPI:
         app.state.sessions = sessions
         app.state.clock = clock
         app.state.hub = hub
-        app.state.services = Services(
+        services = Services(
             lifecycle=lifecycle,
             gateway=CommandGateway(lifecycle, manager),
             manager=manager,
             directory=CachingContentDirectory(UnavailableContent()),
             clock=clock,
         )
+        app.state.services = services
+        # Ruling 12: the stage's route is handed this and never `services`,
+        # which carries a `.gateway` — one attribute away from a command.
+        app.state.read_only = services.read_only()
         try:
             yield
         finally:
@@ -89,6 +93,7 @@ def build_app(settings: ApiSettings) -> FastAPI:
     app.include_router(session.router)
     app.include_router(matches.router)
     app.include_router(host_ws.router)
+    app.include_router(stage_ws.router)
 
     @app.get("/health")
     async def health(request: Request) -> JSONResponse:
