@@ -13,6 +13,7 @@ import pytest
 from pydantic import BaseModel, ValidationError, TypeAdapter
 
 from podvinsya.api.schemas import commands as commands_module
+from podvinsya.api.schemas import rest as rest_module
 from podvinsya.api.schemas.commands import (
     Ack,
     DeclareAttackCommand,
@@ -35,7 +36,7 @@ ACTOR_PROPERTIES = frozenset(
 # an operator adds four players, and none of those four is the caller.
 ADMINISTERED_PLAYER_MODELS = frozenset({"AddPlayerBody", "AssignSecretBody"})
 
-INBOUND_MODULES = [commands_module]
+INBOUND_MODULES = [commands_module, rest_module]
 
 
 def _models_in(module: Any) -> list[type[BaseModel]]:
@@ -80,6 +81,19 @@ def test_no_inbound_model_names_an_actor() -> None:
             if named:
                 offenders[model.__name__] = named
     assert not offenders
+
+
+def test_the_two_administrative_exceptions_are_the_only_ones() -> None:
+    """The exemption list is a hole in the test above, so it is checked in
+    its own right: exactly two models are exempt, and both exist.
+
+    Kills on: adding a name to `ADMINISTERED_PLAYER_MODELS` to silence the
+    test rather than to describe a real administrative body."""
+    rest_models = {model.__name__ for model in _models_in(rest_module)}
+    assert ADMINISTERED_PLAYER_MODELS <= rest_models
+    for name in ADMINISTERED_PLAYER_MODELS:
+        model = next(m for m in _models_in(rest_module) if m.__name__ == name)
+        assert "player_id" in _property_names(model.model_json_schema())
 
 
 def test_no_inbound_model_names_a_player_at_all() -> None:

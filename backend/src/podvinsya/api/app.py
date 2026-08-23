@@ -33,6 +33,7 @@ from podvinsya.api.content import (
     UnavailableContent,
 )
 from podvinsya.api.hub import MatchHub
+from podvinsya.api.routes import matches, session
 from podvinsya.api.services import CommandGateway, MatchLifecycle, Services
 from podvinsya.api.settings import ApiSettings
 from podvinsya.db.engine import create_engine, sessionmaker_for
@@ -85,6 +86,8 @@ def build_app(settings: ApiSettings) -> FastAPI:
             await engine.dispose()
 
     app = FastAPI(title="Podvinsya", lifespan=lifespan)
+    app.include_router(session.router)
+    app.include_router(matches.router)
 
     @app.get("/health")
     async def health(request: Request) -> JSONResponse:
