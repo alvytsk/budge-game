@@ -116,7 +116,10 @@ async def clean_db(migrated_schema: None, engine: AsyncEngine) -> AsyncIterator[
     # that dirt surfaces as a failure unrelated to whatever ran next.
     async with engine.begin() as connection:
         await connection.execute(
-            text("TRUNCATE TABLE match_events, match_players, matches RESTART IDENTITY CASCADE")
+            text(
+                "TRUNCATE TABLE match_events, match_players, matches, images, categories "
+                "RESTART IDENTITY CASCADE"
+            )
         )
     yield
 
