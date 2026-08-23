@@ -2,6 +2,7 @@
 applied as a separate step before the application starts, never at import."""
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -57,6 +58,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     backup = subcommands.add_parser("backup", help="take a backup (§10)")
     backup.add_argument("--to", default="/backups", help="the backup root directory")
+    drill_parser = subcommands.add_parser(
+        "restore-drill",
+        help="restore the newest backup into a scratch database and prove it (§10)",
+    )
+    drill_parser.add_argument("--from", dest="source", default="/backups")
 
     args = parser.parse_args(argv)
     if args.command == "migrate":
@@ -128,6 +134,23 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"{manifest.taken_at}: {len(manifest.digests)} media referenced")
         return 0
+    if args.command == "restore-drill":
+        # Imported here for the reason `serve`'s imports are; and this
+        # branch constructs `Settings`, not `ApiSettings`: the drill needs a
+        # database and nothing else, and demanding a signing key to
+        # rehearse a restore would be the mistake `migrate` already avoids.
+        import asyncio
+
+        from podvinsya.backup import drill
+        from podvinsya.backup.paths import BackupRoot
+
+        report = asyncio.run(
+            drill.run(BackupRoot(Path(args.source)), database_url=Settings().database_url)
+        )
+        print(json.dumps({"passed": report.passed, "dump": report.dump}, ensure_ascii=False))
+        # Non-zero on failure, so the scheduler and any human running this
+        # by hand both learn the answer without reading a log.
+        return 0 if report.passed else 1
     return 1  # pragma: no cover - argparse rejects anything else first
 
 
