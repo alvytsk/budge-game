@@ -1465,6 +1465,7 @@ cd .. && git add frontend && git commit -m "feat(host): the library screen — c
 - Create: `frontend/testing/host-frames.ts`
 - Create: `frontend/src/features/match-assembly/api/use-assembly.ts`, `.../api/use-assembly.test.tsx`, `.../index.ts`
 - Create: `frontend/src/widgets/match-setup/ui/match-setup.tsx`, `.../ui/match-setup.test.tsx`, `.../index.ts`
+- Modify: `frontend/src/pages/host-home/ui/home-page.tsx` and its test (match creation)
 
 **Interfaces:**
 - Produces: `useCreateMatch()`, `useAddPlayer()`, `useAssignSecret()`, `useDeal()`, `useStart()`, `<MatchSetup frame matchId stageToken />`, and the `hostFrame` / `hostDuel` / `hostGroup` / `timing` / `player` / `resolution` builders.
@@ -1963,7 +1964,109 @@ export function MatchSetup({ frame, matchId, stageToken }: MatchSetupProps) {
 
 Expected: PASS, 6 tests.
 
-- [ ] **Step 8: Green everything and commit**
+- [ ] **Step 8: Add match creation to the home screen**
+
+§7.4 puts «сборка партии» on the REST side and in scope. Without this the
+console has no way to start a game at all, and the home screen is
+permanently empty. Append to `frontend/src/pages/host-home/ui/home-page.test.tsx`:
+
+```tsx
+  it("creates a match with the board and player count that were chosen", async () => {
+    // §2.1 allows any width and height; §2.2 any player count from two
+    // up. Kills on: a hardcoded board — the operator could run one shape
+    // of game and no other.
+    const made: unknown[] = [];
+    server.use(
+      http.get("/api/matches", () => HttpResponse.json([])),
+      http.post("/api/matches", async ({ request }) => {
+        made.push(await request.json());
+        return HttpResponse.json(
+          { outcome: "accepted", match_id: MATCH.id, stage_token: "tok" },
+          { status: 201 },
+        );
+      }),
+    );
+    renderWithQuery(<HomePage />);
+    await userEvent.clear(await screen.findByLabelText("Ширина"));
+    await userEvent.type(screen.getByLabelText("Ширина"), "5");
+    await userEvent.clear(screen.getByLabelText("Высота"));
+    await userEvent.type(screen.getByLabelText("Высота"), "3");
+    await userEvent.clear(screen.getByLabelText("Игроков"));
+    await userEvent.type(screen.getByLabelText("Игроков"), "4");
+    await userEvent.click(screen.getByRole("button", { name: "Новая партия" }));
+    await waitFor(() =>
+      expect(made).toEqual([{ board: { width: 5, height: 3 }, player_count: 4 }]),
+    );
+  });
+```
+
+with `import userEvent from "@testing-library/user-event";` and
+`import { waitFor } from "@testing-library/react";` added to its imports.
+
+Then, in `frontend/src/pages/host-home/ui/home-page.tsx`, add the form
+above the list. The three numbers are local component state — they are
+neither server state nor shared, so neither Query nor the store is right
+for them.
+
+```tsx
+  const create = useCreateMatch();
+  const [width, setWidth] = useState(4);
+  const [height, setHeight] = useState(3);
+  const [players, setPlayers] = useState(3);
+```
+
+```tsx
+      <div className="flex items-end gap-3 rounded-xl bg-white/5 p-4">
+        {(
+          [
+            ["Ширина", width, setWidth],
+            ["Высота", height, setHeight],
+            ["Игроков", players, setPlayers],
+          ] as const
+        ).map(([label, value, set]) => (
+          <label key={label} className="flex flex-col gap-1 text-sm text-stage-muted">
+            {label}
+            <input
+              type="number"
+              min={1}
+              value={value}
+              onChange={(event) => set(Number(event.target.value))}
+              className="w-20 rounded-lg bg-white/10 px-3 py-2 text-stage-ink"
+            />
+          </label>
+        ))}
+        <button
+          type="button"
+          onClick={() =>
+            void create.mutateAsync({
+              board: { width, height },
+              player_count: players,
+            })
+          }
+          className="rounded-lg bg-white/15 px-4 py-2"
+        >
+          Новая партия
+        </button>
+      </div>
+```
+
+with `import { useState } from "react";` and
+`import { useCreateMatch } from "@/features/match-assembly";` added.
+
+`useState(Number(...))` on an emptied field yields `NaN`; the `min={1}`
+attribute does not prevent that, and the server rejects it with an
+ordinary outcome rather than a crash — which is the right place for that
+check to live (§6.3), not a second validator here.
+
+- [ ] **Step 9: Run the home-page tests and watch them pass**
+
+```bash
+cd frontend && pnpm vitest run src/pages/host-home; echo "exit=$?"
+```
+
+Expected: PASS, 4 tests.
+
+- [ ] **Step 10: Green everything and commit**
 
 ```bash
 cd frontend && pnpm build; echo "exit=$?"
@@ -3489,12 +3592,6 @@ git commit -m "test(host): assert the route split, and close the gaps the mutati
   text only; replacing the bytes means uploading a new file, which is
   `useAddImage` plus `useSetImageActive` on the old row — the soft-delete
   path §5.3 already specifies.
-- **Creating a match.** `useCreateMatch` exists and is tested, but no
-  button calls it: the home screen lists matches and the setup screen
-  fills one in. Wiring a "new match" form needs a board-size and
-  player-count picker that §9.2 does not describe; a follow-up should add
-  it rather than this plan guessing at the layout.
-
 ## Done when
 
 - `pnpm build`, `pnpm check`, `pnpm test` and `pnpm check:bundle` are all green in `frontend/`, and CI runs all four.
