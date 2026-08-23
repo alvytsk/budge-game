@@ -40,8 +40,18 @@ TITLE = "ТЕМА-{}"
 SECRET_TITLE = "СЕКРЕТ-{}"
 
 
-def digest(seed: int) -> str:
-    return f"{seed:064x}"
+# A distinct, well-formed PNG per picture. Ruling 4 means the library will
+# only name a digest the store holds, so the show's pictures are uploaded
+# for real — which is also what makes this test cover the media seam.
+def a_picture(seed: int) -> bytes:
+    return b"\x89PNG\r\n\x1a\x0a" + seed.to_bytes(4, "big") + bytes(range(32))
+
+
+async def upload(client: Any, data: bytes) -> str:
+    response = await client.post("/api/media", content=data)
+    assert response.status_code == 201, response.text
+    digest: str = response.json()["media_sha256"]
+    return digest
 
 
 class Inbox:
@@ -94,7 +104,7 @@ async def stock_the_library(client: Any) -> tuple[list[str], list[str]]:
             added = await client.post(
                 f"/api/library/categories/{category_id}/images",
                 json={
-                    "media_sha256": digest(position * 10 + picture),
+                    "media_sha256": await upload(client, a_picture(position * 10 + picture)),
                     "answer_text": ANSWER.format(position, picture),
                 },
             )
@@ -103,7 +113,7 @@ async def stock_the_library(client: Any) -> tuple[list[str], list[str]]:
 
 
 async def test_a_match_can_be_played_from_an_empty_database(
-    clean_db: None, api_settings: ApiSettings
+    clean_db: None, clean_bucket: None, api_settings: ApiSettings
 ) -> None:
     """Log in, stock a library, deal a board, declare an attack, judge.
 
@@ -268,7 +278,7 @@ async def test_a_match_can_be_played_from_an_empty_database(
 
 
 async def test_a_category_played_once_is_not_dealt_again(
-    clean_db: None, api_settings: ApiSettings
+    clean_db: None, clean_bucket: None, api_settings: ApiSettings
 ) -> None:
     """§8: «Отбор на партию: из активных, без повторов». A re-deal draws a
     fresh selection, and every cell still gets a distinct category.

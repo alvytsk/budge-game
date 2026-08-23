@@ -15,6 +15,7 @@ import pytest
 from fastapi import FastAPI
 
 from db.conftest import clean_db, engine, migrated_schema, sessions
+from media.conftest import clean_bucket, s3_bucket
 from podvinsya.api.security import hash_password
 from podvinsya.api.settings import ApiSettings
 from support.db import (
@@ -25,7 +26,16 @@ from support.db import (
     S3_SECRET_KEY,
 )
 
-__all__ = ["clean_db", "engine", "migrated_schema", "sessions", "api_settings", "running_app"]
+__all__ = [
+    "clean_db",
+    "engine",
+    "migrated_schema",
+    "sessions",
+    "clean_bucket",
+    "s3_bucket",
+    "api_settings",
+    "running_app",
+]
 
 TEST_SECRET = "test-secret-key-not-used-anywhere-real"
 TEST_PASSWORD = "correct horse battery staple"

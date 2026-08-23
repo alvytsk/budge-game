@@ -30,6 +30,7 @@ from podvinsya.api.schemas.library import (
     ThinCategoryBody,
 )
 from podvinsya.api.settings import ApiSettings
+from podvinsya.services.ports import MediaStore, MediaUnavailable
 from podvinsya.library.catalogue import (
     CategoryRow,
     ImageRow,
@@ -51,6 +52,41 @@ def _catalogue(request: Request) -> LibraryCatalogue:
 def _settings(request: Request) -> ApiSettings:
     settings: ApiSettings = request.app.state.settings
     return settings
+
+
+async def _require_stored(request: Request, media_sha256: str) -> None:
+    """Refuse a digest the object store does not hold (ruling 4).
+
+    §5.3 makes the log's link to the library one-way and permanent:
+    `AttackDeclared` writes image identifiers, and those rows are read for
+    the rest of the match. A row naming bytes nobody uploaded is a picture
+    that fails to render in front of the room, and it is discovered
+    mid-duel rather than at setup.
+
+    The check lives here rather than in `LibraryCatalogue` because §5.3
+    makes that class the one writer, and handing it a second dependency —
+    on an object store, over the network — would widen the one thing this
+    codebase deliberately keeps narrow.
+
+    A store that cannot be reached is a 503, never a pass and never a 409:
+    passing writes exactly the row this check exists to prevent, and 409
+    would tell the operator their digest was wrong when the truth is that
+    nobody could check it.
+    """
+    store: MediaStore = request.app.state.media
+    try:
+        stored = await store.exists(media_sha256)
+    except MediaUnavailable:
+        logger.warning("cannot verify %s: the media store is unavailable", media_sha256)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="the media store is unavailable, so this digest cannot be verified",
+        ) from None
+    if not stored:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="no media has been uploaded under that digest",
+        )
 
 
 def _summary(row: CategoryRow) -> CategorySummaryBody:
@@ -135,6 +171,7 @@ async def set_category_active(
 
 @router.post("/categories/{category_id}/images", status_code=status.HTTP_201_CREATED)
 async def add_image(category_id: UUID, body: AddImageBody, request: Request) -> ImageBody:
+    await _require_stored(request, body.media_sha256)
     try:
         row = await _catalogue(request).add_image(
             category_id, media_sha256=body.media_sha256, answer_text=body.answer_text
@@ -146,6 +183,9 @@ async def add_image(category_id: UUID, body: AddImageBody, request: Request) -> 
 
 @router.put("/images/{image_id}")
 async def edit_image(image_id: UUID, body: EditImageBody, request: Request) -> ImageBody:
+    # Checked on the edit path too: checking only on create would leave
+    # this as the way in.
+    await _require_stored(request, body.media_sha256)
     try:
         await _catalogue(request).edit_image(
             image_id, media_sha256=body.media_sha256, answer_text=body.answer_text
