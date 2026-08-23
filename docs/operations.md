@@ -96,7 +96,32 @@ changed. Changing *that* invalidates every session and every stage link.
 
 ## If you are restoring a deployment older than the budge rename
 
-Objects were stored in a bucket called `podvinsya-media`, and the default
+Three things changed name, and none of them fails with a message that
+names the rename.
+
+**The Postgres role and database.** `compose.yaml` now asks for `budge`,
+and Postgres applies `POSTGRES_USER`/`POSTGRES_DB` only when it
+initialises an *empty* data directory. An existing `postgres-data` volume
+still holds the old `podvinsya` role, so the API fails to authenticate.
+Either keep the old values in `.env`, or rename the role and database in
+place before starting:
+
+```bash
+docker compose up -d postgres
+docker compose exec postgres psql -U podvinsya -d postgres \
+  -c 'ALTER ROLE podvinsya RENAME TO budge' \
+  -c 'ALTER DATABASE podvinsya_test RENAME TO budge'
+```
+
+**The compose project name.** It is now `budge`, so volumes are
+`budge_postgres-data` and so on. A machine that ran the stack before the
+rename still holds `podvinsya_postgres-data`, and no `docker compose`
+command — `down -v` included — can see it. The data is not lost, but it is
+stranded until you copy it across or rename the volume by hand. Check with
+`docker volume ls | grep podvinsya` before assuming a fresh start is fresh.
+
+**The media bucket.** Objects were stored in a bucket called
+`podvinsya-media`, and the default
 is now `budge-media`. Either set `BUDGE_S3_BUCKET=podvinsya-media` in
 `.env`, or copy the objects across before starting `api`. A mismatch here
 does not error — every picture simply 404s, and the game comes back
