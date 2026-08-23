@@ -18,11 +18,15 @@ needs a background consumer task. Only the quarantine test drives
 does, because `quarantined` is state only a real `Failed` outcome produces.
 """
 
+import asyncio
+import logging
 from collections.abc import AsyncIterator, Callable, Sequence
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timedelta
 from random import Random
 from uuid import uuid4
+
+import pytest
 
 from podvinsya.db.repository import LoadedMatch
 from podvinsya.domain.actions import AddPlayer, Command
@@ -408,3 +412,41 @@ async def test_the_sweep_runs_on_the_clock_port() -> None:
 
     await inner.advance_to(deadline)
     assert fired == [state.seq], "advancing the fake clock -- never real time -- is what fires it"
+
+
+# --------------------------------------------------------------------------
+# Critical 2's other half: a sweep that raises must not kill the loop
+# --------------------------------------------------------------------------
+
+
+async def test_a_sweep_that_raises_is_logged_and_the_loop_survives(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """§4.3's defence in depth is worthless if one bad sweep ends the whole
+    loop for every other live match with no signal at all. `run()` must log
+    and continue, not let the exception escape."""
+    clock = FakeClock(BASE_TIME)
+
+    def _raising_runtimes() -> list[WatchedMatch]:
+        raise RuntimeError("sweep blew up")
+
+    watchdog = Watchdog(clock, timedelta(seconds=5), _raising_runtimes)
+    task = asyncio.create_task(watchdog.run())
+    try:
+        await clock.settle()  # let the loop reach its first sleep_until
+        assert clock.pending() == 1, "the loop must have registered its first wait"
+
+        with caplog.at_level(logging.ERROR, logger="podvinsya.runtime.watchdog"):
+            await clock.advance_to(BASE_TIME + timedelta(seconds=5))
+            await clock.settle()
+
+        assert "watchdog sweep failed" in caplog.text
+        assert any(record.exc_info is not None for record in caplog.records), (
+            "the log record should carry the exception, not just a bare message"
+        )
+        assert not task.done(), "one failing sweep must not kill the watchdog's own loop"
+        assert clock.pending() == 1, "the loop must still be waiting on the clock for the next sweep"
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task

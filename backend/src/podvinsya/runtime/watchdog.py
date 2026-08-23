@@ -125,7 +125,18 @@ class Watchdog:
     async def run(self) -> None:
         """The `interval`-driven loop. Runs until cancelled; a caller that
         wants it to stop cancels the task it was started on, the same way
-        `MatchRuntime.run` is stopped."""
+        `MatchRuntime.run` is stopped.
+
+        An exception out of one `sweep()` must not kill this loop: the
+        watchdog is defence in depth for every live match at once, so a bug
+        in one sweep silently ending the whole loop would take that defence
+        away from every match with no signal at all. Log and continue,
+        rather than let it propagate -- catching `Exception`, never
+        `BaseException`, so cancellation still works.
+        """
         while True:
             await self._clock.sleep_until(self._clock.now() + self._interval)
-            await self.sweep()
+            try:
+                await self.sweep()
+            except Exception:
+                logger.exception("watchdog sweep failed; the loop continues")

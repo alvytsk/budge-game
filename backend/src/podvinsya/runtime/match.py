@@ -95,10 +95,29 @@ class MatchRuntime:
         until this task is cancelled from outside. Nothing externally
         visible happens under a lock: `CommitPath.run` returns only after
         its transaction has closed, so everything `_consume` does with the
-        result runs with no lock held."""
+        result runs with no lock held.
+
+        Everything below the commit line -- `fold`, `scheduler.reschedule`,
+        `origin.resolve_ok` -- runs unguarded inside `_consume`. §6.3 names
+        «исключение в decide / evolve → карантин» as its own row, but
+        `evolve` runs here, outside `CommitPath`, so this `try` is the other
+        half of that row: without it, an exception here would escape this
+        loop entirely and kill the consumer task silently -- `quarantined`
+        would stay `False`, `submit` would keep accepting commands into a
+        queue nobody drains, and every later caller would park on a future
+        that never resolves. Catching `Exception`, never `BaseException`,
+        keeps cancellation propagating normally.
+        """
         while True:
             queued = await self._queue.get()
-            await self._consume(queued)
+            try:
+                await self._consume(queued)
+            except Exception as exc:
+                logger.exception(
+                    "match %s: an exception escaped _consume; quarantining", self._match_id
+                )
+                self._quarantine(repr(exc))
+                queued.origin.resolve_failed(RuntimeCode.QUARANTINED, _QUARANTINED_MESSAGE)
 
     def stop(self) -> None:
         """Cancel whatever deadline is armed. A shutdown that leaves a

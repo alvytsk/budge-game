@@ -814,3 +814,50 @@ async def test_stopping_cancels_the_deadline_task() -> None:
 
     await clock.advance_to(deadline)
     assert fired == [], "a cancelled deadline task must never fire"
+
+
+# --------------------------------------------------------------------------
+# Critical 2: an exception below the commit line must not kill the consumer
+# --------------------------------------------------------------------------
+
+
+async def test_an_exception_below_the_commit_line_quarantines_and_resolves_the_origin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`fold`, `scheduler.reschedule` and `origin.resolve_ok` run inside
+    `_consume`, unguarded, below `CommitPath`'s own commit line. Without
+    `run()`'s own try/except, an exception here would escape `_consume`,
+    escape `run()`, and kill the consumer task -- `quarantined` would stay
+    False, and every later `submit` would park on a future nobody ever
+    resolves. This drives a genuine raise through `fold` and asserts both
+    halves: the match quarantines, and the caller's own origin is resolved
+    rather than left hanging."""
+
+    def _raising_fold(state: MatchState, events: Sequence[Event]) -> MatchState:
+        raise RuntimeError("evolve blew up")
+
+    monkeypatch.setattr(match_module, "fold", _raising_fold)
+
+    state = _fresh_state()
+    clock = FakeClock(BASE_TIME)
+    commit = CommitPath(_RecordingUoW(), _materialiser(clock), clock, Random(0))
+    runtime = MatchRuntime(state.id, state, commit, _inert_scheduler(clock), RecordingBroadcaster())
+
+    task = asyncio.create_task(runtime.run())
+    try:
+        origin = FutureOrigin()
+        runtime.submit(
+            CreateMatch(board=_BOARD, settings=_SETTINGS, player_count=_PLAYER_COUNT), origin
+        )
+        outcome = await asyncio.wait_for(origin.result(), timeout=2)
+
+        assert isinstance(outcome, Failed)
+        assert outcome.code is RuntimeCode.QUARANTINED
+        assert runtime.quarantined
+        assert not task.done(), (
+            "the exception must have been caught inside run()'s loop, not killed the task"
+        )
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
