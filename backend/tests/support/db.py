@@ -31,8 +31,7 @@ S3_ACCESS_KEY = "podvinsya"
 S3_SECRET_KEY = "podvinsya-secret"
 S3_BUCKET = "podvinsya-media-test"
 
-BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
-ALEMBIC_INI = BACKEND_DIR / "alembic.ini"
+ALEMBIC_INI = Path(podvinsya.__file__).resolve().parent / "alembic.ini"
 
 
 def alembic_config(url: str) -> Config:

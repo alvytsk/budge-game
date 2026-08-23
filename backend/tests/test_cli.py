@@ -201,3 +201,25 @@ def test_backup_needs_the_media_settings(monkeypatch: pytest.MonkeyPatch) -> Non
 
     with pytest.raises(ValidationError):
         main(["backup", "--to", "/tmp/does-not-matter"])
+
+
+def test_the_alembic_ini_travels_with_the_package() -> None:
+    """`migrate` reads an ini file, and where it looks for it has to be
+    correct in an installed layout as well as in a source tree.
+
+    Locating it by walking parents up from `cli.py` is only right when the
+    package sits under `backend/src/`; installed flat into site-packages
+    the same arithmetic points at the interpreter's lib directory, and
+    `migrate` dies in `env.py`'s `fileConfig` before it opens a connection.
+    Living inside the package makes it findable the same way the
+    migrations directory already is.
+
+    Kills on: the parent-walk — `backend/alembic.ini`'s parent is
+    `backend/`, not the package directory.
+    """
+    import podvinsya
+
+    from podvinsya.cli import ALEMBIC_INI
+
+    assert ALEMBIC_INI.is_file()
+    assert ALEMBIC_INI.parent == Path(podvinsya.__file__).parent

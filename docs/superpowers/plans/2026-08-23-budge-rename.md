@@ -83,7 +83,7 @@ That is not hypothetical: the infrastructure plan's API image hit it, and the wo
 **Interfaces:**
 - Produces: `ALEMBIC_INI` resolving inside the package in every layout. No signature changes.
 
-- [ ] **Step 1: Write the failing test — append to `backend/tests/test_cli.py`**
+- [x] **Step 1: Write the failing test — append to `backend/tests/test_cli.py`**
 
 ```python
 def test_the_alembic_ini_travels_with_the_package() -> None:
@@ -110,7 +110,7 @@ def test_the_alembic_ini_travels_with_the_package() -> None:
 
 with `from pathlib import Path` at the top if it is not already imported.
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 cd backend && pytest tests/test_cli.py -q -k alembic_ini; echo "exit=$?"
@@ -118,7 +118,7 @@ cd backend && pytest tests/test_cli.py -q -k alembic_ini; echo "exit=$?"
 
 Expected: FAIL on the second assertion — the file is currently at `backend/alembic.ini`, whose parent is `backend`.
 
-- [ ] **Step 3: Move the ini into the package**
+- [x] **Step 3: Move the ini into the package**
 
 ```bash
 cd backend && git mv alembic.ini src/podvinsya/alembic.ini; echo "exit=$?"
@@ -126,7 +126,7 @@ cd backend && git mv alembic.ini src/podvinsya/alembic.ini; echo "exit=$?"
 
 `script_location` inside it stays `src/podvinsya/db/migrations`. It is relative and Alembic resolves it against the *invocation* directory, which is why `cli.py` already overrides it — the value in the file matters only to a bare `alembic` invocation from `backend/`, which now needs `-c src/podvinsya/alembic.ini`.
 
-- [ ] **Step 4: Locate it through the package**
+- [x] **Step 4: Locate it through the package**
 
 In `backend/src/podvinsya/cli.py`, replace the `ALEMBIC_INI` assignment:
 
@@ -141,7 +141,7 @@ ALEMBIC_INI = Path(podvinsya.__file__).resolve().parent / "alembic.ini"
 
 `import podvinsya` is needed alongside the existing `import podvinsya.db`; importing the subpackage already binds the parent name, so confirm whether a second import line is required or whether `ruff` flags it as redundant, and do whichever keeps both `ruff` and `mypy --strict` clean.
 
-- [ ] **Step 5: Keep it in the wheel**
+- [x] **Step 5: Keep it in the wheel**
 
 `backend/pyproject.toml` line 35 is `packages = ["src/podvinsya"]`. Hatchling includes non-Python files under a declared package directory, so the ini should ship — but *should* is not evidence, and this is the whole point of the task. Prove it with a real non-editable install:
 
@@ -165,7 +165,7 @@ Expected: the path prints under `site-packages/podvinsya/alembic.ini` and `True`
 
 and re-run the probe. Report which was needed.
 
-- [ ] **Step 6: Point the test suite's own helper at the new location**
+- [x] **Step 6: Point the test suite's own helper at the new location**
 
 `backend/tests/support/db.py` has `ALEMBIC_INI = BACKEND_DIR / "alembic.ini"`. Change it to locate the file the same way, so the suite and the CLI cannot disagree:
 
@@ -175,7 +175,7 @@ ALEMBIC_INI = Path(podvinsya.__file__).resolve().parent / "alembic.ini"
 
 `BACKEND_DIR` is still used for nothing else in that module — if it becomes unused, remove it rather than leaving a name `ruff` will flag.
 
-- [ ] **Step 7: Green everything**
+- [x] **Step 7: Green everything**
 
 ```bash
 cd backend && pytest -q; echo "pytest=$?"
@@ -185,7 +185,7 @@ ruff check .; echo "ruff=$?"
 
 Expected: all 0, one test more than before.
 
-- [ ] **Step 8: Drop the editable-install workaround from the image**
+- [x] **Step 8: Drop the editable-install workaround from the image**
 
 `backend/Dockerfile`'s second install is `pip install --no-deps -e .`, made editable in the infrastructure plan solely to keep the source layout alive so this parent-walk resolved. With the ini inside the package that is no longer needed:
 
@@ -206,7 +206,7 @@ docker compose down -v
 
 Expected: `migrate=0`, with Alembic's `Running upgrade` lines in the output. **If this fails, revert the Dockerfile to `-e` and report it** — the workaround is not wrong, and shipping a broken image to prove a point is.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add backend && git commit -m "fix: let the CLI find its alembic.ini in an installed layout

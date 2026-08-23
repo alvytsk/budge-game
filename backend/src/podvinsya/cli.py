@@ -12,7 +12,12 @@ from alembic.config import Config
 import podvinsya.db
 from podvinsya.config import Settings
 
-ALEMBIC_INI = Path(__file__).resolve().parent.parent.parent / "alembic.ini"
+# Located through the package, exactly as `_config` already locates the
+# migrations directory below. The previous form walked three parents up
+# from this file, which is `backend/` in a source tree and the
+# interpreter's lib directory in a flat install — so `migrate` worked from
+# a checkout and died in an installed container.
+ALEMBIC_INI = Path(podvinsya.__file__).resolve().parent / "alembic.ini"
 
 
 def _config(url: str) -> Config:

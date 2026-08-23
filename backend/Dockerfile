@@ -36,16 +36,13 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY src/ ./src/
 COPY scripts/ ./scripts/
-COPY alembic.ini ./
-# Editable, and that is load-bearing rather than a convenience. `cli.py`
-# locates `alembic.ini` three directories above itself — `backend/` in the
-# source tree. Installed flat into site-packages the same arithmetic lands
-# on `/usr/local/lib/python3.12/alembic.ini`, which does not exist, and
-# `podvinsya migrate` dies in `fileConfig` before it opens a connection.
-# An editable install keeps the runtime layout the same shape as the source
-# layout, so `/app/alembic.ini` — the file the line above copies — is the
-# file the CLI actually finds.
-RUN pip install --no-cache-dir --no-deps -e .
+# A plain, non-editable install. This was `-e .` alongside a
+# `COPY alembic.ini ./`, because `cli.py` located the ini three directories
+# above itself — `backend/` in the source tree, and
+# `/usr/local/lib/python3.12/alembic.ini` once installed flat, which does
+# not exist. `cli.py` now locates it inside the package, so the ini ships in
+# the wheel and there is nothing left for the source layout to do.
+RUN pip install --no-cache-dir --no-deps .
 
 # Unprivileged: nothing here writes to the image, and the backup volume is
 # mounted with this uid's ownership by compose.
