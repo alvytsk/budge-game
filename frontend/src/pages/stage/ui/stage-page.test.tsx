@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeSocketFactory } from "../../../../testing/fake-socket";
 import {
   ATTACKER,
@@ -26,6 +26,11 @@ function mount() {
 }
 
 describe("StagePage", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
   it("waits before the first frame rather than drawing an empty board", () => {
     mount();
     expect(screen.getByText("Подключение")).toBeInTheDocument();
@@ -53,6 +58,51 @@ describe("StagePage", () => {
     send(stageFrame({ duel: null, resolution: resolution() }));
     expect(screen.getByRole("main")).toHaveAttribute("data-beat", "capture");
     expect(screen.getByRole("img", { name: "Поле" })).toBeInTheDocument();
+  });
+
+  it("ends the capture beat on its own, without a second frame arriving", () => {
+    // R4: the capture lasts CAPTURE_MS from the frame's arrival and then
+    // gives the board back — no frame is held back or queued to end it,
+    // so the only thing that can re-render the page in the meantime is
+    // the rAF loop. Kills on: running that loop only while a clock is
+    // ticking, which strands the projector on the capture highlight
+    // until the operator declares the next attack.
+    vi.setSystemTime(new Date("2026-08-23T20:00:00Z"));
+    const pending: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+      pending.push(callback),
+    );
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const { send } = mount();
+    send(stageFrame({ duel: null, resolution: resolution(), server_now: "2026-08-23T20:00:00Z" }));
+    expect(screen.getByRole("main")).toHaveAttribute("data-beat", "capture");
+
+    vi.setSystemTime(new Date("2026-08-23T20:00:03Z"));
+    act(() => {
+      for (const callback of pending.splice(0)) callback(0);
+    });
+
+    expect(screen.getByRole("main")).toHaveAttribute("data-beat", "idle");
+    expect(screen.getByRole("img", { name: "Поле" })).toBeInTheDocument();
+  });
+
+  it("runs no animation loop while the board is just sitting there", () => {
+    // §9.1's between-duel board is the common state, and it is on a
+    // projector for hours. Kills on: leaving the rAF loop armed whatever
+    // the beat, which repaints an unchanging field sixty times a second
+    // for as long as the show lasts.
+    const pending: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+      pending.push(callback),
+    );
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const { send } = mount();
+    send(stageFrame({ duel: null, resolution: null }));
+
+    expect(screen.getByRole("main")).toHaveAttribute("data-beat", "idle");
+    expect(pending).toHaveLength(0);
   });
 
   it("lays the pause plaque over the duel without removing it", () => {

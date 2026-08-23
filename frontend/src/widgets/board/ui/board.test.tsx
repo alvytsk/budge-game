@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import type { StageGroupFrame } from "@/shared/api";
 import { ATTACKER, cells, DEFENDER, group, stageFrame } from "../../../../testing/frames";
 import { Board } from "./board";
 
@@ -15,6 +16,21 @@ describe("Board", () => {
     // reaches the DOM.
     const frame = stageFrame({
       groups: [group({ id: "g2", owner: DEFENDER, category: { kind: "hidden" }, revealed: false })],
+    });
+    render(<Board frame={frame} />);
+    expect(screen.getByText("Секрет")).toBeInTheDocument();
+    expect(screen.queryByText("Кино")).not.toBeInTheDocument();
+  });
+
+  it("says «Секрет» even when a hidden category arrives carrying a name", () => {
+    // R8 through R1: nothing validates the frame at the socket, so the
+    // only thing between a server bug and a leaked category on the
+    // projector is that this widget reads the name off `kind: "named"`
+    // and never off whatever object it was handed. Kills on:
+    // `category.name ?? "Секрет"`.
+    const leaky = { kind: "hidden", name: "Кино" } as unknown as StageGroupFrame["category"];
+    const frame = stageFrame({
+      groups: [group({ id: "g2", owner: DEFENDER, category: leaky, revealed: false })],
     });
     render(<Board frame={frame} />);
     expect(screen.getByText("Секрет")).toBeInTheDocument();

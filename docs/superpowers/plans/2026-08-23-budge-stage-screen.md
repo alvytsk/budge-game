@@ -486,10 +486,10 @@ dist/
 - [x] **Step 17: Green the whole toolchain**
 
 ```bash
-cd frontend && pnpm build && pnpm check && pnpm test
+cd frontend && pnpm exec vite build && pnpm build && pnpm check && pnpm test
 ```
 
-Expected: all three pass. `pnpm build` runs first because it is what generates `routeTree.gen.ts`; `pnpm check` then type-checks against it. Run `pnpm fix` if Biome reports formatting.
+Expected: all four pass. `pnpm build` is `tsc --noEmit && vite build`, so it does **not** generate `routeTree.gen.ts` in time to type-check against it: `tsc` runs before the router plugin has written anything and fails on a cold tree or a newly added route file. `pnpm exec vite build` therefore has to run first — that is the step that writes the tree — after which `pnpm build` and `pnpm check` type-check against it. Run `pnpm fix` if Biome reports formatting.
 
 - [x] **Step 18: Rewrite `frontend/README.md`**
 
@@ -2462,13 +2462,13 @@ function RouteComponent() {
 
 `autoCodeSplitting` in `vite.config.ts` gives §9's «ленивые деревья роутов» without any further work: the stage bundle and the host bundle load independently.
 
-- [x] **Step 5: Rebuild so the router regenerates the tree**
+- [x] **Step 5: Regenerate the route tree, then build**
 
 ```bash
-cd frontend && pnpm build
+cd frontend && pnpm exec vite build && pnpm build
 ```
 
-Expected: PASS, and `src/app/routes/routeTree.gen.ts` now contains `/stage/$token`.
+Expected: PASS, and `src/app/routes/routeTree.gen.ts` now contains `/stage/$token`. `pnpm build` alone will not do it: it is `tsc --noEmit && vite build`, and `tsc` runs before the router plugin, so with a route file added and the tree not yet regenerated it fails on the import of a route that is not in the tree. `pnpm exec vite build` is the invocation that writes the tree.
 
 - [x] **Step 6: Add the stage paragraph to `frontend/README.md`**
 
@@ -2506,42 +2506,42 @@ cd .. && git add frontend && git commit -m "feat(stage): the stage route, wired 
 
 Not new behaviour — proof that the tests above hold. The technique is mutation testing: apply the change each test claims to kill, and confirm the test actually fires.
 
-- [ ] **Step 1: Mutate `beatOf` — drop the capture branch**
+- [x] **Step 1: Mutate `beatOf` — drop the capture branch**
 
 Delete the `frame.resolution !== null && sinceFrameMs < CAPTURE_MS` clause so it falls through to `idle`.
 Expected: `beat.test.ts` "is the capture for a bounded window" fails, and `stage-page.test.tsx` "brings the board back for the capture" fails. Revert.
 
-- [ ] **Step 2: Mutate `remainingAt` — ignore `paused`**
+- [x] **Step 2: Mutate `remainingAt` — ignore `paused`**
 
 Drop `&& !timing.paused`.
 Expected: "does not run the clock while the duel is paused" fails. Revert.
 
-- [ ] **Step 3: Mutate `useServerClock` — return `Date.now()`**
+- [x] **Step 3: Mutate `useServerClock` — return `Date.now()`**
 
 Expected: "reads the server's clock, not the browser's" fails, and so does `TimerPair`'s "counts the answering clock down between frames". Revert.
 
-- [ ] **Step 4: Mutate `outlinePath` — emit all four edges unconditionally**
+- [x] **Step 4: Mutate `outlinePath` — emit all four edges unconditionally**
 
 Expected: "omits the edge two cells of the group share" fails. Revert.
 
-- [ ] **Step 5: Mutate `GroupShape` — label a hidden group with a name**
+- [x] **Step 5: Mutate `GroupShape` — label a hidden group with a name**
 
 Change the label expression to read a name off the category regardless of `kind` (cast through `unknown` to get past the type check — that cast is itself the proof the type system was holding the line).
 Expected: the board's «Секрет» test and the page's projection test both fail. Revert, including the cast.
 
-- [ ] **Step 6: Mutate `connectStage` — do not reconnect on close**
+- [x] **Step 6: Mutate `connectStage` — do not reconnect on close**
 
 Expected: "reconnects after the server drops the connection" fails. Revert.
 
-- [ ] **Step 7: Mutate `useStageFrame` — clear the frame on close**
+- [x] **Step 7: Mutate `useStageFrame` — clear the frame on close**
 
 Expected: "keeps drawing the last frame after the socket drops" fails, and so does the page's equivalent. Revert.
 
-- [ ] **Step 8: Fix anything that did not fire**
+- [x] **Step 8: Fix anything that did not fire**
 
 A mutation the suite survives is a missing test, not a passing one. Write the test, then re-run the mutation.
 
-- [ ] **Step 9: Confirm the tree is clean and green**
+- [x] **Step 9: Confirm the tree is clean and green**
 
 ```bash
 cd frontend && pnpm build && pnpm check && pnpm test
@@ -2550,7 +2550,7 @@ cd .. && git status --porcelain
 
 Expected: all green, and `git status` reports nothing — every mutation reverted.
 
-- [ ] **Step 10: Commit anything the review added**
+- [x] **Step 10: Commit anything the review added**
 
 ```bash
 git add frontend && git commit -m "test(stage): close the gaps the mutation pass found"

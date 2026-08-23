@@ -49,6 +49,20 @@ describe("beatOf", () => {
     expect(beatOf(frame, 0)).toEqual({ kind: "endgame", winner: DEFENDER });
   });
 
+  it("puts the endgame ahead of a duel the closing frame still carries", () => {
+    // The order of the checks is the whole function, and «выбывание /
+    // победа — отдельный кадр» outranks a stale duel as well as a stale
+    // resolution. Kills on: testing `status` after `duel`, which leaves
+    // the room watching a picture and two running clocks after the match
+    // is already over.
+    const frame = stageFrame({
+      status: "finished",
+      winner: DEFENDER,
+      duel: duel({ phase: "running" }),
+    });
+    expect(beatOf(frame, 0)).toEqual({ kind: "endgame", winner: DEFENDER });
+  });
+
   it("does not treat a paused duel as a different beat", () => {
     // §9.1: pause is «состояние вне такта» — an overlay over whatever
     // beat is running, not a beat of its own. Kills on: making pause a
