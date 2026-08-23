@@ -439,6 +439,52 @@ async def test_a_stale_expire_timer_is_dropped_as_a_no_op() -> None:
     await clock.settle()
 
 
+async def test_a_not_actually_expired_timer_rearms_the_deadline() -> None:
+    """Important 3: §4.1's clock-stepped-backward hazard. The task that
+    fired `ExpireTimer` has already finished by the time it is consumed --
+    `deadline_id` is cleared only by `cancel()`, so it still names this
+    duel's current anchor -- and if the duel turns out not to actually be
+    expired, `_expire_timer` returns `()`. Without rescheduling on the
+    `NoOp` branch, the duel would be left RUNNING, unpaused, with a dead
+    task and a non-`None` id: invisible to the watchdog (`deadline_id is
+    not None` looks covered), and the timer never fires again."""
+    recorded = build_rich_stream()
+    state = _state_after(recorded, DuelStarted)
+    assert state.duel is not None and not state.duel.paused
+
+    clock = FakeClock(BASE_TIME)
+    scheduler = DeadlineScheduler(clock, _noop_fire)
+    scheduler.reschedule(state)
+    await clock.settle()
+    current_id = scheduler.deadline_id
+    deadline = scheduler.scheduled_for
+    assert current_id is not None and deadline is not None
+
+    # Let the armed task actually fire and finish, the same way a real
+    # deadline would -- `deadline_id` stays put, but the task is done.
+    await clock.advance_to(deadline)
+    await clock.settle()
+    assert not scheduler.armed, "the test needs the task to have genuinely finished"
+
+    # The clock stepped backward before this command reached the queue: by
+    # the time it is consumed, the duel reads as not-yet-expired again.
+    await clock.advance_to(BASE_TIME)
+
+    commit = CommitPath(_RecordingUoW(), _materialiser(clock), clock, Random(0))
+    runtime = MatchRuntime(state.id, state, commit, scheduler, RecordingBroadcaster())
+    origin = FutureOrigin()
+    queued = QueuedCommand.issue(ExpireTimer(deadline_id=current_id), origin)
+
+    await runtime._consume(queued)
+
+    outcome = await origin.result()
+    assert outcome == NoOp()
+    assert scheduler.armed, "the NoOp branch must rearm a deadline it just saw was not covered"
+
+    scheduler.cancel()
+    await clock.settle()
+
+
 async def test_a_current_expire_timer_is_applied() -> None:
     """The other half: the identity check must not swallow the real one.
 

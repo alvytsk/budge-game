@@ -292,6 +292,56 @@ async def test_a_duel_with_a_deadline_is_left_alone() -> None:
     assert scheduler.deadline_id == state.seq
 
 
+async def test_a_fired_but_dead_timer_is_caught_by_armed_not_deadline_id() -> None:
+    """Important 3, the watchdog's own half. `deadline_id` is cleared only
+    by `cancel()` -- deliberately, since `_is_stale_timer` needs it after
+    the fact -- so it cannot tell a genuinely armed timer from one that
+    already fired and left its task dead. `MatchRuntime._consume`'s own
+    `NoOp`-branch fix (Important 3's other half) closes this the moment
+    such a command is actually consumed; this is what closes it as
+    defence in depth if, for any reason, that never happens. Manufactured
+    directly, the same way every other fault in this module is: let a
+    real task fire and finish on its own, leaving `deadline_id` set but
+    `armed` False -- exactly what a naive `deadline_id is not None` check
+    would mistake for "already covered."
+    """
+    recorded = build_rich_stream()
+    state = _state_after(recorded, DuelStarted)
+    assert state.duel is not None and not state.duel.paused
+    deadline = deadline_of(state.duel)
+    assert deadline is not None
+
+    clock = FakeClock(BASE_TIME)
+
+    async def fire(deadline_id: int) -> None:
+        pass  # the task simply finishes; nothing resubmits an ExpireTimer
+
+    scheduler = _CountingScheduler(clock, fire)
+    scheduler.reschedule(state)
+    await clock.settle()
+    assert scheduler.reschedule_calls == 1
+
+    await clock.advance_to(deadline)
+    await clock.settle()
+    assert scheduler.deadline_id == state.seq, "only cancel() may clear the id"
+    assert not scheduler.armed, "the test needs the task to have genuinely finished"
+
+    # The clock stepped backward before the watchdog's next sweep -- the
+    # same §4.1 hazard, so the re-armed task gets a deadline genuinely in
+    # the future and survives past this sweep instead of firing again at
+    # once.
+    await clock.advance_to(BASE_TIME)
+
+    watched = _watch(state, scheduler, clock)
+    watchdog = Watchdog(clock, timedelta(seconds=5), _one(watched))
+
+    await watchdog.sweep()
+    await clock.settle()
+
+    assert scheduler.reschedule_calls == 2, "a fired-but-dead timer must be re-armed"
+    assert scheduler.armed, "the re-arm must leave a genuinely live task behind"
+
+
 async def test_a_match_with_no_duel_is_left_alone() -> None:
     """Two shapes of "no duel", both legitimate: no duel object at all,
     and a duel that exists but has not started -- `AttackDeclared` sets

@@ -140,6 +140,16 @@ class MatchRuntime:
         outcome = await self._commit.run(self._state, queued)
         match outcome:
             case NoOp():
+                # `ExpireTimer` reaching here with a current id but a duel
+                # that turns out not to be expired (§4.1's clock-stepped-
+                # backward hazard) means the task that fired it has
+                # already finished, but the scheduler's own id is still
+                # what it was -- rescheduling closes that gap the moment
+                # it is seen, instead of leaving it for the watchdog alone
+                # to notice on its next sweep. Idempotent for every other
+                # command that produces a NoOp: the state has not moved,
+                # so there is nothing new to arm.
+                self._scheduler.reschedule(self._state)
                 queued.origin.resolve_noop()
             case Rejected(reason):
                 queued.origin.resolve_rejected(reason)

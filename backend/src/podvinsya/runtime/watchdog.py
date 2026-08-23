@@ -95,8 +95,11 @@ class Watchdog:
             return
 
         scheduler = watched.scheduler
-        if scheduler.deadline_id is not None:
-            # Already covered; nothing to catch.
+        if scheduler.armed:
+            # A task is genuinely alive and covering this deadline;
+            # nothing to catch. `deadline_id is not None` alone cannot
+            # tell that apart from "fired, task dead" -- `armed` is what
+            # actually means covered (see `DeadlineScheduler.armed`).
             return
 
         # The fault: an armed, unpaused duel with no timer covering it --

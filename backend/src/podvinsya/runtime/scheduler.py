@@ -56,6 +56,20 @@ class DeadlineScheduler:
         return self._deadline_id
 
     @property
+    def armed(self) -> bool:
+        """Whether a task is actually alive and covering `deadline_id`.
+
+        `deadline_id` alone cannot tell that apart from "fired, task dead":
+        it is cleared only by `cancel()`, deliberately, because
+        `_is_stale_timer` needs it after the fact to recognise the timer
+        that just fired. `armed` is the check that means what §4.3 says --
+        an armed, unpaused duel with a task genuinely covering it -- and is
+        what the watchdog (`_rearm_if_faulty`) checks instead of
+        `deadline_id is not None`.
+        """
+        return self._task is not None and not self._task.done()
+
+    @property
     def scheduled_for(self) -> datetime | None:
         return self._scheduled_for
 
