@@ -1676,7 +1676,7 @@ Beat 2 of §9.1: the board goes, the picture fills the screen, two timers sit on
   - `<DuelView frame duel now={() => number} />`
   - `prefetchImages(digests: string[]): void`
 
-- [ ] **Step 1: (removed)**
+- [x] **Step 1: (removed)**
 
 The plan originally added `shared/api/media.ts` as a re-export of
 `mediaUrl`. It is redundant — `shared/config/index.ts` already exports it —
@@ -1685,7 +1685,7 @@ alias violates `fsd/import-locality`. Reach `mediaUrl` as
 `import { mediaUrl } from "@/shared/config"` from outside `shared`, and as
 `import { mediaUrl } from "../config"` from inside it. Nothing to do here.
 
-- [ ] **Step 2: Write `frontend/src/shared/lib/use-media-prefetch.ts`**
+- [x] **Step 2: Write `frontend/src/shared/lib/use-media-prefetch.ts`**
 
 §9.1 beat 1: «Здесь же грузится вся пачка картинок». Four lanes, and a failed load still pumps the queue — a missing digest must not stall the rest of the pack.
 
@@ -1727,7 +1727,7 @@ export function useMediaPrefetch(digests: string[]): void {
 }
 ```
 
-- [ ] **Step 3: Write the failing timer test — `frontend/src/widgets/duel/ui/timer-pair.test.tsx`**
+- [x] **Step 3: Write the failing timer test — `frontend/src/widgets/duel/ui/timer-pair.test.tsx`**
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -1778,9 +1778,9 @@ describe("TimerPair", () => {
 });
 ```
 
-- [ ] **Step 4: Run it and watch it fail**
+- [x] **Step 4: Run it and watch it fail**
 
-- [ ] **Step 5: Write `frontend/src/widgets/duel/ui/timer-pair.tsx`**
+- [x] **Step 5: Write `frontend/src/widgets/duel/ui/timer-pair.tsx`**
 
 ```tsx
 import { remainingAt } from "@/entities/duel";
@@ -1848,11 +1848,11 @@ export function TimerPair({ frame, duel, now }: TimerPairProps) {
 }
 ```
 
-- [ ] **Step 6: Run it and watch it pass**
+- [x] **Step 6: Run it and watch it pass**
 
 Expected: PASS, 5 tests.
 
-- [ ] **Step 7: Write the failing duel-view test — `frontend/src/widgets/duel/ui/duel-view.test.tsx`**
+- [x] **Step 7: Write the failing duel-view test — `frontend/src/widgets/duel/ui/duel-view.test.tsx`**
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -1898,9 +1898,9 @@ describe("DuelView", () => {
 });
 ```
 
-- [ ] **Step 8: Run it and watch it fail**
+- [x] **Step 8: Run it and watch it fail**
 
-- [ ] **Step 9: Write `frontend/src/widgets/duel/ui/duel-view.tsx`**
+- [x] **Step 9: Write `frontend/src/widgets/duel/ui/duel-view.tsx`**
 
 ```tsx
 import type { StageDuelFrame, StageFrame } from "@/shared/api/contracts";
@@ -1936,14 +1936,14 @@ export function DuelView({ frame, duel, now }: DuelViewProps) {
 }
 ```
 
-- [ ] **Step 10: Write `frontend/src/widgets/duel/index.ts`**
+- [x] **Step 10: Write `frontend/src/widgets/duel/index.ts`**
 
 ```ts
 export { DuelView } from "./ui/duel-view";
 export { TimerPair, formatClock } from "./ui/timer-pair";
 ```
 
-- [ ] **Step 11: Green everything and commit**
+- [x] **Step 11: Green everything and commit**
 
 ```bash
 cd frontend && pnpm test && pnpm check
