@@ -127,6 +127,28 @@ describe("HostBoard", () => {
     expect(screen.getByTestId("group-g1")).toHaveAttribute("data-selected", "false");
   });
 
+  it("does not strand the board when the selected group merges away", async () => {
+    // The operator picks a group, a capture lands, and that group is gone
+    // from the next frame. Kills on: trusting the remembered id — every
+    // button would disable, and the click that clears a selection is on
+    // the group that no longer exists, so the console sticks with no way
+    // out but a reload.
+    const { rerender } = render(<HostBoard frame={FRAME} onDeclare={vi.fn()} />);
+    await userEvent.click(screen.getByTestId("group-g1"));
+    expect(screen.getByTestId("group-g1")).toHaveAttribute("data-selected", "true");
+
+    const merged = hostFrame({
+      groups: [
+        hostGroup({ id: "g9", owner: DEFENDER, cells: [{ col: 0, row: 0 }] }),
+        hostGroup({ id: "g3", owner: DEFENDER, cells: [{ col: 2, row: 2 }] }),
+      ],
+      legal_attacks: { g9: ["g3"] },
+    });
+    rerender(<HostBoard frame={merged} onDeclare={vi.fn()} />);
+
+    expect(screen.getByTestId("group-g9")).toBeEnabled();
+  });
+
   it("offers nothing at all when no attack is legal", () => {
     // A stuck console is the intended failure (H2's cost note), and it
     // must not be a crash.

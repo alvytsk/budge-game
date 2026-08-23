@@ -35,9 +35,20 @@ function span(cells: CellFrame[]): { col: number; row: number; cols: number; row
  * `legal_attacks` (H2): the adjacency rule is not checked on this screen,
  * it is made unreachable. */
 export function HostBoard({ frame, onDeclare }: HostBoardProps) {
-  const selected = useSelection((state) => state.selected);
+  const remembered = useSelection((state) => state.selected);
   const select = useSelection((state) => state.select);
   const clear = useSelection((state) => state.clear);
+
+  // A remembered selection the newest frame no longer contains is stale:
+  // the group merged away while it was picked (§9.1's capture). Treating
+  // it as live would leave `targets` empty and every group disabled — and
+  // the one click that clears a selection is on the group that has just
+  // ceased to exist, so the board would be stuck with no way out. H1
+  // makes the frame the authority, and this is what that means here.
+  const selected =
+    remembered !== null && frame.groups.some((group) => group.id === remembered)
+      ? remembered
+      : null;
 
   const targets = selected === null ? [] : (frame.legal_attacks[selected] ?? []);
   const canAttack = (groupId: string) => (frame.legal_attacks[groupId] ?? []).length > 0;
