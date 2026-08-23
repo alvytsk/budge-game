@@ -1,12 +1,7 @@
-import { remainingAt } from "@/entities/duel";
+import { formatClock, remainingAt } from "@/entities/duel";
 import { colourOf } from "@/entities/match";
 import type { StageDuelFrame, StageFrame } from "@/shared/api";
 import { cn } from "@/shared/lib/cn";
-
-export function formatClock(ms: number): string {
-  const seconds = Math.ceil(Math.max(0, ms) / 1000);
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
 
 interface OneTimerProps {
   name: string;

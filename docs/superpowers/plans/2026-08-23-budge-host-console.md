@@ -2845,7 +2845,7 @@ cd .. && git add frontend && git commit -m "feat(host): make an illegal attack u
   - `hostBeatOf(frame): "setup" | "board" | "judging" | "over"`
   - `<JudgingPanel frame duel now send />`, `<MatchPage matchId socketFactory? />`
 
-- [ ] **Step 1: Write the failing hotkeys test — `frontend/src/shared/lib/use-hotkeys.test.tsx`**
+- [x] **Step 1: Write the failing hotkeys test — `frontend/src/shared/lib/use-hotkeys.test.tsx`**
 
 ```tsx
 import { renderHook } from "@testing-library/react";
@@ -2904,7 +2904,7 @@ describe("useHotkeys", () => {
 });
 ```
 
-- [ ] **Step 2: Run it, watch it fail, then write `frontend/src/shared/lib/use-hotkeys.ts`**
+- [x] **Step 2: Run it, watch it fail, then write `frontend/src/shared/lib/use-hotkeys.ts`**
 
 ```ts
 import { useEffect, useRef } from "react";
@@ -2948,11 +2948,11 @@ export function useHotkeys(map: Record<string, () => void>, active: boolean): vo
 }
 ```
 
-- [ ] **Step 3: Run it and watch it pass**
+- [x] **Step 3: Run it and watch it pass**
 
 Expected: PASS, 5 tests.
 
-- [ ] **Step 4: Write the failing beat test — `frontend/src/entities/match/model/host-beat.test.ts`**
+- [x] **Step 4: Write the failing beat test — `frontend/src/entities/match/model/host-beat.test.ts`**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -2997,7 +2997,7 @@ describe("hostBeatOf", () => {
 });
 ```
 
-- [ ] **Step 5: Run it, watch it fail, then write `frontend/src/entities/match/model/host-beat.ts`**
+- [x] **Step 5: Run it, watch it fail, then write `frontend/src/entities/match/model/host-beat.ts`**
 
 ```ts
 import type { HostFrame } from "@/shared/api";
@@ -3020,11 +3020,11 @@ Add to `frontend/src/entities/match/index.ts`:
 export { type HostBeat, hostBeatOf } from "./model/host-beat";
 ```
 
-- [ ] **Step 6: Run it and watch it pass**
+- [x] **Step 6: Run it and watch it pass**
 
 Expected: PASS, 6 tests.
 
-- [ ] **Step 7: Write the failing judging test — `frontend/src/widgets/judging/ui/judging-panel.test.tsx`**
+- [x] **Step 7: Write the failing judging test — `frontend/src/widgets/judging/ui/judging-panel.test.tsx`**
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -3126,7 +3126,7 @@ describe("JudgingPanel", () => {
 });
 ```
 
-- [ ] **Step 8: Run it, watch it fail, then write `frontend/src/widgets/judging/ui/judging-panel.tsx`**
+- [x] **Step 8: Run it, watch it fail, then write `frontend/src/widgets/judging/ui/judging-panel.tsx`**
 
 ```tsx
 import { remainingAt } from "@/entities/duel";
@@ -3265,11 +3265,11 @@ export function JudgingPanel({ frame, duel, now, send }: JudgingPanelProps) {
 
 `frontend/src/widgets/judging/index.ts`: `export { JudgingPanel } from "./ui/judging-panel";`
 
-- [ ] **Step 9: Run it and watch it pass**
+- [x] **Step 9: Run it and watch it pass**
 
 Expected: PASS, 9 tests.
 
-- [ ] **Step 10: Write the failing page test — `frontend/src/pages/host-match/ui/match-page.test.tsx`**
+- [x] **Step 10: Write the failing page test — `frontend/src/pages/host-match/ui/match-page.test.tsx`**
 
 ```tsx
 import { act, screen } from "@testing-library/react";
@@ -3348,7 +3348,7 @@ describe("MatchPage", () => {
 });
 ```
 
-- [ ] **Step 11: Run it, watch it fail, then write `frontend/src/pages/host-match/ui/match-page.tsx`**
+- [x] **Step 11: Run it, watch it fail, then write `frontend/src/pages/host-match/ui/match-page.tsx`**
 
 ```tsx
 import { useQuery } from "@tanstack/react-query";
@@ -3428,7 +3428,7 @@ export function MatchPage({ matchId, socketFactory }: MatchPageProps) {
 
 `frontend/src/pages/host-match/index.ts`: `export { MatchPage } from "./ui/match-page";`
 
-- [ ] **Step 12: Replace the route stub — `frontend/src/app/routes/host.match.$matchId.tsx`**
+- [x] **Step 12: Replace the route stub — `frontend/src/app/routes/host.match.$matchId.tsx`**
 
 ```tsx
 import { createFileRoute } from "@tanstack/react-router";
@@ -3442,7 +3442,7 @@ function RouteComponent() {
 }
 ```
 
-- [ ] **Step 13: Green everything and commit**
+- [x] **Step 13: Green everything and commit**
 
 ```bash
 cd frontend && pnpm exec vite build; echo "exit=$?"

@@ -1,2 +1,2 @@
 export { DuelView } from "./ui/duel-view";
-export { formatClock, TimerPair } from "./ui/timer-pair";
+export { TimerPair } from "./ui/timer-pair";
