@@ -10,6 +10,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
+    "boto3>=1.35",
 ]
 
 [project.optional-dependencies]
@@ -20,6 +21,7 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
     "httpx>=0.28",
+    "boto3-stubs[s3]>=1.35",
 ]
 
 [project.scripts]

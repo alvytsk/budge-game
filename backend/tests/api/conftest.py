@@ -17,7 +17,13 @@ from fastapi import FastAPI
 from db.conftest import clean_db, engine, migrated_schema, sessions
 from podvinsya.api.security import hash_password
 from podvinsya.api.settings import ApiSettings
-from support.db import DATABASE_URL
+from support.db import (
+    DATABASE_URL,
+    S3_ACCESS_KEY,
+    S3_BUCKET,
+    S3_ENDPOINT,
+    S3_SECRET_KEY,
+)
 
 __all__ = ["clean_db", "engine", "migrated_schema", "sessions", "api_settings", "running_app"]
 
@@ -37,6 +43,10 @@ def api_settings() -> ApiSettings:
         database_url=DATABASE_URL,
         secret_key=TEST_SECRET,
         host_password=hash_password(TEST_PASSWORD),
+        s3_endpoint=S3_ENDPOINT,
+        s3_access_key=S3_ACCESS_KEY,
+        s3_secret_key=S3_SECRET_KEY,
+        s3_bucket=S3_BUCKET,
     )
 
 

@@ -46,6 +46,43 @@ def test_a_password_containing_spaces_survives_the_round_trip(
     assert verify_password(passphrase, capsys.readouterr().out.strip())
 
 
+def serve_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Everything `ApiSettings()` requires, and nothing it defaults.
+
+    Set in one place because the list is the point: `serve` constructs its
+    settings from the environment, and every field without a default is one
+    a deployment must be told about explicitly — a database, a signing key,
+    a password hash, and the object store §10 asks for.
+    """
+    for name, value in {
+        "PODVINSYA_DATABASE_URL": "postgresql+asyncpg://u:p@127.0.0.1:1/x",
+        "PODVINSYA_SECRET_KEY": "a-key",
+        "PODVINSYA_HOST_PASSWORD": "a-hash",
+        "PODVINSYA_S3_ENDPOINT": "http://127.0.0.1:1",
+        "PODVINSYA_S3_ACCESS_KEY": "an-access-key",
+        "PODVINSYA_S3_SECRET_KEY": "a-secret-key",
+    }.items():
+        monkeypatch.setenv(name, value)
+
+
+def test_serve_needs_every_setting_that_has_no_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Kills on: giving `s3_endpoint` or either credential a default. A
+    process that quietly pointed at somebody's scratch bucket would be
+    worse than one that refused to start — the same reason
+    `database_url` has none."""
+    import uvicorn
+    from pydantic import ValidationError
+
+    serve_environment(monkeypatch)
+    monkeypatch.delenv("PODVINSYA_S3_ENDPOINT")
+    monkeypatch.setattr(uvicorn, "run", lambda *a, **k: None)
+
+    with pytest.raises(ValidationError):
+        main(["serve"])
+
+
 def test_serve_starts_uvicorn_with_the_app(monkeypatch: pytest.MonkeyPatch) -> None:
     """Kills on: passing an import string instead of the built app, which
     would make uvicorn construct a second `ApiSettings()` in a worker
@@ -59,9 +96,7 @@ def test_serve_starts_uvicorn_with_the_app(monkeypatch: pytest.MonkeyPatch) -> N
     def fake_run(app: object, *, host: str, port: int, **rest: object) -> None:
         calls.append((app, host, port))
 
-    monkeypatch.setenv("PODVINSYA_DATABASE_URL", "postgresql+asyncpg://u:p@127.0.0.1:1/x")
-    monkeypatch.setenv("PODVINSYA_SECRET_KEY", "a-key")
-    monkeypatch.setenv("PODVINSYA_HOST_PASSWORD", "a-hash")
+    serve_environment(monkeypatch)
     monkeypatch.setattr(uvicorn, "run", fake_run)
 
     assert main(["serve", "--port", "9001"]) == 0
@@ -83,9 +118,7 @@ def test_serve_does_not_apply_migrations(monkeypatch: pytest.MonkeyPatch) -> Non
     import uvicorn
     from alembic import command as alembic_command
 
-    monkeypatch.setenv("PODVINSYA_DATABASE_URL", "postgresql+asyncpg://u:p@127.0.0.1:1/x")
-    monkeypatch.setenv("PODVINSYA_SECRET_KEY", "a-key")
-    monkeypatch.setenv("PODVINSYA_HOST_PASSWORD", "a-hash")
+    serve_environment(monkeypatch)
     monkeypatch.setattr(uvicorn, "run", lambda *a, **k: None)
 
     def refuse(*args: object, **kwargs: object) -> None:
