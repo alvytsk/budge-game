@@ -5,6 +5,7 @@ tested here is the one subcommand that has no database in it at all.
 """
 
 import io
+from pathlib import Path
 
 import pytest
 
@@ -93,3 +94,63 @@ def test_serve_does_not_apply_migrations(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(alembic_command, "upgrade", refuse)
 
     assert main(["serve"]) == 0
+
+
+def test_export_types_check_passes_against_the_committed_file() -> None:
+    """Kills on: `--check` writing the file, which would make the CI job
+    pass by fixing the divergence instead of reporting it."""
+    assert main(["export-types", "--check"]) == 0
+
+
+def test_export_types_check_fails_against_a_stale_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """§11: «расхождение Pydantic и TypeScript валит CI» — a non-zero exit
+    is what "fails CI" means mechanically.
+
+    Kills on: returning 0 on a difference, which leaves the CI job green
+    over a contract that has drifted."""
+    from podvinsya.contracts import export
+
+    stale = tmp_path / "contracts.ts"
+    stale.write_text("nothing like the real thing\n", encoding="utf-8")
+    monkeypatch.setattr(export, "CONTRACTS_PATH", stale)
+
+    assert main(["export-types", "--check"]) == 1
+    captured = capsys.readouterr()
+    assert "out of date" in captured.err
+    assert "StageFrame" in captured.out
+
+
+def test_export_types_check_does_not_write(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Kills on: `--check` calling `write`. A check that repaired what it
+    was checking would report a clean tree on every second run, and the
+    divergence would reach the front end anyway."""
+    from podvinsya.contracts import export
+
+    stale = tmp_path / "contracts.ts"
+    stale.write_text("stale\n", encoding="utf-8")
+    monkeypatch.setattr(export, "CONTRACTS_PATH", stale)
+
+    main(["export-types", "--check"])
+    capsys.readouterr()
+
+    assert stale.read_text(encoding="utf-8") == "stale\n"
+
+
+def test_export_types_writes_and_prints_where(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Kills on: writing silently. The operator running this needs to know
+    which file to commit, and the path is the whole of that answer."""
+    from podvinsya.contracts import export
+
+    target = tmp_path / "shared" / "api" / "contracts.ts"
+    monkeypatch.setattr(export, "CONTRACTS_PATH", target)
+
+    assert main(["export-types"]) == 0
+
+    assert str(target) in capsys.readouterr().out
+    assert "export interface StageFrame" in target.read_text(encoding="utf-8")

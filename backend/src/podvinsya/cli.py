@@ -47,6 +47,14 @@ def main(argv: list[str] | None = None) -> int:
     serve = subcommands.add_parser("serve", help="run the API (migrate first — see §10)")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
+    export_types = subcommands.add_parser(
+        "export-types", help="generate the TypeScript contract from the Pydantic models"
+    )
+    export_types.add_argument(
+        "--check",
+        action="store_true",
+        help="do not write; exit non-zero and print a diff if the file is out of date",
+    )
 
     args = parser.parse_args(argv)
     if args.command == "migrate":
@@ -73,6 +81,28 @@ def main(argv: list[str] | None = None) -> int:
 
         uvicorn.run(build_app(ApiSettings()), host=args.host, port=args.port)
         return 0
+    if args.command == "export-types":
+        # Imported here for the same reason `serve`'s imports are: the
+        # migrate step must not pull in the whole API model tree to run one
+        # Alembic command.
+        from podvinsya.contracts import export
+
+        if not args.check:
+            print(export.write())
+            return 0
+        difference = export.check()
+        if difference is None:
+            return 0
+        # Flushed before the message goes to stderr: the two streams are
+        # interleaved in a CI log, and a diff printed after its own summary
+        # reads as though it belonged to the next step.
+        print(difference, end="", flush=True)
+        print(
+            f"\n{export.CONTRACTS_PATH} is out of date. "
+            "Run `podvinsya export-types` and commit the result.",
+            file=sys.stderr,
+        )
+        return 1
     return 1  # pragma: no cover - argparse rejects anything else first
 
 
