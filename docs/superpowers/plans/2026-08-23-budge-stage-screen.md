@@ -2232,7 +2232,7 @@ Assemble it: connect, ask `beatOf`, render one thing. Then the whole-screen test
 - Consumes: everything above.
 - Produces: `<StagePage token socketFactory? />`, and the route at `/stage/$token`.
 
-- [ ] **Step 1: Write `frontend/src/pages/stage/ui/stage-page.tsx`**
+- [x] **Step 1: Write `frontend/src/pages/stage/ui/stage-page.tsx`**
 
 The one module that knows all three widgets exist. Note what is *not* here: no conditionals on player state, no rule checks, no derived scores. Six lines of `switch` over a value another module computed.
 
@@ -2318,7 +2318,7 @@ export function StagePage({ token, socketFactory }: StagePageProps) {
 export { StagePage } from "./ui/stage-page";
 ```
 
-- [ ] **Step 2: Write the whole-screen test — `frontend/src/pages/stage/ui/stage-page.test.tsx`**
+- [x] **Step 2: Write the whole-screen test — `frontend/src/pages/stage/ui/stage-page.test.tsx`**
 
 ```tsx
 import { act, render, screen } from "@testing-library/react";
@@ -2436,7 +2436,7 @@ describe("StagePage", () => {
 });
 ```
 
-- [ ] **Step 3: Run it and watch it fail, then pass**
+- [x] **Step 3: Run it and watch it fail, then pass**
 
 ```bash
 cd frontend && pnpm vitest run src/pages/stage
@@ -2444,7 +2444,7 @@ cd frontend && pnpm vitest run src/pages/stage
 
 Expected: PASS, 9 tests. If the connecting-placeholder test fails because `role="main"` is missing, note that `<main>` carries that role implicitly — do not add an explicit attribute.
 
-- [ ] **Step 4: Write `frontend/src/app/routes/stage.$token.tsx`**
+- [x] **Step 4: Write `frontend/src/app/routes/stage.$token.tsx`**
 
 ```tsx
 import { createFileRoute } from "@tanstack/react-router";
@@ -2462,7 +2462,7 @@ function RouteComponent() {
 
 `autoCodeSplitting` in `vite.config.ts` gives §9's «ленивые деревья роутов» without any further work: the stage bundle and the host bundle load independently.
 
-- [ ] **Step 5: Rebuild so the router regenerates the tree**
+- [x] **Step 5: Rebuild so the router regenerates the tree**
 
 ```bash
 cd frontend && pnpm build
@@ -2470,7 +2470,7 @@ cd frontend && pnpm build
 
 Expected: PASS, and `src/app/routes/routeTree.gen.ts` now contains `/stage/$token`.
 
-- [ ] **Step 6: Add the stage paragraph to `frontend/README.md`**
+- [x] **Step 6: Add the stage paragraph to `frontend/README.md`**
 
 Under a new `## Routes` heading:
 
@@ -2488,13 +2488,13 @@ frame. If you are adding a beat, add it there; the page itself is a
 `switch` and must stay one.
 ```
 
-- [ ] **Step 7: Green everything**
+- [x] **Step 7: Green everything**
 
 ```bash
 cd frontend && pnpm build && pnpm check && pnpm test
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 cd .. && git add frontend && git commit -m "feat(stage): the stage route, wired end to end"
