@@ -154,7 +154,7 @@ Login, logout, the authenticated layout, and the match list. Nothing here talks 
   - `<LoginPage />`, `<HomePage />`
   - `renderWithQuery(ui)` and `withQuery()` from `testing/query`; `server` from `testing/server`
 
-- [ ] **Step 1: Add the dependencies**
+- [x] **Step 1: Add the dependencies**
 
 ```bash
 cd frontend && pnpm add @tanstack/react-query zustand && pnpm add -D msw
@@ -162,7 +162,7 @@ cd frontend && pnpm add @tanstack/react-query zustand && pnpm add -D msw
 
 The stage plan's R6 deferred these deliberately; this is the plan that needs them.
 
-- [ ] **Step 2: Write `frontend/testing/server.ts`**
+- [x] **Step 2: Write `frontend/testing/server.ts`**
 
 ```ts
 import { setupServer } from "msw/node";
@@ -173,7 +173,7 @@ import { setupServer } from "msw/node";
 export const server = setupServer();
 ```
 
-- [ ] **Step 3: Extend `frontend/testing/setup.ts`**
+- [x] **Step 3: Extend `frontend/testing/setup.ts`**
 
 Append, keeping everything already there:
 
@@ -188,7 +188,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 ```
 
-- [ ] **Step 4: Write `frontend/testing/query.tsx`**
+- [x] **Step 4: Write `frontend/testing/query.tsx`**
 
 ```tsx
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -217,7 +217,7 @@ export function withQuery() {
 }
 ```
 
-- [ ] **Step 5: Write `frontend/src/app/providers.tsx`**
+- [x] **Step 5: Write `frontend/src/app/providers.tsx`**
 
 ```tsx
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -235,7 +235,7 @@ export function Providers({ children }: { children: ReactNode }) {
 }
 ```
 
-- [ ] **Step 6: Wrap the router in `frontend/src/app/main.tsx`**
+- [x] **Step 6: Wrap the router in `frontend/src/app/main.tsx`**
 
 Add `import { Providers } from "./providers";` and change only the render call:
 
@@ -249,7 +249,7 @@ createRoot(root).render(
 );
 ```
 
-- [ ] **Step 7: Write the failing session test — `frontend/src/features/session/api/use-session.test.tsx`**
+- [x] **Step 7: Write the failing session test — `frontend/src/features/session/api/use-session.test.tsx`**
 
 ```tsx
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -320,7 +320,7 @@ describe("useLogout", () => {
 });
 ```
 
-- [ ] **Step 8: Run it and watch it fail**
+- [x] **Step 8: Run it and watch it fail**
 
 ```bash
 cd frontend && pnpm vitest run src/features/session; echo "exit=$?"
@@ -328,7 +328,7 @@ cd frontend && pnpm vitest run src/features/session; echo "exit=$?"
 
 Expected: FAIL — `Failed to resolve import "./use-session"`.
 
-- [ ] **Step 9: Write `frontend/src/features/session/api/use-session.ts`**
+- [x] **Step 9: Write `frontend/src/features/session/api/use-session.ts`**
 
 ```ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -408,11 +408,11 @@ export function useLogout(): () => Promise<void> {
 export { AUTH_PROBE, useAuthGate, useLogin, useLogout } from "./api/use-session";
 ```
 
-- [ ] **Step 10: Run it and watch it pass**
+- [x] **Step 10: Run it and watch it pass**
 
 Expected: PASS, 5 tests.
 
-- [ ] **Step 11: Write the failing login-page test — `frontend/src/pages/host-login/ui/login-page.test.tsx`**
+- [x] **Step 11: Write the failing login-page test — `frontend/src/pages/host-login/ui/login-page.test.tsx`**
 
 ```tsx
 import { screen, waitFor } from "@testing-library/react";
@@ -458,7 +458,7 @@ describe("LoginPage", () => {
 });
 ```
 
-- [ ] **Step 12: Run it, watch it fail, then write `frontend/src/pages/host-login/ui/login-page.tsx`**
+- [x] **Step 12: Run it, watch it fail, then write `frontend/src/pages/host-login/ui/login-page.tsx`**
 
 ```tsx
 import { type FormEvent, useState } from "react";
@@ -504,11 +504,11 @@ export function LoginPage() {
 
 The `<label>` wraps the input, so `getByLabelText("Пароль")` resolves without an explicit `htmlFor`/`id` pair.
 
-- [ ] **Step 13: Run it and watch it pass**
+- [x] **Step 13: Run it and watch it pass**
 
 Expected: PASS, 3 tests.
 
-- [ ] **Step 14: Write the failing home-page test — `frontend/src/pages/host-home/ui/home-page.test.tsx`**
+- [x] **Step 14: Write the failing home-page test — `frontend/src/pages/host-home/ui/home-page.test.tsx`**
 
 ```tsx
 import { screen } from "@testing-library/react";
@@ -554,7 +554,7 @@ describe("HomePage", () => {
 });
 ```
 
-- [ ] **Step 15: Write the two route stubs first**
+- [x] **Step 15: Write the two route stubs first**
 
 `HomePage` links to routes that do not exist yet, and TanStack Router's `Link` is typed against the generated tree — it will not compile without them. Create both now as stubs; Tasks 2 and 6 replace them.
 
@@ -574,7 +574,7 @@ import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/host/match/$matchId")({ component: () => null });
 ```
 
-- [ ] **Step 16: Run the home-page test, watch it fail, then write `frontend/src/pages/host-home/ui/home-page.tsx`**
+- [x] **Step 16: Run the home-page test, watch it fail, then write `frontend/src/pages/host-home/ui/home-page.tsx`**
 
 ```tsx
 import { useQuery } from "@tanstack/react-query";
@@ -629,7 +629,7 @@ export function HomePage() {
 
 `frontend/src/pages/host-home/index.ts`: `export { HomePage } from "./ui/home-page";`
 
-- [ ] **Step 17: Write the layout route — `frontend/src/app/routes/host.tsx`**
+- [x] **Step 17: Write the layout route — `frontend/src/app/routes/host.tsx`**
 
 The auth gate lives here so every child inherits it, and a 401 anywhere lands on the login screen rather than an empty page.
 
@@ -678,7 +678,7 @@ import { HomePage } from "@/pages/host-home";
 export const Route = createFileRoute("/host/")({ component: HomePage });
 ```
 
-- [ ] **Step 18: Point `/` at the console — `frontend/src/app/routes/index.tsx`**
+- [x] **Step 18: Point `/` at the console — `frontend/src/app/routes/index.tsx`**
 
 Replaces the stage plan's placeholder:
 
@@ -692,7 +692,7 @@ export const Route = createFileRoute("/")({
 });
 ```
 
-- [ ] **Step 19: Regenerate the tree, then green everything**
+- [x] **Step 19: Regenerate the tree, then green everything**
 
 ```bash
 cd frontend && pnpm exec vite build; echo "exit=$?"
@@ -703,7 +703,7 @@ pnpm test; echo "exit=$?"
 
 Expected: all 0. The `pnpm exec vite build` first is mandatory — five route files changed, and `tsc` runs before the router plugin.
 
-- [ ] **Step 20: Commit**
+- [x] **Step 20: Commit**
 
 ```bash
 cd .. && git add frontend && git commit -m "feat(host): the console shell — session, query, and the route tree"

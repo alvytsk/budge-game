@@ -10,42 +10,91 @@
 
 import { Route as rootRouteImport } from './__root'
 import { Route as IndexRouteImport } from './index'
+import { Route as HostRouteImport } from './host'
+import { Route as HostIndexRouteImport } from './host.index'
+import { Route as HostLibraryRouteImport } from './host.library'
 import { Route as StageTokenRouteImport } from './stage.$token'
+import { Route as HostMatchMatchIdRouteImport } from './host.match.$matchId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HostRoute = HostRouteImport.update({
+  id: '/host',
+  path: '/host',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HostIndexRoute = HostIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => HostRoute,
+} as any)
+const HostLibraryRoute = HostLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => HostRoute,
+} as any)
 const StageTokenRoute = StageTokenRouteImport.update({
   id: '/stage/$token',
   path: '/stage/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HostMatchMatchIdRoute = HostMatchMatchIdRouteImport.update({
+  id: '/match/$matchId',
+  path: '/match/$matchId',
+  getParentRoute: () => HostRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/host': typeof HostRouteWithChildren
+  '/host/library': typeof HostLibraryRoute
   '/stage/$token': typeof StageTokenRoute
+  '/host/': typeof HostIndexRoute
+  '/host/match/$matchId': typeof HostMatchMatchIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/host/library': typeof HostLibraryRoute
   '/stage/$token': typeof StageTokenRoute
+  '/host': typeof HostIndexRoute
+  '/host/match/$matchId': typeof HostMatchMatchIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/host': typeof HostRouteWithChildren
+  '/host/library': typeof HostLibraryRoute
   '/stage/$token': typeof StageTokenRoute
+  '/host/': typeof HostIndexRoute
+  '/host/match/$matchId': typeof HostMatchMatchIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/stage/$token'
+  fullPaths:
+    | '/'
+    | '/host'
+    | '/host/library'
+    | '/stage/$token'
+    | '/host/'
+    | '/host/match/$matchId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/stage/$token'
-  id: '__root__' | '/' | '/stage/$token'
+  to: '/' | '/host/library' | '/stage/$token' | '/host' | '/host/match/$matchId'
+  id:
+    | '__root__'
+    | '/'
+    | '/host'
+    | '/host/library'
+    | '/stage/$token'
+    | '/host/'
+    | '/host/match/$matchId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  HostRoute: typeof HostRouteWithChildren
   StageTokenRoute: typeof StageTokenRoute
 }
 
@@ -58,6 +107,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/host': {
+      id: '/host'
+      path: '/host'
+      fullPath: '/host'
+      preLoaderRoute: typeof HostRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/host/': {
+      id: '/host/'
+      path: '/'
+      fullPath: '/host/'
+      preLoaderRoute: typeof HostIndexRouteImport
+      parentRoute: typeof HostRoute
+    }
+    '/host/library': {
+      id: '/host/library'
+      path: '/library'
+      fullPath: '/host/library'
+      preLoaderRoute: typeof HostLibraryRouteImport
+      parentRoute: typeof HostRoute
+    }
     '/stage/$token': {
       id: '/stage/$token'
       path: '/stage/$token'
@@ -65,11 +135,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StageTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/host/match/$matchId': {
+      id: '/host/match/$matchId'
+      path: '/match/$matchId'
+      fullPath: '/host/match/$matchId'
+      preLoaderRoute: typeof HostMatchMatchIdRouteImport
+      parentRoute: typeof HostRoute
+    }
   }
 }
 
+interface HostRouteChildren {
+  HostLibraryRoute: typeof HostLibraryRoute
+  HostIndexRoute: typeof HostIndexRoute
+  HostMatchMatchIdRoute: typeof HostMatchMatchIdRoute
+}
+
+const HostRouteChildren: HostRouteChildren = {
+  HostLibraryRoute: HostLibraryRoute,
+  HostIndexRoute: HostIndexRoute,
+  HostMatchMatchIdRoute: HostMatchMatchIdRoute,
+}
+
+const HostRouteWithChildren = HostRoute._addFileChildren(HostRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  HostRoute: HostRouteWithChildren,
   StageTokenRoute: StageTokenRoute,
 }
 export const routeTree = rootRouteImport

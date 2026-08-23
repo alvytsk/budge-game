@@ -15,4 +15,10 @@ export default defineConfig([
     files: ["./src/entities/**", "./src/pages/**", "./src/widgets/**"],
     rules: { "fsd/insignificant-slice": "off" },
   },
+  // `segments-by-purpose` blacklists the word "providers" because inside a
+  // slice it names a technology rather than a job. The `app` layer is not
+  // sliced, and `app/providers` is FSD's own name for exactly this file —
+  // the composition root that wraps the tree in its context providers.
+  // Scoped to `app` alone, so the rule still governs every real slice.
+  { files: ["./src/app/**"], rules: { "fsd/segments-by-purpose": "off" } },
 ]);
