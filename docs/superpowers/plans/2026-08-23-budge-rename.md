@@ -4,21 +4,23 @@
 
 **Goal:** Rename the project from `podvinsya` to `budge` everywhere — the Python package, the CLI, the environment prefix, the test and deployment identifiers, the product-facing strings, and the documentation — leaving no occurrence behind and no test silently disabled.
 
-**Architecture:** Not a single `sed`. The occurrences fall into seven coupled sets, and each set has to move whole or something breaks — sometimes loudly, sometimes not (R1). One task per set, the suite green at every commit, so a mistake is bisectable to one coupling rather than to a 1500-line diff.
+**Architecture:** Not a single `sed`. The occurrences fall into seven coupled sets, preceded by one fix the rename would otherwise entrench, and each set has to move whole or something breaks — sometimes loudly, sometimes not (R1). One task per set, the suite green at every commit, so a mistake is bisectable to one coupling rather than to a 1500-line diff.
 
 **Tech Stack:** No new dependencies. `git mv`, `sed`, `pip install -e .`, and the existing test suite.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md`. Note the spec's *body* never uses the word — only its filename does (Task 6).
+**One thing here is not a rename.** Task 1 fixes how `cli.py` locates `alembic.ini`. It is in this plan rather than in the infrastructure one because the rename moves that file anyway, and fixing the lookup first means the ini travels with the package instead of being renamed in place and left fragile.
 
-**Predecessor:** `docs/superpowers/plans/2026-08-23-budge-infrastructure.md` on `feature/infra`. **This plan must run after that one is complete**, because infra creates `compose.yaml`, `.env.example` and `backend/scripts/backup-loop.sh`, all of which carry `PODVINSYA_*` variables and `podvinsya` CLI invocations that Tasks 2 and 3 have to rename. Starting before infra lands means renaming a moving target.
+**Spec:** `docs/superpowers/specs/2026-08-22-podvinsya-design.md`. Note the spec's *body* never uses the word — only its filename does (Task 7).
+
+**Predecessor:** `docs/superpowers/plans/2026-08-23-budge-infrastructure.md` on `feature/infra`. **This plan must run after that one is complete**, because infra creates `compose.yaml`, `.env.example` and `backend/scripts/backup-loop.sh`, all of which carry `PODVINSYA_*` variables and `podvinsya` CLI invocations that Tasks 3 and 4 have to rename. Starting before infra lands means renaming a moving target.
 
 ## Global Constraints
 
 - **Branch `feature/rename`, created off `feature/infra`.** Never commit to `main`.
-- **The suite must be green at every commit**: `cd backend && pytest -q`, `mypy --strict src tests`, `ruff check .`. A commit that leaves it red has no value as a bisect point, which is the entire reason this is seven tasks instead of one.
+- **The suite must be green at every commit**: `cd backend && pytest -q`, `mypy --strict src tests`, `ruff check .`. A commit that leaves it red has no value as a bisect point, which is the entire reason this is eight tasks instead of one.
 - **After the package directory moves, the editable install is stale** and every test fails on import (R8). `pip install -e .` before concluding anything is broken.
 - **Never hand-edit `frontend/src/shared/api/contracts.ts`.** It is generated; regenerate it (R4).
-- **Do not touch `docs/superpowers/specs/`'s body.** It contains no occurrences. Its filename changes in Task 6.
+- **Do not touch `docs/superpowers/specs/`'s body.** It contains no occurrences. Its filename changes in Task 7.
 - The frontend needs almost nothing: three occurrences, all in comments and a generated header.
 
 ---
@@ -29,13 +31,13 @@
 
 | Set | Where | Moves in |
 | --- | --- | --- |
-| Package directory, 703 import lines, packaging metadata | `backend/src/podvinsya/`, `pyproject.toml`, `alembic.ini` | Task 1 |
-| CLI name and every invoker, the generated header | `pyproject.toml`, `cli.py`, `ci.yml`, `Dockerfile`, READMEs, `typescript.py` | Task 2 |
-| `PODVINSYA_` env prefix, and the two test-only `PODVINSYA_TEST_*` vars | `config.py`, tests, `.env.example`, `compose.yaml`, `backup-loop.sh` | Task 3 |
-| Postgres and MinIO identifiers — coupled across three files | `compose.test.yaml`, `ci.yml`, `tests/support/db.py` | Task 4 |
-| Product-facing: FastAPI title, session cookie, S3 bucket default | `app.py`, `principal.py`, `api/settings.py` | Task 5 |
-| Documentation filenames and bodies | `docs/superpowers/**` | Task 6 |
-| — | — | Task 7 reviews |
+| Package directory, 703 import lines, packaging metadata | `backend/src/podvinsya/`, `pyproject.toml`, `alembic.ini` | Task 7 |
+| CLI name and every invoker, the generated header | `pyproject.toml`, `cli.py`, `ci.yml`, `Dockerfile`, READMEs, `typescript.py` | Task 7 |
+| `PODVINSYA_` env prefix, and the two test-only `PODVINSYA_TEST_*` vars | `config.py`, tests, `.env.example`, `compose.yaml`, `backup-loop.sh` | Task 7 |
+| Postgres and MinIO identifiers — coupled across three files | `compose.test.yaml`, `ci.yml`, `tests/support/db.py` | Task 7 |
+| Product-facing: FastAPI title, session cookie, S3 bucket default | `app.py`, `principal.py`, `api/settings.py` | Task 7 |
+| Documentation filenames and bodies | `docs/superpowers/**` | Task 7 |
+| — | — | Task 8 reviews |
 
 ---
 
@@ -49,7 +51,7 @@
 - `backend/tests/domain/test_purity.py:6` — `pathlib.Path(...).parents[2] / "src" / "podvinsya" / "domain"`. A hardcoded path segment, not an import. Left un-renamed, it walks a directory that does not exist.
 - `backend/tests/runtime/test_watchdog.py:489` and `test_match.py:585` — `caplog.at_level(..., logger="podvinsya.runtime.watchdog")`. `caplog.at_level` on a non-existent logger does not error; it captures nothing, and the assertion fails with an empty-records message that reads like a behaviour change.
 
-Task 1 Step 1 adds an assertion to each that its target *exists* before the rename touches anything. *Cost if wrong:* the enforcement those tests provide disappears silently, and nothing in the suite would ever say so.
+Task 2 Step 1 adds an assertion to each that its target *exists* before the rename touches anything. *Cost if wrong:* the enforcement those tests provide disappears silently, and nothing in the suite would ever say so.
 
 **R3 — `argparse`'s `prog="podvinsya"` gets a test before it is renamed.** Nothing in `backend/tests/test_cli.py` ever checks usage or help output, so this string has no coverage: a missed rename ships a CLI whose `--help` and every error message name a program that no longer exists. *Cost if wrong:* cosmetic but user-facing, and invisible to CI forever.
 
@@ -65,13 +67,166 @@ Task 1 Step 1 adds an assertion to each that its target *exists* before the rena
 
 ---
 
-## Task 1: The package
+## Task 1: Making `alembic.ini` findable
+
+A bug the rename would otherwise entrench, fixed first so the file travels with the package when Task 2 moves it.
+
+`cli.py` locates two things. The migrations directory it finds through the package — `Path(podvinsya.db.__file__).parent / "migrations"` — which is correct in every install layout. `alembic.ini` it finds by walking three parents up from `__file__`, which is correct only when the package sits in a source tree. Installed flat into `site-packages`, the same arithmetic yields `/usr/local/lib/python3.12/alembic.ini`, and `migrate` dies with `FileNotFoundError` inside `env.py`'s `fileConfig` before it opens a connection.
+
+That is not hypothetical: the infrastructure plan's API image hit it, and the workaround was to make the production image an *editable* install so the source layout survives into the container. Nothing tests that, so a later tidy-up of the Dockerfile reintroduces it silently.
+
+**Files:**
+- Move: `backend/alembic.ini` → `backend/src/podvinsya/alembic.ini`
+- Modify: `backend/src/podvinsya/cli.py`, `backend/tests/support/db.py`, `backend/pyproject.toml`
+- Create: a test in `backend/tests/test_cli.py`
+
+**Interfaces:**
+- Produces: `ALEMBIC_INI` resolving inside the package in every layout. No signature changes.
+
+- [ ] **Step 1: Write the failing test — append to `backend/tests/test_cli.py`**
+
+```python
+def test_the_alembic_ini_travels_with_the_package() -> None:
+    """`migrate` reads an ini file, and where it looks for it has to be
+    correct in an installed layout as well as in a source tree.
+
+    Locating it by walking parents up from `cli.py` is only right when the
+    package sits under `backend/src/`; installed flat into site-packages
+    the same arithmetic points at the interpreter's lib directory, and
+    `migrate` dies in `env.py`'s `fileConfig` before it opens a connection.
+    Living inside the package makes it findable the same way the
+    migrations directory already is.
+
+    Kills on: the parent-walk — `backend/alembic.ini`'s parent is
+    `backend/`, not the package directory.
+    """
+    import podvinsya
+
+    from podvinsya.cli import ALEMBIC_INI
+
+    assert ALEMBIC_INI.is_file()
+    assert ALEMBIC_INI.parent == Path(podvinsya.__file__).parent
+```
+
+with `from pathlib import Path` at the top if it is not already imported.
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+cd backend && pytest tests/test_cli.py -q -k alembic_ini; echo "exit=$?"
+```
+
+Expected: FAIL on the second assertion — the file is currently at `backend/alembic.ini`, whose parent is `backend`.
+
+- [ ] **Step 3: Move the ini into the package**
+
+```bash
+cd backend && git mv alembic.ini src/podvinsya/alembic.ini; echo "exit=$?"
+```
+
+`script_location` inside it stays `src/podvinsya/db/migrations`. It is relative and Alembic resolves it against the *invocation* directory, which is why `cli.py` already overrides it — the value in the file matters only to a bare `alembic` invocation from `backend/`, which now needs `-c src/podvinsya/alembic.ini`.
+
+- [ ] **Step 4: Locate it through the package**
+
+In `backend/src/podvinsya/cli.py`, replace the `ALEMBIC_INI` assignment:
+
+```python
+# Located through the package, exactly as `_config` already locates the
+# migrations directory below. The previous form walked three parents up
+# from this file, which is `backend/` in a source tree and the
+# interpreter's lib directory in a flat install — so `migrate` worked from
+# a checkout and died in an installed container.
+ALEMBIC_INI = Path(podvinsya.__file__).resolve().parent / "alembic.ini"
+```
+
+`import podvinsya` is needed alongside the existing `import podvinsya.db`; importing the subpackage already binds the parent name, so confirm whether a second import line is required or whether `ruff` flags it as redundant, and do whichever keeps both `ruff` and `mypy --strict` clean.
+
+- [ ] **Step 5: Keep it in the wheel**
+
+`backend/pyproject.toml` line 35 is `packages = ["src/podvinsya"]`. Hatchling includes non-Python files under a declared package directory, so the ini should ship — but *should* is not evidence, and this is the whole point of the task. Prove it with a real non-editable install:
+
+```bash
+cd backend
+python -m venv /tmp/budge-wheel-probe
+/tmp/budge-wheel-probe/bin/pip install --quiet . ; echo "install=$?"
+/tmp/budge-wheel-probe/bin/python -c "
+from podvinsya.cli import ALEMBIC_INI
+print(ALEMBIC_INI, ALEMBIC_INI.is_file())
+"; echo "exit=$?"
+rm -rf /tmp/budge-wheel-probe
+```
+
+Expected: the path prints under `site-packages/podvinsya/alembic.ini` and `True`. If it prints `False`, the ini is not being packaged — add it explicitly:
+
+```toml
+[tool.hatch.build.targets.wheel.force-include]
+"src/podvinsya/alembic.ini" = "podvinsya/alembic.ini"
+```
+
+and re-run the probe. Report which was needed.
+
+- [ ] **Step 6: Point the test suite's own helper at the new location**
+
+`backend/tests/support/db.py` has `ALEMBIC_INI = BACKEND_DIR / "alembic.ini"`. Change it to locate the file the same way, so the suite and the CLI cannot disagree:
+
+```python
+ALEMBIC_INI = Path(podvinsya.__file__).resolve().parent / "alembic.ini"
+```
+
+`BACKEND_DIR` is still used for nothing else in that module — if it becomes unused, remove it rather than leaving a name `ruff` will flag.
+
+- [ ] **Step 7: Green everything**
+
+```bash
+cd backend && pytest -q; echo "pytest=$?"
+mypy --strict src tests; echo "mypy=$?"
+ruff check .; echo "ruff=$?"
+```
+
+Expected: all 0, one test more than before.
+
+- [ ] **Step 8: Drop the editable-install workaround from the image**
+
+`backend/Dockerfile`'s second install is `pip install --no-deps -e .`, made editable in the infrastructure plan solely to keep the source layout alive so this parent-walk resolved. With the ini inside the package that is no longer needed:
+
+```dockerfile
+RUN pip install --no-cache-dir --no-deps .
+```
+
+and the `COPY alembic.ini ./` line, if present, can go — the file is now inside `src/`. Prove the image still migrates:
+
+```bash
+cd /home/alexey/projects/sandbox/budge-game
+docker compose build api; echo "build=$?"
+docker compose up -d postgres; echo "up=$?"
+sleep 8
+docker compose run --rm migrate; echo "migrate=$?"
+docker compose down -v
+```
+
+Expected: `migrate=0`, with Alembic's `Running upgrade` lines in the output. **If this fails, revert the Dockerfile to `-e` and report it** — the workaround is not wrong, and shipping a broken image to prove a point is.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add backend && git commit -m "fix: let the CLI find its alembic.ini in an installed layout
+
+Located by walking parents up from cli.py, which is backend/ in a source
+tree and the interpreter's lib directory once installed — so migrate
+worked from a checkout and died in a container. It now travels inside the
+package and is found the same way the migrations directory already was,
+which is what let the image drop its editable-install workaround."
+```
+
+---
+
+## Task 2: The package
 
 The directory, 703 import lines, the packaging metadata, and the four tests that reference the name as a string rather than an import. The CLI keeps its old *name* here — only its target module moves.
 
 **Files:**
 - Move: `backend/src/podvinsya/` → `backend/src/budge/` (81 files across 14 directories)
-- Modify: `backend/pyproject.toml`, `backend/alembic.ini`
+- Modify: `backend/pyproject.toml`, `backend/src/budge/alembic.ini` (moved into the package by Task 1)
 - Modify: every file with a `podvinsya` import (55 source, 77 test)
 - Modify: `backend/tests/domain/test_purity.py`, `backend/tests/api/test_stage_ws.py`, `backend/tests/runtime/test_watchdog.py`, `backend/tests/runtime/test_match.py`, `backend/tests/db/test_migrations.py`
 
@@ -153,18 +308,24 @@ cd backend && git diff --stat | tail -3
 grep -rn 'podvinsya' src tests --include='*.py' | grep -v 'podvinsya_test\|podvinsya-media\|podvinsya_session\|PODVINSYA_' || echo "ok: only the deferred sets remain"
 ```
 
+That grep is restricted to `*.py`, so it will not show `src/budge/alembic.ini` — whose `script_location` still names the old path. Step 6 handles it; check it explicitly rather than trusting the line above:
+
+```bash
+cd backend && grep -n 'podvinsya' src/budge/alembic.ini || echo "ok: the ini is clean"
+```
+
 - [ ] **Step 6: Update the packaging metadata**
 
 `backend/pyproject.toml`:
 - line 2: `name = "podvinsya"` → `name = "budge"`
-- line 28: `podvinsya = "podvinsya.cli:main"` → `podvinsya = "budge.cli:main"` — **the script name stays `podvinsya` for now**; Task 2 renames it. Only its target moves here.
+- line 28: `podvinsya = "podvinsya.cli:main"` → `podvinsya = "budge.cli:main"` — **the script name stays `podvinsya` for now**; Task 3 renames it. Only its target moves here.
 - line 35: `packages = ["src/podvinsya"]` → `["src/budge"]`
 - line 50: `files = ["src/podvinsya", "tests"]` → `["src/budge", "tests"]`
 - line 51: `exclude = ["src/podvinsya/db/migrations/versions/"]` → `["src/budge/db/migrations/versions/"]`
 
-`backend/alembic.ini` line 2: `script_location = src/podvinsya/db/migrations` → `src/budge/db/migrations`.
+`backend/src/budge/alembic.ini` line 2 — Task 1 moved this file inside the package, so `git mv` in Step 4 has already carried it across; only its *contents* still name the old path. `script_location = src/podvinsya/db/migrations` → `src/budge/db/migrations`.
 
-Note `alembic.ini`'s `script_location` is *overridden at runtime* by `cli.py`, so a mistake here is invisible to `podvinsya migrate` and only shows up under a bare `alembic` invocation. Change both; the test suite exercises the code path, not the ini.
+Note `script_location` is *overridden at runtime* by `cli.py`, so a mistake here is invisible to `podvinsya migrate` and shows up only under a bare `alembic -c src/budge/alembic.ini` invocation. Change it anyway: the test suite exercises the code path, not the ini, so nothing else will catch it.
 
 - [ ] **Step 7: Recreate the editable install**
 
@@ -198,7 +359,7 @@ pytest tests/api/test_stage_ws.py -q; echo "exit=$?"
 git checkout -- tests/api/test_stage_ws.py
 ```
 
-Expected: exit **1** with a `ModuleNotFoundError` from the guard — not a pass. If it passes, the guard is not doing its job and Task 7's review will find nothing; fix it now.
+Expected: exit **1** with a `ModuleNotFoundError` from the guard — not a pass. If it passes, the guard is not doing its job and Task 8's review will find nothing; fix it now.
 
 - [ ] **Step 10: Commit**
 
@@ -208,7 +369,7 @@ cd .. && git add backend && git commit -m "refactor: move the package from podvi
 
 ---
 
-## Task 2: The CLI and the generated header
+## Task 3: The CLI and the generated header
 
 The console-script name, `prog=`, and every invoker — including the generator whose output CI diffs.
 
@@ -311,11 +472,11 @@ grep -rn 'podvinsya \(serve\|migrate\|backup\|export-types\|hash-password\|resto
   || echo "ok: every invoker renamed"
 ```
 
-Expected: `ok: every invoker renamed`. Plan documents are excluded because Task 6 handles them.
+Expected: `ok: every invoker renamed`. Plan documents are excluded because Task 7 handles them.
 
 ---
 
-## Task 3: The environment prefix
+## Task 4: The environment prefix
 
 `PODVINSYA_` → `BUDGE_`, in one commit, because pydantic-settings ignores unknown variables: a half-renamed prefix does not say "you renamed half the prefix", it says `field required`.
 
@@ -341,7 +502,7 @@ Then every place a prefixed variable is set or read:
 | `backend/tests/api/test_security.py` | 55 | docstring |
 | `.env.example`, `compose.yaml` | — | `PODVINSYA_SECRET_KEY`, `_HOST_PASSWORD`, `_DATABASE_URL`, `_S3_*` |
 
-A `sed` over the uppercase form is safe here — it is a distinct token from everything Tasks 4 and 5 own:
+A `sed` over the uppercase form is safe here — it is a distinct token from everything Tasks 5 and 6 own:
 
 ```bash
 cd backend && grep -rl 'PODVINSYA_' src tests | xargs sed -i 's/PODVINSYA_/BUDGE_/g'; echo "exit=$?"
@@ -365,7 +526,7 @@ grep -rn 'PODVINSYA_' . 2>/dev/null | grep -v node_modules | grep -v '^./docs/su
   || echo "ok: no PODVINSYA_ variable remains"
 ```
 
-Expected: `ok: no PODVINSYA_ variable remains`. Plan documents are Task 6's.
+Expected: `ok: no PODVINSYA_ variable remains`. Plan documents are Task 7's.
 
 - [ ] **Step 4: Green everything and commit**
 
@@ -380,7 +541,7 @@ A failure here reads `ValidationError: field required` and names the *field*, no
 
 ---
 
-## Task 4: The test infrastructure identifiers
+## Task 5: The test infrastructure identifiers
 
 Postgres role, password and database name; MinIO root credentials; the test bucket. These live in three files that must agree, and a mismatch surfaces as an authentication failure or an opaque `SignatureDoesNotMatch` rather than as a name error.
 
@@ -448,7 +609,7 @@ An authentication failure here means one of the three files disagrees with the o
 
 ---
 
-## Task 5: The product-facing names
+## Task 6: The product-facing names
 
 Three strings a person actually sees or a deployment actually carries.
 
@@ -499,7 +660,7 @@ cookie the server no longer reads."
 
 ---
 
-## Task 6: The documentation
+## Task 7: The documentation
 
 792 occurrences, eight filenames, and nothing that can break at runtime. Last, and on its own (R7).
 
@@ -559,7 +720,7 @@ grep -rni 'podvinsya' . 2>/dev/null \
 
 Expected: `ok: no occurrence remains anywhere`. Two categories are allowed to survive and must be reported rather than silently accepted:
 - anything under `backend/.venv/` — a build artefact, fixed by `pip install -e .`
-- the `docs/operations.md` paragraph from Task 5 Step 3, which deliberately names the *old* bucket because that is its whole subject
+- the `docs/operations.md` paragraph from Task 6 Step 3, which deliberately names the *old* bucket because that is its whole subject
 
 - [ ] **Step 5: Commit**
 
@@ -569,13 +730,13 @@ git add -A && git commit -m "docs: rename podvinsya to budge throughout"
 
 ---
 
-## Task 7: Review pass
+## Task 8: Review pass
 
 The rename is mechanical, so the review is not about whether the code is right — it is about whether anything is now passing for the wrong reason.
 
 - [ ] **Step 1: Prove the vacuous-pass guards still bite**
 
-R2's three guards are the reason this plan is seven tasks. Confirm each fails when its target is wrong, then revert.
+R2's three guards are the reason this plan is eight tasks. Confirm each fails when its target is wrong, then revert.
 
 ```bash
 cd /home/alexey/projects/sandbox/budge-game/backend
@@ -649,6 +810,9 @@ The rename touched `compose.yaml`, `.env.example` and the Dockerfile, and nothin
 cd /home/alexey/projects/sandbox/budge-game
 sed -i 's/PODVINSYA_/BUDGE_/g' .env 2>/dev/null || true
 docker compose build; echo "build=$?"
+# Task 1 dropped the image's editable-install workaround; this is the only
+# place that exercises the installed layout end to end.
+docker compose run --rm migrate; echo "migrate=$?"
 docker compose up -d; echo "up=$?"
 sleep 25
 docker compose ps
