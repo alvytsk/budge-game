@@ -21,6 +21,7 @@ from podvinsya.api.content import (
 from podvinsya.api.hub import MatchHub
 from podvinsya.api.services import CommandGateway, MatchLifecycle, ReadOnlyMatches
 from podvinsya.library.catalogue import LibraryCatalogue
+from podvinsya.media.s3 import S3MediaStore
 from podvinsya.api.settings import ApiSettings
 from podvinsya.domain.ids import CategoryId
 from podvinsya.services.ports import ContentExhausted, Transaction
@@ -43,6 +44,7 @@ async def test_the_lifespan_builds_the_whole_graph(api_settings: ApiSettings) ->
         assert isinstance(state.services.gateway, CommandGateway)
         assert isinstance(state.services.directory, CachingContentDirectory)
         assert isinstance(state.catalogue, LibraryCatalogue)
+        assert isinstance(state.media, S3MediaStore)
         assert isinstance(state.read_only, ReadOnlyMatches)
         assert state.clock is state.services.clock
 
@@ -157,6 +159,18 @@ async def test_dealing_with_an_empty_library_is_a_rejection_not_a_quarantine(
     assert dealt.status_code == 409
     assert dealt.json()["reason"] == "content_unavailable"
     assert snapshot.status_code == 200
+
+
+async def test_the_media_store_is_built_from_the_settings(
+    api_settings: ApiSettings,
+) -> None:
+    """Kills on: hardcoding an endpoint or a bucket in `build_app` — the
+    deployment would write into whatever the source said rather than into
+    what §10's compose provisions, and the mistake would only show up as
+    pictures that vanish between environments."""
+    app = build_app(api_settings)
+    async with running_app(app):
+        assert await app.state.media.healthy() is True
 
 
 async def test_the_null_implementations_still_behave_as_documented() -> None:

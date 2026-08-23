@@ -9,7 +9,11 @@ a process with it.
 `command.upgrade`; an application started against an unmigrated database
 fails its health check and says so.
 
-Both content leaves are now the real library (§5.3). `DatabaseCategoryBank`
+Every leaf is now real. Both content leaves are the library (§5.3), and
+the object store behind `images.media_sha256` is the S3-compatible one §10
+asks for.
+
+Both content leaves are the real library (§5.3). `DatabaseCategoryBank`
 draws under the `FOR SHARE` §5.3 requires, and `DatabaseContentDirectory`
 names categories and answers images. An empty library behaves exactly as
 the unavailable implementations they replaced did — `ContentExhausted`,
@@ -22,6 +26,7 @@ as the null implementations the tests use to describe that state
 deliberately.
 """
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -44,6 +49,7 @@ from podvinsya.library.bank import DatabaseCategoryBank
 from podvinsya.library.catalogue import LibraryCatalogue
 from podvinsya.library.directory import DatabaseContentDirectory
 from podvinsya.media.s3 import S3MediaStore
+from podvinsya.services.ports import MediaStore
 from podvinsya.runtime.clock import SystemClock
 from podvinsya.runtime.manager import MatchManager
 from podvinsya.runtime.materialiser import Materialiser
@@ -116,14 +122,18 @@ def build_app(settings: ApiSettings) -> FastAPI:
 
     @app.get("/health")
     async def health(request: Request) -> JSONResponse:
-        """Database reachability, and nothing else yet.
+        """§10: «Healthcheck проверяет доступность БД и хранилища.»
 
-        §10 wants storage checked too. Object storage arrives with plan 6's
-        media; when it does, it becomes a second entry in `checks` below.
-        Naming the gap here beats leaving a future reader to notice that a
-        green health check proves less than it looks like it does.
+        Both probes run, always, even when the first already failed — a
+        check that short-circuited would report one outage and hide the
+        other, and an operator restarting a node needs to know whether it
+        is one thing or two.
         """
-        checks = {"database": await _database_reachable(request.app.state.engine)}
+        database, storage = await asyncio.gather(
+            _database_reachable(request.app.state.engine),
+            _storage_reachable(request.app.state.media),
+        )
+        checks = {"database": database, "storage": storage}
         healthy = all(checks.values())
         return JSONResponse(
             {"status": "ok" if healthy else "degraded", "checks": checks},
@@ -131,6 +141,18 @@ def build_app(settings: ApiSettings) -> FastAPI:
         )
 
     return app
+
+
+async def _storage_reachable(store: MediaStore) -> bool:
+    """`S3MediaStore.healthy` already promises never to raise; the guard
+    here is for any other implementation that is wired in later — §10 wants
+    a signal a load balancer can read, and a degraded node answering with a
+    stack trace would be a 500 instead."""
+    try:
+        return await store.healthy()
+    except Exception:
+        logger.warning("health: the object store is unreachable", exc_info=True)
+        return False
 
 
 async def _database_reachable(engine: AsyncEngine) -> bool:

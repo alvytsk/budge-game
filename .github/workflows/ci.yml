@@ -29,6 +29,24 @@ jobs:
           --health-timeout 3s
           --health-retries 30
 
+      # §10's «S3-совместимое хранилище медиа». The bucket is created by
+      # the test fixture through the S3 API itself, so this needs no init
+      # container and no CLI step — which is what lets the same definition
+      # serve compose.test.yaml and this block unchanged (the media plan's
+      # ruling 9). 9002 matches compose and the default in
+      # tests/support/db.py, so no CI-only variable can drift.
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: podvinsya
+          MINIO_ROOT_PASSWORD: podvinsya-secret
+        ports: ["9002:9000"]
+        options: >-
+          --health-cmd "mc ready local"
+          --health-interval 1s
+          --health-timeout 3s
+          --health-retries 30
+
     steps:
       - uses: actions/checkout@v4
 
