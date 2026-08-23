@@ -62,6 +62,17 @@ class MatchRuntime:
     def quarantined(self) -> bool:
         return self._quarantined
 
+    @property
+    def scheduler(self) -> DeadlineScheduler:
+        """The exact `DeadlineScheduler` this runtime consumes `ExpireTimer`
+        commands back through -- exposed for the manager (task 9), which is
+        the one place that builds a `WatchedMatch` pairing this runtime with
+        this scheduler for the watchdog. `recover` hands back only a
+        runtime, never the scheduler it built alongside it, so this is the
+        only way the manager can recover that pairing without reimplementing
+        recovery's own wiring."""
+        return self._scheduler
+
     def submit(self, command: Command, origin: Origin) -> None:
         """Mint this command's identity (§5.1: always here, for every
         command, without exception) and queue it for the consumer.

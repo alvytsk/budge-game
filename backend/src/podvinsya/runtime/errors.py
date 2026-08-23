@@ -1,14 +1,4 @@
-"""Runtime-level failures.
-
-`Quarantined` is a state, not really an error: a match that reaches it
-stops consuming its queue and refuses new commands until the process
-restarts. Nothing is written to the log when it happens — the log is what
-we still trust.
-"""
-
-
-class Quarantined(Exception):
-    """This match is no longer being played by this process."""
+"""Runtime-level failures."""
 
 
 class MatchAlreadyRunning(Exception):
