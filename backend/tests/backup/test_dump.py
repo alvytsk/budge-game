@@ -139,3 +139,90 @@ async def test_it_records_the_schema_revision(
     manifest = await take(root, database_url=DATABASE_URL, media=InMemoryMediaStore())
     assert manifest.revision is not None
     assert Manifest.read(root.manifest_for(manifest.taken_at)) == manifest
+
+
+async def test_an_interrupted_dump_is_not_offered_as_a_backup(
+    clean_db: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The manifest is written last, so a run interrupted mid-way leaves
+    nothing `stamps()` will offer to the drill.
+
+    `pg_dump --file` creates its output the moment it opens it — a run that
+    dies partway through leaves a truncated `.dump` on disk, as a direct
+    `pg_dump` of a pattern that matches nothing demonstrates. So the file's
+    existence proves nothing, and the missing manifest beside it is the only
+    thing that tells `stamps()` this run never finished.
+
+    Kills on: writing the manifest before the archive — the drill would pick
+    a backup whose archive was never finished and report a failure that looks
+    like corruption rather than an interrupted run.
+    """
+    from podvinsya.backup import dump
+
+    def explode(_database_url: str, into: str) -> None:
+        Path(into).write_bytes(b"PGDMP")  # what an interrupted pg_dump leaves behind
+        raise dump.BackupFailed("interrupted")
+
+    monkeypatch.setattr(dump, "_pg_dump", explode)
+    root = BackupRoot(tmp_path)
+    with pytest.raises(dump.BackupFailed):
+        await take(root, database_url=DATABASE_URL, media=InMemoryMediaStore())
+
+    assert list(root.dumps.glob("*.dump")), "the interrupted run should have left its file"
+    assert root.stamps() == ()
+
+
+async def test_the_archive_references_nothing_the_manifest_does_not_name(
+    clean_db: None, sessions: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    """The order in this module's docstring, held as a property.
+
+    The digest list is read once, and everything after it must be consistent
+    with that read. Mirroring first pushes the whole media transfer in
+    between the read and `pg_dump` — so an image uploaded during a mirror
+    run of a library-sized store lands *inside* the archive while staying
+    outside the manifest. The drill cross-checks the manifest (I3), so it
+    would report a clean pass on an archive that references a picture nobody
+    ever copied.
+
+    The store below uploads one during the mirror loop, which is the only
+    moment the two orders differ.
+
+    Kills on: mirroring the blobs before running `pg_dump`.
+    """
+    mirrored = "1" * 64
+    uploaded_mid_run = "2" * 64
+    await _stock(sessions, mirrored)
+
+    class _StoreThatUploadsMidRun(InMemoryMediaStore):
+        """Something adds an image while the mirror loop is running."""
+
+        async def get(self, digest: str) -> bytes | None:
+            if not self.objects.get(uploaded_mid_run):
+                self.objects[uploaded_mid_run] = b"arrived late"
+                await _stock(sessions, uploaded_mid_run)
+            return await super().get(digest)
+
+    store = _StoreThatUploadsMidRun()
+    store.objects[mirrored] = b"a picture"
+
+    root = BackupRoot(tmp_path)
+    manifest = await take(root, database_url=DATABASE_URL, media=store)
+
+    assert manifest.digests == (mirrored,)
+    dumped = subprocess.run(
+        [
+            "pg_restore",
+            "--data-only",
+            "--table=images",
+            "--file=-",
+            str(root.dump_for(manifest.taken_at)),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert dumped.returncode == 0, dumped.stderr
+    assert mirrored in dumped.stdout
+    assert uploaded_mid_run not in dumped.stdout, (
+        "the archive references a digest the manifest never named"
+    )
