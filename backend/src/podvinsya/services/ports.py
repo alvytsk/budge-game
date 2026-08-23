@@ -181,3 +181,33 @@ class ContentDirectory(Protocol):
     async def describe(
         self, *, categories: frozenset[CategoryId], images: frozenset[ImageId]
     ) -> ContentDescription: ...
+
+
+class MediaUnavailable(Exception):
+    """The object store could not be reached.
+
+    Deliberately distinct from "this digest is not there", which is an
+    ordinary `None`: a missing object is a 404 an operator can act on, and
+    an unreachable store is a 503 that belongs in the health check. Folding
+    the second into the first would hide an outage behind "that picture is
+    missing", and send the operator looking for it in the library.
+    """
+
+
+class MediaStore(Protocol):
+    """§5.3's `media`, content-addressed by sha256 (§7.6).
+
+    Every method is `async`, and none may block the event loop. §6.1 says
+    that of the command loop; it is true of this whole process, because a
+    synchronous object-store call anywhere in it stalls every WebSocket
+    writer — including, mid-show, the stage screen preloading a pack.
+
+    There is no `delete`. §5.3 makes the log's link to the library one-way
+    and permanent: `AttackDeclared` writes image identifiers, and those
+    rows are read for the rest of the match and every later reading of it.
+    """
+
+    async def put(self, data: bytes) -> str: ...
+    async def get(self, digest: str) -> bytes | None: ...
+    async def exists(self, digest: str) -> bool: ...
+    async def healthy(self) -> bool: ...
