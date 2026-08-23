@@ -33,12 +33,13 @@ from podvinsya.api.content import (
     UnavailableContent,
 )
 from podvinsya.api.hub import MatchHub
-from podvinsya.api.routes import host_ws, matches, session, stage_ws
+from podvinsya.api.routes import host_ws, library, matches, session, stage_ws
 from podvinsya.api.services import CommandGateway, MatchLifecycle, Services
 from podvinsya.api.settings import ApiSettings
 from podvinsya.db.engine import create_engine, sessionmaker_for
 from podvinsya.db.repository import MatchRepository
 from podvinsya.db.store import UnitOfWork
+from podvinsya.library.catalogue import LibraryCatalogue
 from podvinsya.runtime.clock import SystemClock
 from podvinsya.runtime.manager import MatchManager
 from podvinsya.runtime.materialiser import Materialiser
@@ -79,6 +80,7 @@ def build_app(settings: ApiSettings) -> FastAPI:
         # Ruling 12: the stage's route is handed this and never `services`,
         # which carries a `.gateway` — one attribute away from a command.
         app.state.read_only = services.read_only()
+        app.state.catalogue = LibraryCatalogue(sessions)
         try:
             yield
         finally:
@@ -92,6 +94,7 @@ def build_app(settings: ApiSettings) -> FastAPI:
     app = FastAPI(title="Podvinsya", lifespan=lifespan)
     app.include_router(session.router)
     app.include_router(matches.router)
+    app.include_router(library.router)
     app.include_router(host_ws.router)
     app.include_router(stage_ws.router)
 

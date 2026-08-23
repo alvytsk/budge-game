@@ -220,13 +220,16 @@ def test_the_refusal_names_where_it_happened() -> None:
 
 
 def test_an_unknown_keyword_beside_a_known_type_is_refused() -> None:
-    """A `string` with a `pattern` is not a `string`: the constraint is
-    part of the contract, and dropping it silently would tell the front end
-    that any string will do.
+    """A sibling keyword the emitter has no decision about is a piece of the
+    contract it would be dropping.
+
+    Constraints it *does* have a decision about — `pattern` and the rest of
+    `_DOCUMENTED_CONSTRAINTS` — are carried into the output as a comment
+    instead; that is a separate test. This one is about everything else.
 
     Kills on: matching on `type` alone and ignoring every sibling key."""
     with pytest.raises(UnsupportedSchema):
-        emit(document(A=obj({"f": {"type": "string", "pattern": "^a"}}, ["f"])))
+        emit(document(A=obj({"f": {"type": "string", "contentMediaType": "image/png"}}, ["f"])))
 
 
 def test_a_long_union_is_wrapped_one_member_to_a_line() -> None:
@@ -261,3 +264,45 @@ def test_a_union_nested_inside_brackets_is_not_split() -> None:
         )
     )
     assert "Record<string, LongEnoughToForceWrapping0 | LongEnoughToForceWrapping1" in emitted
+
+
+def test_a_constraint_typescript_cannot_express_is_documented_not_dropped() -> None:
+    """`media_sha256` is 64 lowercase hex characters, and TypeScript has no
+    type for that. Silently emitting `string` would tell a front end that
+    any string will do — which is the silent degradation ruling 2 exists to
+    prevent, arriving through a keyword rather than through a fallback.
+
+    Kills on: adding `pattern` to `_IGNORED_KEYS`, which drops the
+    constraint without a trace and leaves the client to discover it as a
+    422 at run time."""
+    emitted = emit(
+        document(
+            A=obj({"digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}, ["digest"])
+        )
+    )
+    assert "/** pattern: ^[0-9a-f]{64}$ */" in emitted
+    assert "digest: string;" in emitted
+
+
+def test_several_constraints_are_documented_together() -> None:
+    emitted = emit(
+        document(A=obj({"n": {"type": "integer", "minimum": 1, "maximum": 9}}, ["n"]))
+    )
+    assert "/** minimum: 1, maximum: 9 */" in emitted
+
+
+def test_an_unlisted_constraint_is_still_refused() -> None:
+    """The documented list is an enumeration, not a licence.
+
+    Kills on: replacing the check with "ignore anything that looks like a
+    constraint" — a keyword nobody has decided how to carry would then be
+    dropped silently, which is exactly what ruling 2 forbids."""
+    with pytest.raises(UnsupportedSchema):
+        emit(document(A=obj({"f": {"type": "string", "contentEncoding": "base64"}}, ["f"])))
+
+
+def test_a_property_without_constraints_gets_no_comment() -> None:
+    """Kills on: emitting an empty `/** */` above every field, which would
+    double the length of the artifact for nothing."""
+    emitted = emit(document(A=obj({"name": {"type": "string"}}, ["name"])))
+    assert "/**" not in emitted

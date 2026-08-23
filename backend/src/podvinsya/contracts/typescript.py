@@ -37,6 +37,25 @@ _PRIMITIVES = {
 # type on that side of the wire.
 _IGNORED_KEYS = frozenset({"title", "description", "default", "examples", "propertyNames"})
 
+# Constraints TypeScript cannot express as a type, and which are therefore
+# carried into the output as a doc comment on the property.
+#
+# This is not the `any` fallback ruling 2 forbids. That fallback is
+# dangerous because it *hides* what the emitter did not understand; these
+# are understood, and the information reaches the reader in the only form
+# the target language has for it. Anything outside this list still raises,
+# so a constraint nobody has decided how to carry stops the export.
+_DOCUMENTED_CONSTRAINTS = (
+    "pattern",
+    "minLength",
+    "maxLength",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+    "multipleOf",
+)
+
 
 class UnsupportedSchema(Exception):
     """A schema node this emitter will not guess at.
@@ -104,7 +123,9 @@ def _type_of(node: dict[str, Any], path: str) -> str:
         # A sibling key this emitter does not know about is a constraint it
         # would be dropping — a `pattern` or a `minimum` silently discarded
         # tells the front end that any value of the type will do.
-        unknown = set(node) - _IGNORED_KEYS - {"type", "format"}
+        unknown = (
+            set(node) - _IGNORED_KEYS - set(_DOCUMENTED_CONSTRAINTS) - {"type", "format"}
+        )
         if unknown:
             raise UnsupportedSchema(path, node)
         return _PRIMITIVES[kind]
@@ -158,10 +179,28 @@ def _property(field: str, mark: str, expression: str) -> str:
     return f"  {field}{mark}:\n{wrapped};"
 
 
+def _constraint_comment(schema: dict[str, Any]) -> str | None:
+    """The constraints a TypeScript type cannot carry, written where a
+    reader will see them.
+
+    `media_sha256: string` is true and incomplete: the server will refuse
+    anything that is not 64 lowercase hex characters, and a front end that
+    builds one has to know that. TypeScript has no type for it, so the
+    contract says it in the only place left.
+    """
+    stated = [
+        f"{key}: {schema[key]}" for key in _DOCUMENTED_CONSTRAINTS if key in schema
+    ]
+    return f"  /** {', '.join(stated)} */" if stated else None
+
+
 def _interface(name: str, node: dict[str, Any]) -> str:
     required = set(node.get("required", ()))
     lines = [f"export interface {name} {{"]
     for field, schema in node.get("properties", {}).items():
+        comment = _constraint_comment(schema)
+        if comment is not None:
+            lines.append(comment)
         # Ruling 6: a `const` is always sent and is what a consumer narrows
         # on, so it is required whatever `required` says.
         optional = field not in required and "const" not in schema

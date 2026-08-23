@@ -17,6 +17,19 @@ from pydantic.json_schema import JsonSchemaMode, models_json_schema
 
 from podvinsya.api.schemas.commands import Ack, Envelope
 from podvinsya.api.schemas.frames import HostFrame, StageFrame
+from podvinsya.api.schemas.library import (
+    AddImageBody,
+    CategoryDetailBody,
+    CategorySummaryBody,
+    CreateCategoryBody,
+    EditCategoryBody,
+    EditImageBody,
+    ImageBody,
+    ReadinessBody,
+    ReorderImagesBody,
+    SetActiveBody,
+    ThinCategoryBody,
+)
 from podvinsya.api.schemas.rest import (
     AddPlayerBody,
     AssignSecretBody,
@@ -39,11 +52,22 @@ ROOTS: tuple[tuple[type[BaseModel], JsonSchemaMode], ...] = (
     (MatchSummaryBody, "serialization"),
     (SnapshotBody, "serialization"),
     (OutcomeBody, "serialization"),
+    (CategorySummaryBody, "serialization"),
+    (CategoryDetailBody, "serialization"),
+    (ImageBody, "serialization"),
+    (ReadinessBody, "serialization"),
+    (ThinCategoryBody, "serialization"),
     (Envelope, "validation"),
     (LoginBody, "validation"),
     (CreateMatchBody, "validation"),
     (AddPlayerBody, "validation"),
     (AssignSecretBody, "validation"),
+    (CreateCategoryBody, "validation"),
+    (EditCategoryBody, "validation"),
+    (SetActiveBody, "validation"),
+    (AddImageBody, "validation"),
+    (EditImageBody, "validation"),
+    (ReorderImagesBody, "validation"),
 )
 
 REF_TEMPLATE = "#/$defs/{model}"

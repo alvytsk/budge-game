@@ -6,15 +6,15 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from podvinsya.api.schemas import commands, frames, rest
+from podvinsya.api.schemas import commands, frames, library, rest
 from podvinsya.contracts.schema import ROOTS, contract_schema
 
-SCHEMA_MODULES = (frames, commands, rest)
+SCHEMA_MODULES = (frames, commands, library, rest)
 
 # Base classes, not contract members: they carry configuration and no
 # fields, and emitting them would put two empty interfaces in the artifact
 # that no wire message is ever an instance of.
-BASE_MODELS = {"Frozen", "Inbound", "Body"}
+BASE_MODELS = {"Frozen", "Inbound", "Body", "LibraryBody", "Response"}
 
 
 def models_in(module: Any) -> set[str]:

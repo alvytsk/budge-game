@@ -10,6 +10,12 @@ export interface Ack {
   message?: string | null;
 }
 
+export interface AddImageBody {
+  /** pattern: ^[0-9a-f]{64}$ */
+  media_sha256: string;
+  answer_text: string;
+}
+
 export interface AddPlayerBody {
   player_id: string;
   name: string;
@@ -31,9 +37,28 @@ export interface BoardFrame {
   height: number;
 }
 
+export interface CategoryDetailBody {
+  category: CategorySummaryBody;
+  images: ImageBody[];
+}
+
+export interface CategorySummaryBody {
+  id: string;
+  title: string;
+  is_secret: boolean;
+  is_active: boolean;
+  version: number;
+  active_image_count: number;
+}
+
 export interface CellFrame {
   col: number;
   row: number;
+}
+
+export interface CreateCategoryBody {
+  title: string;
+  is_secret?: boolean;
 }
 
 export interface CreateMatchBody {
@@ -57,6 +82,17 @@ export interface DeclareAttackCommand {
 }
 
 export type DuelPhase = "declared" | "running";
+
+export interface EditCategoryBody {
+  title: string;
+  is_secret: boolean;
+}
+
+export interface EditImageBody {
+  /** pattern: ^[0-9a-f]{64}$ */
+  media_sha256: string;
+  answer_text: string;
+}
 
 export interface Envelope {
   correlation_id?: string | null;
@@ -119,6 +155,14 @@ export interface HostGroupFrame {
   revealed: boolean;
 }
 
+export interface ImageBody {
+  id: string;
+  media_sha256: string;
+  answer_text: string;
+  position: number;
+  is_active: boolean;
+}
+
 export interface JudgeCorrectCommand {
   type: "judge_correct";
 }
@@ -169,6 +213,19 @@ export interface PlayerSummaryBody {
   eliminated: boolean;
 }
 
+export interface ReadinessBody {
+  cells: number;
+  threshold: number;
+  ordinary_available: number;
+  secrets_available: number;
+  thin: ThinCategoryBody[];
+  ready: boolean;
+}
+
+export interface ReorderImagesBody {
+  image_ids: string[];
+}
+
 export interface ResolutionFrame {
   winner: string;
   loser: string;
@@ -179,6 +236,10 @@ export interface ResolutionFrame {
 
 export interface ResumeDuelCommand {
   type: "resume_duel";
+}
+
+export interface SetActiveBody {
+  is_active: boolean;
 }
 
 export interface SettingsBody {
@@ -231,6 +292,12 @@ export interface StageGroupFrame {
 
 export interface StartDuelCommand {
   type: "start_duel";
+}
+
+export interface ThinCategoryBody {
+  id: string;
+  title: string;
+  active_image_count: number;
 }
 
 export interface TimingFrame {

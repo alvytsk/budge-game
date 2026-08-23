@@ -16,6 +16,11 @@ class ApiSettings(Settings):
     host_password: str
 
     session_ttl_hours: int = 12
+    # §8 calls the threshold «настраиваемый». 40 rather than
+    # `IMAGE_PACK_SIZE`: ruling 1 makes a shorter pack legal, so this fires
+    # where an operator would want to top a category up, not wherever the
+    # pack size happens to sit.
+    thin_image_threshold: int = 40
     # Per subscriber. Small on purpose: §7.2 makes every frame complete, so
     # a slow reader losing intermediate frames costs narration, not state,
     # and a deep queue would only delay the moment it catches up.

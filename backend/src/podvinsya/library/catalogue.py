@@ -293,6 +293,28 @@ class LibraryCatalogue:
             for category, count in rows
         )
 
+    async def image(self, image_id: UUID) -> ImageRow:
+        """One image, by id.
+
+        Exists so a route that has just written one can read back what it
+        actually stored: `position` and `is_active` are not in any edit
+        body, and a response that reconstructed them from the request would
+        make the admin screen trust a value the server invented.
+        """
+        async with self._sessions() as session:
+            found = (
+                await session.execute(select(Image).where(Image.id == image_id))
+            ).scalar_one_or_none()
+        if found is None:
+            raise UnknownImage(str(image_id))
+        return ImageRow(
+            id=UUID(str(found.id)),
+            media_sha256=found.media_sha256,
+            answer_text=found.answer_text,
+            position=found.position,
+            is_active=found.is_active,
+        )
+
     async def category_detail(self, category_id: UUID) -> CategoryDetail:
         listed = {row.id: row for row in await self.list_categories()}
         if category_id not in listed:
