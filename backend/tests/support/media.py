@@ -15,6 +15,9 @@ class InMemoryMediaStore:
         self.objects: dict[str, bytes] = {}
         self.fail = fail
         self.puts = 0
+        # Reads are counted for the backup suite: I6 says a mirrored blob
+        # is never fetched twice, and only a counter can show that.
+        self.gets = 0
 
     def _check(self) -> None:
         if self.fail:
@@ -31,6 +34,7 @@ class InMemoryMediaStore:
 
     async def get(self, digest: str) -> bytes | None:
         self._check()
+        self.gets += 1
         return self.objects.get(digest)
 
     async def exists(self, digest: str) -> bool:

@@ -55,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="do not write; exit non-zero and print a diff if the file is out of date",
     )
+    backup = subcommands.add_parser("backup", help="take a backup (§10)")
+    backup.add_argument("--to", default="/backups", help="the backup root directory")
 
     args = parser.parse_args(argv)
     if args.command == "migrate":
@@ -103,6 +105,29 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+    if args.command == "backup":
+        # Imported here for the reason `serve`'s imports are: `migrate`
+        # must not pull the media stack in to run one Alembic command.
+        import asyncio
+
+        from podvinsya.api.settings import ApiSettings
+        from podvinsya.backup.dump import take
+        from podvinsya.backup.paths import BackupRoot
+        from podvinsya.media.s3 import S3MediaStore
+
+        settings = ApiSettings()
+        store = S3MediaStore(
+            endpoint=settings.s3_endpoint,
+            access_key=settings.s3_access_key,
+            secret_key=settings.s3_secret_key,
+            bucket=settings.s3_bucket,
+            region=settings.s3_region,
+        )
+        manifest = asyncio.run(
+            take(BackupRoot(Path(args.to)), database_url=settings.database_url, media=store)
+        )
+        print(f"{manifest.taken_at}: {len(manifest.digests)} media referenced")
+        return 0
     return 1  # pragma: no cover - argparse rejects anything else first
 
 

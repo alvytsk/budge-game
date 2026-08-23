@@ -187,3 +187,17 @@ def test_export_types_writes_and_prints_where(
 
     assert str(target) in capsys.readouterr().out
     assert "export interface StageFrame" in target.read_text(encoding="utf-8")
+
+
+def test_backup_needs_the_media_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Kills on: constructing `Settings` rather than `ApiSettings` — the
+    backup would start, dump the database, and silently mirror nothing,
+    because it would have no store to read from."""
+    from pydantic import ValidationError
+
+    serve_environment(monkeypatch)
+    for name in ("PODVINSYA_S3_ENDPOINT", "PODVINSYA_S3_ACCESS_KEY", "PODVINSYA_S3_SECRET_KEY"):
+        monkeypatch.delenv(name, raising=False)
+
+    with pytest.raises(ValidationError):
+        main(["backup", "--to", "/tmp/does-not-matter"])
