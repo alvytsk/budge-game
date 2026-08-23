@@ -37,9 +37,9 @@ pnpm build        # tsc + vite build
 
 | File | Written by |
 | --- | --- |
-| `src/shared/api/contracts.ts` | `cd backend && podvinsya export-types` |
+| `src/shared/api/contracts.ts` | `cd backend && budge export-types` |
 | `src/app/routes/routeTree.gen.ts` | the TanStack Router Vite plugin |
 
-CI runs `podvinsya export-types --check`, so a server model changed
+CI runs `budge export-types --check`, so a server model changed
 without regenerating fails the build rather than reaching the front end as
 a type that quietly disagrees with the server (§7.6, §11).

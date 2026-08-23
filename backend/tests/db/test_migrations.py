@@ -117,7 +117,7 @@ async def test_the_migrate_command_works_from_any_working_directory(
     """`alembic.ini`'s `script_location` is a relative path, and Alembic
     resolves it against the *invocation* directory, not against the ini
     file's own location. An operator applying migrations as a separate step
-    (§10) is not guaranteed to be standing in `backend/` — `podvinsya
+    (§10) is not guaranteed to be standing in `backend/` — `budge
     migrate` must reach head regardless of the current working directory."""
     from budge.cli import main
 

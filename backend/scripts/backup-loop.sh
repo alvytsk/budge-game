@@ -21,7 +21,7 @@ while true; do
 	# somebody noticed the container had exited. The failure is on stdout
 	# either way, and the drill is what turns a run of bad backups into a
 	# loud signal.
-	if podvinsya backup --to "${BACKUP_DIR}"; then
+	if budge backup --to "${BACKUP_DIR}"; then
 		echo "backup ok"
 	else
 		echo "BACKUP FAILED (exit $?)" >&2
@@ -30,7 +30,7 @@ while true; do
 	since_drill=$((since_drill + BACKUP_INTERVAL))
 	if [ "${since_drill}" -ge "${DRILL_INTERVAL}" ]; then
 		since_drill=0
-		if podvinsya restore-drill --from "${BACKUP_DIR}"; then
+		if budge restore-drill --from "${BACKUP_DIR}"; then
 			echo "restore drill ok"
 		else
 			# The one message an operator must never learn to ignore.

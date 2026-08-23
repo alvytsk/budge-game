@@ -2,7 +2,7 @@
 FROM python:3.12-slim
 
 # `postgresql-client` is here because of I5: the restore drill has to run
-# `pg_restore` AND import `podvinsya.domain` to fold the restored log, so
+# `pg_restore` AND import `budge.domain` to fold the restored log, so
 # the tools and the domain must live in one image. `--no-install-recommends`
 # keeps that to the client binaries rather than a server.
 #
@@ -51,4 +51,4 @@ USER budge
 
 # No CMD that migrates. §10 and I8 make migration a separate step, and an
 # image that migrated on start would make that impossible to honour.
-CMD ["podvinsya", "serve", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["budge", "serve", "--host", "0.0.0.0", "--port", "8000"]

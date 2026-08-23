@@ -223,3 +223,15 @@ def test_the_alembic_ini_travels_with_the_package() -> None:
 
     assert ALEMBIC_INI.is_file()
     assert ALEMBIC_INI.parent == Path(budge.__file__).parent
+
+
+def test_the_help_names_the_program_the_user_typed(capsys: pytest.CaptureFixture[str]) -> None:
+    """`prog=` has no other coverage, so a missed rename here would ship a
+    CLI whose --help and every error message name a program that does not
+    exist — and nothing would ever say so.
+
+    Kills on: leaving `prog="podvinsya"` behind.
+    """
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    assert capsys.readouterr().out.startswith("usage: budge")

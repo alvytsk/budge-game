@@ -2,7 +2,7 @@
 
 Everything the API needs is built here, once, in the lifespan — and torn
 down in the reverse order. Nothing is constructed at import time, so
-importing this module has no side effects and `podvinsya migrate` can share
+importing this module has no side effects and `budge migrate` can share
 a process with it.
 
 §10: migrations are a separate step. There is no `create_all` here and no

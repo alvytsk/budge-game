@@ -83,7 +83,7 @@ services:
         condition: service_healthy
     environment:
       <<: *postgres-url
-    command: ["podvinsya", "migrate"]
+    command: ["budge", "migrate"]
 
   api:
     image: budge-api
@@ -135,7 +135,7 @@ services:
         condition: service_completed_successfully
     environment:
       <<: [*postgres-url, *s3]
-      # `podvinsya backup` builds `ApiSettings` to get the S3 half of it,
+      # `budge backup` builds `ApiSettings` to get the S3 half of it,
       # and pydantic validates the whole model — so the two API-only
       # secrets have to be present or the very first run dies in
       # validation before it opens a connection. The backup process reads

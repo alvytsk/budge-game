@@ -15,8 +15,8 @@ model *discovery* order, which changes when an import moves.
 
 from typing import Any
 
-HEADER = """// Generated from the Pydantic models by `podvinsya export-types`.
-// Do not edit: run `podvinsya export-types` and commit the result.
+HEADER = """// Generated from the Pydantic models by `budge export-types`.
+// Do not edit: run `budge export-types` and commit the result.
 // The CI job `contracts` fails if this file and the models disagree (§7.6).
 """
 

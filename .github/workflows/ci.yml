@@ -88,7 +88,7 @@ jobs:
       # writes nothing — it prints the diff and exits non-zero, so the
       # failure names exactly what drifted and who has to regenerate.
       - name: Contracts
-        run: podvinsya export-types --check
+        run: budge export-types --check
 
   frontend:
     runs-on: ubuntu-latest

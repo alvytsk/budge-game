@@ -25,7 +25,7 @@ def _config(url: str) -> Config:
     config.set_main_option("sqlalchemy.url", url)
     # `script_location` in alembic.ini is a relative path, and Alembic
     # resolves it against the *invocation* directory rather than against
-    # the ini file's own location — an operator running `podvinsya migrate`
+    # the ini file's own location — an operator running `budge migrate`
     # from anywhere but `backend/` would otherwise hit
     # `CommandError: Path doesn't exist`. Anchoring it to the installed
     # package makes the command work from any working directory.
@@ -42,7 +42,7 @@ def _config(url: str) -> Config:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="podvinsya")
+    parser = argparse.ArgumentParser(prog="budge")
     subcommands = parser.add_subparsers(dest="command", required=True)
     migrate = subcommands.add_parser("migrate", help="apply migrations up to a revision")
     migrate.add_argument("--revision", default="head")
@@ -81,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
         print(hash_password(sys.stdin.readline().rstrip("\n")))
         return 0
     if args.command == "serve":
-        # Imported here rather than at module scope: `podvinsya migrate`
+        # Imported here rather than at module scope: `budge migrate`
         # must not pull in FastAPI, uvicorn and the whole API graph to run
         # one Alembic command — and `ApiSettings()` is constructed inside
         # this branch for the same reason `Settings()` is constructed
@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         print(difference, end="", flush=True)
         print(
             f"\n{export.CONTRACTS_PATH} is out of date. "
-            "Run `podvinsya export-types` and commit the result.",
+            "Run `budge export-types` and commit the result.",
             file=sys.stderr,
         )
         return 1

@@ -1,7 +1,7 @@
 """Configuration the API needs on top of what the migrate step needs.
 
 A subclass, not extra fields on `Settings`: `db/migrations/env.py` builds
-`Settings()` directly, and `podvinsya migrate` must not start demanding a
+`Settings()` directly, and `budge migrate` must not start demanding a
 signing key it never uses. Only `build_app` constructs this type.
 """
 

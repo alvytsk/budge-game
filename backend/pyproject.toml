@@ -25,7 +25,7 @@ dev = [
 ]
 
 [project.scripts]
-podvinsya = "budge.cli:main"
+budge = "budge.cli:main"
 
 [build-system]
 requires = ["hatchling"]

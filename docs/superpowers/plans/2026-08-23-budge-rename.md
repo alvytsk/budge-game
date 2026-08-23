@@ -389,7 +389,7 @@ The console-script name, `prog=`, and every invoker — including the generator 
 - Modify (generated): `frontend/src/shared/api/contracts.ts`
 - Modify: `backend/src/budge/api/app.py`, `api/settings.py`, `api/routes/session.py` docstrings; `backend/scripts/backup-loop.sh`, `compose.yaml`, `docs/operations.md` (all from the infra plan)
 
-- [ ] **Step 1: Write the missing test for `prog` — R3**
+- [x] **Step 1: Write the missing test for `prog` — R3**
 
 Nothing covers it. Add to `backend/tests/test_cli.py`:
 
@@ -406,7 +406,7 @@ def test_the_help_names_the_program_the_user_typed(capsys: pytest.CaptureFixture
     assert capsys.readouterr().out.startswith("usage: budge")
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 cd backend && pytest tests/test_cli.py -q -k help; echo "exit=$?"
@@ -414,7 +414,7 @@ cd backend && pytest tests/test_cli.py -q -k help; echo "exit=$?"
 
 Expected: FAIL — `usage: podvinsya` is what it prints today.
 
-- [ ] **Step 3: Rename the script and `prog`**
+- [x] **Step 3: Rename the script and `prog`**
 
 `backend/pyproject.toml` line 28: `podvinsya = "budge.cli:main"` → `budge = "budge.cli:main"`.
 `backend/src/budge/cli.py` line 39: `prog="podvinsya"` → `prog="budge"`.
@@ -428,7 +428,7 @@ which budge; budge --help | head -3; echo "exit=$?"
 
 The old `podvinsya` shim may linger in `.venv/bin`; remove it so a stale invoker fails loudly rather than working by accident.
 
-- [ ] **Step 4: Rename the generator's header, then regenerate**
+- [x] **Step 4: Rename the generator's header, then regenerate**
 
 R4. `backend/src/budge/contracts/typescript.py` lines 18–19:
 
@@ -446,7 +446,7 @@ budge export-types --check; echo "check=$?"
 
 Expected: both 0, and `git diff frontend/src/shared/api/contracts.ts` shows only the two header lines changed.
 
-- [ ] **Step 5: Rename every invoker**
+- [x] **Step 5: Rename every invoker**
 
 | File | Change |
 | --- | --- |
@@ -464,7 +464,7 @@ Expected: both 0, and `git diff frontend/src/shared/api/contracts.ts` shows only
 
 The last three exist only if the infra plan has landed. If any is absent, say so rather than creating it.
 
-- [ ] **Step 6: Green everything and commit**
+- [x] **Step 6: Green everything and commit**
 
 ```bash
 cd backend && pytest -q; echo "pytest=$?"
@@ -473,7 +473,7 @@ ruff check .; echo "ruff=$?"
 cd .. && git add -A && git commit -m "refactor: rename the CLI to budge, and regenerate the contract header"
 ```
 
-- [ ] **Step 7: Prove no invoker was missed**
+- [x] **Step 7: Prove no invoker was missed**
 
 ```bash
 grep -rn 'podvinsya \(serve\|migrate\|backup\|export-types\|hash-password\|restore-drill\)' \

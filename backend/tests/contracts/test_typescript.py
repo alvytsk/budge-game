@@ -175,7 +175,7 @@ def test_the_header_says_it_is_generated_and_how_to_regenerate_it() -> None:
     """Kills on: dropping the header. The first thing anyone does with an
     unfamiliar checked-in file is edit it."""
     emitted = emit(document(A=obj({}, [])))
-    assert "podvinsya export-types" in emitted
+    assert "budge export-types" in emitted
     assert "do not edit" in emitted.lower()
 
 

@@ -10,7 +10,7 @@ cp .env.example .env
 # Fill in PODVINSYA_SECRET_KEY with a long random string:
 #   openssl rand -hex 32
 # Fill in PODVINSYA_HOST_PASSWORD with the hash of the operator's password:
-#   echo -n 'the password' | docker compose run --rm --no-deps api podvinsya hash-password
+#   echo -n 'the password' | docker compose run --rm --no-deps api budge hash-password
 docker compose up -d
 ```
 
@@ -56,8 +56,8 @@ of those failed.
 Take one by hand:
 
 ```bash
-docker compose exec backup podvinsya backup --to /backups
-docker compose exec backup podvinsya restore-drill --from /backups
+docker compose exec backup budge backup --to /backups
+docker compose exec backup budge restore-drill --from /backups
 ```
 
 ## Restoring for real
@@ -87,7 +87,7 @@ digest as its key.
 ## Changing the operator's password
 
 ```bash
-echo -n 'the new password' | docker compose run --rm --no-deps api podvinsya hash-password
+echo -n 'the new password' | docker compose run --rm --no-deps api budge hash-password
 ```
 
 Put the output in `.env` and `docker compose up -d api`. Existing sessions

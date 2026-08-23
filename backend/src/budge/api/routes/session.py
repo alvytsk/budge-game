@@ -2,7 +2,7 @@
 
 §7.5: «Ведущий логинится: один оператор, пароль, сессионная кука.» There is
 no user table, no registration and no password reset — rotating
-`PODVINSYA_HOST_PASSWORD` with `podvinsya hash-password` is all of those.
+`PODVINSYA_HOST_PASSWORD` with `budge hash-password` is all of those.
 """
 
 from fastapi import APIRouter, Request, Response, status
