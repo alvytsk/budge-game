@@ -192,12 +192,12 @@ def test_groups_falling_out_of_lockstep_is_caught() -> None:
 
 @pytest.mark.parametrize("seed", range(25))
 def test_invariants_survive_a_reset_dropped_into_a_random_match(seed: int) -> None:
-    """§A.3: после сброса групп ноль, а это то же состояние, в котором
-    партия и так находится между `CreateMatch` и `DealBoard`.
+    """§A.3: after a reset there are zero groups, which is the same state
+    the match is already in between `CreateMatch` and `DealBoard`.
 
-    Kills on: сброс, оставляющий за собой половину доски — например,
-    забывший `played_categories`, — биекция групп и неразыгранных категорий
-    сломалась бы на первой же раздаче после него.
+    Kills on: a reset that leaves half the board behind -- say, one that
+    forgets `played_categories` -- the bijection between groups and
+    unplayed categories would break on the very next deal.
     """
     from budge.domain.actions import DealBoard, ResetMatch, StartMatch
     from support.streams import make_deal

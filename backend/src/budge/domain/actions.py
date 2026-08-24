@@ -37,8 +37,9 @@ class StartMatch:
 
 @dataclass(frozen=True, slots=True)
 class ResetMatch:
-    """§A: вернуть партию в начало. `keep_roster` отвечает на два разных
-    вопроса одной командой — «эту же партию ещё раз» и «с нуля»."""
+    """§A: bring the match back to its beginning. `keep_roster` answers two
+    different questions with one command -- "this same match again" and
+    "start from scratch"."""
 
     keep_roster: bool
 

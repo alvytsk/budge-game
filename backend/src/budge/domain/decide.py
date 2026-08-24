@@ -175,11 +175,13 @@ def _start_match(state: MatchState) -> tuple[Event, ...]:
 
 
 def _reset_match(state: MatchState, command: ResetMatch) -> tuple[Event, ...]:
-    """§A.4: легальна в любой фазе, и пустой переход, когда сбрасывать нечего.
+    """§A.4: legal in every phase, and an empty transition when there is
+    nothing to reset.
 
-    Отказ здесь был бы хуже пустого события: оператор, дважды нажавший
-    «Сбросить», получил бы ошибку за то, что добился желаемого. Прецедент —
-    `_assign_secret`, который возвращает `()` на повторном назначении.
+    A rejection here would be worse than an empty event: an operator who
+    pressed "Reset" twice would get an error for having gotten what they
+    wanted. Precedent: `_assign_secret`, which returns `()` on a repeated
+    assignment.
     """
     already_at_the_beginning = (
         state.status is MatchStatus.SETUP

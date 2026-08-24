@@ -73,9 +73,10 @@ def evolve(state: MatchState, event: Event) -> MatchState:
             evolved = replace(
                 state,
                 status=MatchStatus.SETUP,
-                # `eliminated` снимается: `active_players()` фильтрует по
-                # нему, и сохранённый ростер с отметками о выбывании дал бы
-                # партию, начинающуюся с уже выбывшими игроками.
+                # `eliminated` is cleared: `active_players()` filters on it,
+                # and a roster kept with elimination marks intact would
+                # produce a match that starts with players already
+                # eliminated.
                 players=(
                     tuple(replace(person, eliminated=False) for person in state.players)
                     if event.keep_roster
