@@ -38,6 +38,48 @@ async def create_match(client: Any, *, player_count: int = 2) -> tuple[str, str]
     return body["match_id"], body["stage_token"]
 
 
+async def started_match(client: Any) -> str:
+    """A match run through to RUNNING over the same routes the console uses:
+    two players, each with a secret, `deal`, `start`.
+
+    No pictures uploaded: `test_a_whole_match.py` already shows `deal`
+    succeeding with a library `readiness` reports as not `ready` — pictures
+    are §8's soft warning, not a requirement `deal` enforces. `BOARD` is
+    3x4 (twelve cells), so ten ordinary categories fill the rest once two
+    are spent on secrets.
+    """
+    match_id, _token = await create_match(client)
+    secrets = []
+    for index in range(2):
+        created = await client.post(
+            "/api/library/categories", json={"title": f"Секрет {index}", "is_secret": True}
+        )
+        assert created.status_code == 201, created.text
+        secrets.append(created.json()["id"])
+    for index in range(10):
+        created = await client.post(
+            "/api/library/categories", json={"title": f"Тема {index}", "is_secret": False}
+        )
+        assert created.status_code == 201, created.text
+    for index, secret in enumerate(secrets):
+        player_id = str(UUID(int=index + 1))
+        added = await client.post(
+            f"/api/matches/{match_id}/players",
+            json={"player_id": player_id, "name": f"P{index}", "colour": "#e4572e"},
+        )
+        assert added.status_code == 200, added.text
+        assigned = await client.post(
+            f"/api/matches/{match_id}/secrets",
+            json={"player_id": player_id, "category": secret},
+        )
+        assert assigned.status_code == 200, assigned.text
+    dealt = await client.post(f"/api/matches/{match_id}/deal")
+    assert dealt.status_code == 200, dealt.text
+    started = await client.post(f"/api/matches/{match_id}/start")
+    assert started.status_code == 200, started.text
+    return match_id
+
+
 @pytest.mark.parametrize(
     ("method", "path", "body"),
     [
@@ -54,6 +96,7 @@ async def create_match(client: Any, *, player_count: int = 2) -> tuple[str, str]
         ),
         ("POST", "/api/matches/{id}/deal", None),
         ("POST", "/api/matches/{id}/start", None),
+        ("POST", "/api/matches/{id}/reset", {"keep_roster": True}),
         ("GET", "/api/matches", None),
         ("GET", "/api/matches/{id}", None),
     ],
@@ -61,7 +104,7 @@ async def create_match(client: Any, *, player_count: int = 2) -> tuple[str, str]
 async def test_every_match_route_refuses_an_unauthenticated_caller(
     api_settings: ApiSettings, method: str, path: str, body: dict[str, Any] | None
 ) -> None:
-    """Parametrized over all seven on purpose.
+    """Parametrized over all eight on purpose.
 
     Kills on: forgetting the dependency on exactly one route — which is the
     failure a per-route test set is least likely to catch, because the test
@@ -257,3 +300,85 @@ async def test_dealing_twice_is_the_redeal_button(
     # Both refuse for the same reason — no players added yet — rather than
     # the second refusing because the first happened.
     assert first.json()["reason"] == second.json()["reason"] == "player_count_invalid"
+
+
+async def test_reset_returns_a_running_match_to_setup(
+    clean_db: None, api_settings: ApiSettings
+) -> None:
+    """§A.8: an assembly command, so REST — beside `deal` and `start`.
+
+    Kills on: a route that sent the command past the gateway — the runtime
+    would never learn of the reset, and the next frame would still show a
+    board that no longer exists.
+    """
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        match_id = await started_match(client)
+
+        response = await client.post(
+            f"/api/matches/{match_id}/reset", json={"keep_roster": True}
+        )
+        assert response.status_code == 200
+        assert response.json()["outcome"] == "accepted"
+
+        snapshot = (await client.get(f"/api/matches/{match_id}")).json()
+
+    assert snapshot["frame"]["status"] == "setup"
+    assert snapshot["frame"]["groups"] == []
+    assert len(snapshot["frame"]["players"]) == 2
+
+
+async def test_a_full_reset_drops_the_roster(clean_db: None, api_settings: ApiSettings) -> None:
+    """`keep_roster: false` answers §A.8's other question: start from
+    scratch, not just this same match again."""
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        match_id = await started_match(client)
+
+        response = await client.post(
+            f"/api/matches/{match_id}/reset", json={"keep_roster": False}
+        )
+        assert response.status_code == 200
+
+        snapshot = (await client.get(f"/api/matches/{match_id}")).json()
+
+    assert snapshot["frame"]["players"] == []
+
+
+async def test_resetting_a_fresh_match_is_a_noop_and_not_an_error(
+    clean_db: None, api_settings: ApiSettings
+) -> None:
+    """Ruling 4, through `outcomes.py`: an empty transition is a 200 `noop`,
+    not a 409.
+
+    Kills on: a refusal in place of the empty event — an operator who
+    pressed "Reset" twice would see an error for having gotten what they
+    wanted.
+    """
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        match_id, _token = await create_match(client)
+
+        response = await client.post(
+            f"/api/matches/{match_id}/reset", json={"keep_roster": False}
+        )
+
+    assert response.status_code == 200
+    assert response.json()["outcome"] == "noop"
+
+
+async def test_reset_refuses_a_body_it_does_not_understand(
+    clean_db: None, api_settings: ApiSettings
+) -> None:
+    """`Body` is declared `extra="forbid"`: a client that thought it said
+    something must not get a 200."""
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        match_id, _token = await create_match(client)
+
+        response = await client.post(
+            f"/api/matches/{match_id}/reset",
+            json={"keep_roster": True, "wipe_library": True},
+        )
+
+    assert response.status_code == 422

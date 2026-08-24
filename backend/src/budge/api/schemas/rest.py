@@ -62,6 +62,17 @@ class AssignSecretBody(Body):
     category: UUID
 
 
+class ResetMatchBody(Body):
+    """§A.2: one flag, answering two questions.
+
+    No default on purpose: "reset" is an irreversible action in front of a
+    room, and a client that forgot to say which one it meant should get a
+    422, not the most destructive option silently.
+    """
+
+    keep_roster: bool
+
+
 class OutcomeBody(BaseModel):
     """What every command route answers with.
 

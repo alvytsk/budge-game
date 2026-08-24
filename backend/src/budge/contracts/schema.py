@@ -39,6 +39,7 @@ from budge.api.schemas.rest import (
     LoginBody,
     MatchSummaryBody,
     OutcomeBody,
+    ResetMatchBody,
     SnapshotBody,
 )
 
@@ -64,6 +65,7 @@ ROOTS: tuple[tuple[type[BaseModel], JsonSchemaMode], ...] = (
     (CreateMatchBody, "validation"),
     (AddPlayerBody, "validation"),
     (AssignSecretBody, "validation"),
+    (ResetMatchBody, "validation"),
     (CreateCategoryBody, "validation"),
     (EditCategoryBody, "validation"),
     (SetActiveBody, "validation"),

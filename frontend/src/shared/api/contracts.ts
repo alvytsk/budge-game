@@ -226,6 +226,10 @@ export interface ReorderImagesBody {
   image_ids: string[];
 }
 
+export interface ResetMatchBody {
+  keep_roster: boolean;
+}
+
 export interface ResolutionFrame {
   winner: string;
   loser: string;

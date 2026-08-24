@@ -1,9 +1,9 @@
 """Assembling a match, listing matches, and the snapshot a console loads.
 
 Ruling 5's line, exactly: `CreateMatch`, `AddPlayer`, `AssignSecret`,
-`DealBoard` and `StartMatch` are REST; everything from `DeclareAttack`
-onwards is the socket's. Every route here funnels into the same
-`CommandGateway` and the same `outcomes.py` mapping the socket uses.
+`DealBoard`, `StartMatch` and `ResetMatch` are REST; everything from
+`DeclareAttack` onwards is the socket's. Every route here funnels into the
+same `CommandGateway` and the same `outcomes.py` mapping the socket uses.
 """
 
 from uuid import UUID
@@ -20,13 +20,21 @@ from budge.api.schemas.rest import (
     CreateMatchBody,
     MatchSummaryBody,
     PlayerSummaryBody,
+    ResetMatchBody,
     SnapshotBody,
 )
 from budge.api.security import mint_stage_token
 from budge.api.services import Services
 from budge.api.settings import ApiSettings
 from budge.db.errors import MatchNotFound
-from budge.domain.actions import AddPlayer, AssignSecret, Command, DealBoard, StartMatch
+from budge.domain.actions import (
+    AddPlayer,
+    AssignSecret,
+    Command,
+    DealBoard,
+    ResetMatch,
+    StartMatch,
+)
 from budge.domain.board import BoardSize
 from budge.domain.ids import CategoryId, MatchId, PlayerId
 from budge.domain.settings import MatchSettings
@@ -111,6 +119,19 @@ async def deal_board(match_id: UUID, request: Request) -> JSONResponse:
 @router.post("/{match_id}/start")
 async def start_match(match_id: UUID, request: Request) -> JSONResponse:
     return await _run(request, MatchId(match_id), StartMatch())
+
+
+@router.post("/{match_id}/reset")
+async def reset_match(match_id: UUID, body: ResetMatchBody, request: Request) -> JSONResponse:
+    """§A.8: an assembly command, so REST.
+
+    It can be pressed from RUNNING, and that does not move the boundary:
+    the socket owns commands *inside* a duel, from `DeclareAttack` onward,
+    while this one returns the match to SETUP and belongs beside `deal` and
+    `start`. The next frame reaches subscribers the ordinary way —
+    `MatchRuntime._publish` broadcasts it to the hub like any other command.
+    """
+    return await _run(request, MatchId(match_id), ResetMatch(keep_roster=body.keep_roster))
 
 
 @router.get("")
