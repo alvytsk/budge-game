@@ -12,6 +12,7 @@ from budge.domain.actions import (
     JudgeCorrect,
     JudgePass,
     PauseDuel,
+    ResetMatch,
     ResumeDuel,
     StartDuel,
     StartMatch,
@@ -32,6 +33,7 @@ from budge.domain.events import (
     Event,
     JudgementUndone,
     MatchCreated,
+    MatchReset,
     MatchStarted,
     MatchWon,
     PassUsed,
@@ -57,6 +59,8 @@ def decide(state: MatchState, command: Command, ctx: DecisionContext) -> tuple[E
             return _deal_board(state, ctx)
         case StartMatch():
             return _start_match(state)
+        case ResetMatch():
+            return _reset_match(state, command)
         case DeclareAttack():
             return _declare_attack(state, command, ctx)
         case StartDuel():
@@ -168,6 +172,25 @@ def _start_match(state: MatchState) -> tuple[Event, ...]:
     if len(state.groups) != state.board.cell_count:
         raise Rejected(RejectionReason.DEAL_INVALID)
     return (MatchStarted(turn_order=tuple(p.id for p in state.players)),)
+
+
+def _reset_match(state: MatchState, command: ResetMatch) -> tuple[Event, ...]:
+    """§A.4: легальна в любой фазе, и пустой переход, когда сбрасывать нечего.
+
+    Отказ здесь был бы хуже пустого события: оператор, дважды нажавший
+    «Сбросить», получил бы ошибку за то, что добился желаемого. Прецедент —
+    `_assign_secret`, который возвращает `()` на повторном назначении.
+    """
+    already_at_the_beginning = (
+        state.status is MatchStatus.SETUP
+        and not state.groups
+        and state.duel is None
+        and state.winner is None
+        and (command.keep_roster or (not state.players and not state.secrets))
+    )
+    if already_at_the_beginning:
+        return ()
+    return (MatchReset(keep_roster=command.keep_roster),)
 
 
 def _require_running(state: MatchState) -> None:

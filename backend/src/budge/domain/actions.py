@@ -36,6 +36,14 @@ class StartMatch:
 
 
 @dataclass(frozen=True, slots=True)
+class ResetMatch:
+    """§A: вернуть партию в начало. `keep_roster` отвечает на два разных
+    вопроса одной командой — «эту же партию ещё раз» и «с нуля»."""
+
+    keep_roster: bool
+
+
+@dataclass(frozen=True, slots=True)
 class DeclareAttack:
     attacking_group: GroupId
     defending_group: GroupId
@@ -89,6 +97,7 @@ Command = (
     | AssignSecret
     | DealBoard
     | StartMatch
+    | ResetMatch
     | DeclareAttack
     | StartDuel
     | JudgeCorrect

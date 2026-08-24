@@ -39,6 +39,11 @@ class MatchStarted:
 
 
 @dataclass(frozen=True, slots=True)
+class MatchReset:
+    keep_roster: bool
+
+
+@dataclass(frozen=True, slots=True)
 class AttackDeclared:
     attacker: PlayerId
     defender: PlayerId
@@ -117,6 +122,7 @@ Event = (
     | SecretAssigned
     | BoardDealt
     | MatchStarted
+    | MatchReset
     | AttackDeclared
     | DuelStarted
     | AnswerAccepted

@@ -188,3 +188,37 @@ def test_groups_falling_out_of_lockstep_is_caught() -> None:
     groups[left.id] = replace(left, cells=left.cells | right.cells)
     with pytest.raises(AssertionError, match="lockstep"):
         check_invariants(replace(state, groups=groups))
+
+
+@pytest.mark.parametrize("seed", range(25))
+def test_invariants_survive_a_reset_dropped_into_a_random_match(seed: int) -> None:
+    """§A.3: после сброса групп ноль, а это то же состояние, в котором
+    партия и так находится между `CreateMatch` и `DealBoard`.
+
+    Kills on: сброс, оставляющий за собой половину доски — например,
+    забывший `played_categories`, — биекция групп и неразыгранных категорий
+    сломалась бы на первой же раздаче после него.
+    """
+    from budge.domain.actions import DealBoard, ResetMatch, StartMatch
+    from support.streams import make_deal
+
+    rng = random.Random(seed)
+    state, players = build_running_state(4)
+    clock = 0.0
+    for _ in range(rng.randint(1, 4)):
+        if state.status is not MatchStatus.RUNNING:
+            break
+        state, clock = _play_one_duel(state, rng, clock)
+
+    state = fold(
+        state,
+        decide(state, ResetMatch(keep_roster=True), DecisionContext(now=at(clock))),
+    )
+    check_invariants(state)
+
+    deal = make_deal(state.board, players, dict(state.secrets))
+    state = fold(state, decide(state, DealBoard(), DecisionContext(now=at(clock), deal=deal)))
+    check_invariants(state)
+    state = fold(state, decide(state, StartMatch(), DecisionContext(now=at(clock))))
+    check_invariants(state)
+    assert state.status is MatchStatus.RUNNING

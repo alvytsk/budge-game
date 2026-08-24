@@ -12,6 +12,7 @@ from budge.domain.events import (
     Event,
     JudgementUndone,
     MatchCreated,
+    MatchReset,
     MatchStarted,
     MatchWon,
     PassUsed,
@@ -67,6 +68,27 @@ def evolve(state: MatchState, event: Event) -> MatchState:
                 turn_order=event.turn_order,
                 turn_index=0,
                 round_no=1,
+            )
+        case MatchReset():
+            evolved = replace(
+                state,
+                status=MatchStatus.SETUP,
+                # `eliminated` снимается: `active_players()` фильтрует по
+                # нему, и сохранённый ростер с отметками о выбывании дал бы
+                # партию, начинающуюся с уже выбывшими игроками.
+                players=(
+                    tuple(replace(person, eliminated=False) for person in state.players)
+                    if event.keep_roster
+                    else ()
+                ),
+                secrets=dict(state.secrets) if event.keep_roster else {},
+                turn_order=(),
+                turn_index=0,
+                round_no=0,
+                groups={},
+                played_categories=frozenset(),
+                duel=None,
+                winner=None,
             )
         case AttackDeclared():
             defending = state.groups[event.defending_group]
