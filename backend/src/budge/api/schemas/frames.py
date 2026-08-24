@@ -182,6 +182,10 @@ class HostFrame(Frozen):
     status: MatchStatus
     board: BoardFrame
     players: tuple[PlayerFrame, ...]
+    # §C: the declared count, not the number added so far. The setup
+    # screen asks the library's readiness verdict about this, and
+    # `len(players)` during setup is smaller than what will be needed.
+    player_count: int
     current_player: UUID | None
     round_no: int
     groups: tuple[HostGroupFrame, ...]

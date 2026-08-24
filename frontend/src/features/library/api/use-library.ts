@@ -40,10 +40,12 @@ export function useCategory(categoryId: string): UseQueryResult<CategoryDetailBo
   });
 }
 
-export function useReadiness(cells: number): UseQueryResult<ReadinessBody> {
+/** §B: the verdict counts both pools, and the player count is part of the
+ * question. */
+export function useReadiness(cells: number, players = 0): UseQueryResult<ReadinessBody> {
   return useQuery({
-    queryKey: [LIBRARY, "readiness", cells],
-    queryFn: () => json<ReadinessBody>(`/api/library/readiness?cells=${cells}`),
+    queryKey: [LIBRARY, "readiness", cells, players],
+    queryFn: () => json<ReadinessBody>(`/api/library/readiness?cells=${cells}&players=${players}`),
   });
 }
 

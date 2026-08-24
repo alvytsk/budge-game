@@ -264,6 +264,7 @@ async def project_host(
         status=state.status,
         board=_board(state),
         players=_players(state),
+        player_count=state.player_count,
         current_player=_current_player(state),
         round_no=state.round_no,
         groups=tuple(

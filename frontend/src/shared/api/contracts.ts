@@ -137,6 +137,7 @@ export interface HostFrame {
   status: MatchStatus;
   board: BoardFrame;
   players: PlayerFrame[];
+  player_count: number;
   current_player: string | null;
   round_no: number;
   groups: HostGroupFrame[];

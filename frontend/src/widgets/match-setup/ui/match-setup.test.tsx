@@ -31,6 +31,20 @@ function stock() {
         },
       ]),
     ),
+    // `MatchSetup` always asks readiness now (§C); tests that only care
+    // about the rest of the screen get a plain "ready" answer here, and
+    // the tests below that care about the verdict override this.
+    http.get("/api/library/readiness", () =>
+      HttpResponse.json({
+        cells: 9,
+        players: 2,
+        threshold: 5,
+        ordinary_available: 12,
+        secrets_available: 4,
+        thin: [],
+        ready: true,
+      }),
+    ),
   );
 }
 
@@ -103,5 +117,91 @@ describe("MatchSetup", () => {
     await userEvent.click(screen.getByRole("button", { name: "Перераздать" }));
     expect(await screen.findByText(/content_unavailable/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Перераздать" })).toBeEnabled();
+  });
+
+  it("says what the library is missing instead of showing an empty picker", async () => {
+    // The dead end the whole plan exists to close: an empty library leaves
+    // one disabled option in the `<select>`, and nothing on screen says why.
+    // Kills on: a setup screen without the readiness verdict — the operator
+    // hits the mute list and learns neither the reason nor where to go.
+    server.use(
+      http.get("/api/library/categories", () => HttpResponse.json([])),
+      http.get("/api/library/readiness", () =>
+        HttpResponse.json({
+          cells: 9,
+          players: 3,
+          threshold: 5,
+          ordinary_available: 0,
+          secrets_available: 0,
+          thin: [],
+          ready: false,
+        }),
+      ),
+    );
+    renderWithQuery(
+      <MatchSetup
+        frame={hostFrame({ status: "setup", players: [], player_count: 3 })}
+        matchId={MATCH}
+        stageToken="t"
+      />,
+    );
+    expect(await screen.findByText(/секретных тем/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Библиотека" })).toHaveAttribute(
+      "href",
+      "/host/library",
+    );
+  });
+
+  it("stays quiet when the library covers the board", async () => {
+    stock();
+    server.use(
+      http.get("/api/library/readiness", () =>
+        HttpResponse.json({
+          cells: 9,
+          players: 3,
+          threshold: 5,
+          ordinary_available: 12,
+          secrets_available: 4,
+          thin: [],
+          ready: true,
+        }),
+      ),
+    );
+    renderWithQuery(
+      <MatchSetup frame={hostFrame({ player_count: 2 })} matchId={MATCH} stageToken="t" />,
+    );
+    // The default frame has two players, each with its own picker, so two
+    // "Тайна" options render — one per select.
+    await screen.findAllByRole("option", { name: "Тайна" });
+    expect(screen.queryByText(/не хватает/i)).not.toBeInTheDocument();
+  });
+
+  it("asks readiness about the declared roster, not the one filled in so far", async () => {
+    const asked: string[] = [];
+    stock();
+    server.use(
+      http.get("/api/library/readiness", ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return HttpResponse.json({
+          cells: 12,
+          players: 4,
+          threshold: 5,
+          ordinary_available: 12,
+          secrets_available: 4,
+          thin: [],
+          ready: true,
+        });
+      }),
+    );
+    renderWithQuery(
+      <MatchSetup
+        frame={hostFrame({ board: { width: 4, height: 3 }, players: [], player_count: 4 })}
+        matchId={MATCH}
+        stageToken="t"
+      />,
+    );
+    await waitFor(() => expect(asked).not.toHaveLength(0));
+    expect(asked[0]).toContain("cells=12");
+    expect(asked[0]).toContain("players=4");
   });
 });

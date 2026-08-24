@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCategories, useCreateCategory, useReadiness } from "@/features/library";
+import { shortfallOf, useCategories, useCreateCategory, useReadiness } from "@/features/library";
 import { CategoryEditor } from "@/widgets/category-editor";
 
 // §8's readiness is answered per board size. Twelve cells is the board the
@@ -13,6 +13,7 @@ export function LibraryPage() {
   const create = useCreateCategory();
   const [picked, setPicked] = useState<string | null>(null);
   const [title, setTitle] = useState("");
+  const [isSecret, setIsSecret] = useState(false);
 
   return (
     <div className="flex h-full min-h-0">
@@ -27,7 +28,7 @@ export function LibraryPage() {
           >
             {readiness.data.ready
               ? `Тем достаточно: ${readiness.data.ordinary_available}`
-              : `Мало картинок: ${readiness.data.thin.map((row) => row.title).join(", ") || "—"}`}
+              : `Не хватает: ${shortfallOf(readiness.data).join("; ")}`}
           </p>
         )}
 
@@ -61,11 +62,20 @@ export function LibraryPage() {
               className="rounded-lg bg-white/10 px-3 py-2 text-stage-ink"
             />
           </label>
+          <label className="flex items-center gap-2 text-sm text-stage-muted">
+            <input
+              type="checkbox"
+              checked={isSecret}
+              onChange={(event) => setIsSecret(event.target.checked)}
+            />
+            Секретная
+          </label>
           <button
             type="button"
             onClick={() => {
-              void create.mutateAsync({ title, is_secret: false });
+              void create.mutateAsync({ title, is_secret: isSecret });
               setTitle("");
+              setIsSecret(false);
             }}
             className="rounded-lg bg-white/15 px-4 py-2"
           >

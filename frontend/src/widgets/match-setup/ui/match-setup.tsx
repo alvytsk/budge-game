@@ -1,5 +1,6 @@
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useCategories } from "@/features/library";
+import { shortfallOf, useCategories, useReadiness } from "@/features/library";
 import { useAddPlayer, useAssignSecret, useDeal, useStart } from "@/features/match-assembly";
 import type { HostFrame, OutcomeBody } from "@/shared/api";
 
@@ -15,6 +16,8 @@ export interface MatchSetupProps {
 
 export function MatchSetup({ frame, matchId, stageToken }: MatchSetupProps) {
   const categories = useCategories();
+  const cells = frame.board.width * frame.board.height;
+  const readiness = useReadiness(cells, frame.player_count);
   const addPlayer = useAddPlayer();
   const assignSecret = useAssignSecret();
   const deal = useDeal();
@@ -24,6 +27,7 @@ export function MatchSetup({ frame, matchId, stageToken }: MatchSetupProps) {
   const [refusal, setRefusal] = useState<OutcomeBody | null>(null);
 
   const secrets = categories.data?.filter((row) => row.is_secret && row.is_active) ?? [];
+  const missing = readiness.data ? shortfallOf(readiness.data) : [];
 
   function note(result: OutcomeBody) {
     setRefusal(result.outcome === "accepted" ? null : result);
@@ -34,6 +38,15 @@ export function MatchSetup({ frame, matchId, stageToken }: MatchSetupProps) {
       <p className="rounded-lg bg-white/5 p-3 font-mono text-sm text-stage-muted">
         {`Экран сцены: ${window.location.origin}/stage/${stageToken}`}
       </p>
+
+      {missing.length > 0 && (
+        <p className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-500/15 p-3 text-amber-300">
+          <span>{`Библиотеке не хватает: ${missing.join("; ")}.`}</span>
+          <Link to="/host/library" className="underline">
+            Библиотека
+          </Link>
+        </p>
+      )}
 
       <div className="flex items-end gap-3">
         <label className="flex flex-col gap-1 text-sm text-stage-muted">

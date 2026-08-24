@@ -11,3 +11,4 @@ export {
   useSetImageActive,
   useUploadMedia,
 } from "./api/use-library";
+export { shortfallOf } from "./model/shortfall";

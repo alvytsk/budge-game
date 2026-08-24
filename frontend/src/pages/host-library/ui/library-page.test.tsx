@@ -14,6 +14,7 @@ const CATEGORIES = [
 
 const READY = {
   cells: 12,
+  players: 0,
   threshold: 5,
   ordinary_available: 40,
   secrets_available: 6,
@@ -80,5 +81,59 @@ describe("LibraryPage", () => {
     await userEvent.type(await screen.findByLabelText("Новая тема"), "Музыка");
     await userEvent.click(screen.getByRole("button", { name: "Создать" }));
     await waitFor(() => expect(made).toEqual([{ title: "Музыка", is_secret: false }]));
+  });
+
+  it("names the real reason instead of always blaming thin categories", async () => {
+    // Today the message is always the same one, and with an empty `thin`
+    // the operator reads literally "Мало картинок: —".
+    // Kills on: the one wording — the operator goes looking for pictures
+    // where what is actually short is themes.
+    server.use(
+      http.get("/api/library/categories", () => HttpResponse.json([])),
+      http.get("/api/library/readiness", () =>
+        HttpResponse.json({
+          cells: 12,
+          players: 0,
+          threshold: 5,
+          ordinary_available: 3,
+          secrets_available: 0,
+          thin: [],
+          ready: false,
+        }),
+      ),
+    );
+    renderWithQuery(<LibraryPage />);
+    const badge = await screen.findByTestId("readiness");
+    expect(badge).toHaveTextContent(/обычных тем/i);
+    expect(badge).not.toHaveTextContent("—");
+  });
+
+  it("creates a secret theme in one step", async () => {
+    // §E: without the checkbox, a secret theme takes four steps, three of
+    // which exist only because the first one did not ask.
+    const sent: { title: string; is_secret: boolean }[] = [];
+    server.use(
+      http.get("/api/library/categories", () => HttpResponse.json([])),
+      http.get("/api/library/readiness", () =>
+        HttpResponse.json({
+          cells: 12,
+          players: 0,
+          threshold: 5,
+          ordinary_available: 0,
+          secrets_available: 0,
+          thin: [],
+          ready: false,
+        }),
+      ),
+      http.post("/api/library/categories", async ({ request }) => {
+        sent.push((await request.json()) as { title: string; is_secret: boolean });
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    renderWithQuery(<LibraryPage />);
+    await userEvent.type(screen.getByLabelText("Новая тема"), "Тайна Киры");
+    await userEvent.click(screen.getByLabelText("Секретная"));
+    await userEvent.click(screen.getByRole("button", { name: "Создать" }));
+    await waitFor(() => expect(sent).toEqual([{ title: "Тайна Киры", is_secret: true }]));
   });
 });

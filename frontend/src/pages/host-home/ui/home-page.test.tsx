@@ -66,4 +66,25 @@ describe("HomePage", () => {
       expect(made).toEqual([{ board: { width: 5, height: 3 }, player_count: 4 }]),
     );
   });
+
+  it("will not offer a board side the rules forbid", () => {
+    // §2.1: W >= 3 and H >= 3. Today the operator learns this from the
+    // server, by refusal.
+    server.use(http.get("/api/matches", () => HttpResponse.json([])));
+    renderWithQuery(<HomePage />);
+    expect(screen.getByLabelText("Ширина")).toHaveAttribute("min", "3");
+    expect(screen.getByLabelText("Высота")).toHaveAttribute("min", "3");
+  });
+
+  it("names the rule a board breaks before anything is sent", async () => {
+    // 5x4 = 20 cells on three players: 20 does not divide by 3, and that
+    // is the only one of §2.1's three conditions broken here.
+    server.use(http.get("/api/matches", () => HttpResponse.json([])));
+    renderWithQuery(<HomePage />);
+    await userEvent.clear(screen.getByLabelText("Ширина"));
+    await userEvent.type(screen.getByLabelText("Ширина"), "5");
+    await userEvent.clear(screen.getByLabelText("Высота"));
+    await userEvent.type(screen.getByLabelText("Высота"), "4");
+    expect(await screen.findByText(/не делится на 3/i)).toBeInTheDocument();
+  });
 });

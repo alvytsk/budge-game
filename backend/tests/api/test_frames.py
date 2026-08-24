@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from budge.api.projection import project_host
 from budge.api.schemas.frames import (
     HiddenCategory,
     HostCategory,
@@ -20,6 +21,8 @@ from budge.api.schemas.frames import (
     StageFrame,
     TimingFrame,
 )
+from domain.conftest import BASE_TIME, build_setup_state
+from support.content import RecordingContentDirectory
 from support.walk import property_names
 
 # Anything whose name says "the correct answer". The stage never learns one.
@@ -81,3 +84,18 @@ def test_a_frame_cannot_be_edited_after_it_is_built() -> None:
     category = NamedCategory(name="История")
     with pytest.raises(ValidationError):
         category.name = "Кино"  # type: ignore[misc]
+
+
+async def test_the_host_frame_carries_the_declared_player_count() -> None:
+    """§C: the setup screen asks readiness about the number of players
+    *declared*, not the number added so far.
+
+    Kills on: a frame without `player_count` — the screen would fall back
+    to `players.length` and claim only one secret is needed while three
+    are still unadded.
+    """
+    state, _ = build_setup_state(4)
+    frame = await project_host(
+        state, now=BASE_TIME, events=(), directory=RecordingContentDirectory()
+    )
+    assert frame.player_count == 4

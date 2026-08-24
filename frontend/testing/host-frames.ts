@@ -73,6 +73,7 @@ export function hostFrame(overrides: Partial<HostFrame> = {}): HostFrame {
     status: "running",
     board: { width: 3, height: 3 },
     players: [player(), player({ id: DEFENDER, name: "Борис", colour: "#2e86e4" })],
+    player_count: 2,
     current_player: ATTACKER,
     round_no: 2,
     groups: [
