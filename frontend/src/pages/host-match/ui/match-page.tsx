@@ -6,6 +6,7 @@ import { useAnimationFrame } from "@/shared/lib/use-animation-frame";
 import { useServerClock } from "@/shared/lib/use-server-clock";
 import { HostBoard } from "@/widgets/host-board";
 import { JudgingPanel } from "@/widgets/judging";
+import { MatchReset } from "@/widgets/match-reset";
 import { MatchSetup } from "@/widgets/match-setup";
 
 export interface MatchPageProps {
@@ -43,6 +44,9 @@ export function MatchPage({ matchId, socketFactory }: MatchPageProps) {
           {refusal.message ? ` — ${refusal.message}` : ""}
         </p>
       )}
+      <div className="flex justify-end border-white/10 border-b px-6 py-2">
+        <MatchReset matchId={matchId} />
+      </div>
       <div className="min-h-0 flex-1">
         {beat === "setup" && (
           <MatchSetup

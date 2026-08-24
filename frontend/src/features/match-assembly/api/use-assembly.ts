@@ -67,3 +67,13 @@ export function useStart() {
       outcome(`/api/matches/${matchId}/start`, post()),
   });
 }
+
+/** §A.8: both buttons are one command with a flag. Their `evolve`
+ * behaviour diverges by a single line, and two routes for one boolean
+ * would be two things where one suffices. */
+export function useReset() {
+  return useMutation({
+    mutationFn: ({ matchId, keep_roster }: { matchId: string; keep_roster: boolean }) =>
+      outcome(`/api/matches/${matchId}/reset`, post({ keep_roster })),
+  });
+}
