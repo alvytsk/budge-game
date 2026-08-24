@@ -128,7 +128,15 @@ async def test_the_projection_reflects_running_before_the_match_ends(
 async def test_a_rebuild_reproduces_the_incremental_projection(
     clean_db: None, sessions: async_sessionmaker[AsyncSession]
 ) -> None:
-    recorded = await _play_whole_match(sessions)
+    """Truncated to the first `MatchReset` (§A): with the full stream both
+    sides collapse to `('setup', None, [])` -- `rebuild` itself begins with
+    exactly that delete-and-reset, so a `rebuild` that skipped `apply_events`
+    entirely would still match. Stopping at the first reset keeps a
+    populated, non-eliminated roster in `incremental`, so the comparison
+    stays live *and* covers the reset branch on both the incremental and the
+    rebuild path.
+    """
+    recorded = await _play_whole_match(sessions, until=MatchReset)
     incremental = await _snapshot(sessions, recorded.state.id)
     async with sessions() as session, session.begin():
         await rebuild(session, recorded.state.id, recorded.events)
@@ -189,8 +197,15 @@ async def test_a_rebuild_from_the_database_alone_restores_the_projection(
     needs by reading the database — not by reusing the in-memory `Recorded`
     the test happened to build the match from. This test never touches
     `recorded.events`: it goes back through `MatchRepository.read_events`,
-    the same path a real recovery would use."""
-    recorded = await _play_whole_match(sessions)
+    the same path a real recovery would use.
+
+    Truncated to the first `MatchReset` (§A), for the same reason as
+    `test_a_rebuild_reproduces_the_incremental_projection`: with the full
+    stream, the corruption below reproduces the already-empty `expected`
+    snapshot by construction, and the test would pass even if
+    `read_events` returned nothing and `rebuild` never ran.
+    """
+    recorded = await _play_whole_match(sessions, until=MatchReset)
     expected = await _snapshot(sessions, recorded.state.id)
     async with sessions() as session, session.begin():
         match = (
@@ -253,21 +268,7 @@ async def test_a_reset_that_keeps_the_roster_un_eliminates_everyone(
     Kills on: a `keep_roster=True` branch that forgets to clear
     `eliminated` -- the match would be replayed with a player already out.
     """
-    recorded = build_rich_stream()
-    events = list(recorded.events)
-    first_reset = next(i for i, event in enumerate(events) if isinstance(event, MatchReset))
-    created = events[0]
-    assert isinstance(created, MatchCreated)
-    await MatchRepository(sessions).create(recorded.state.id, created, operation_id="op-create")
-    uow = UnitOfWork(sessions)
-    for offset, event in enumerate(events[1 : first_reset + 1]):
-        async with uow.begin() as tx:
-            await tx.append(
-                recorded.state.id,
-                expected_last_seq=offset + 1,
-                events=(event,),
-                operation_id=f"op-{offset}",
-            )
+    recorded = await _play_whole_match(sessions, until=MatchReset)
     status, winner_id, players = await _snapshot(sessions, recorded.state.id)
     assert status == MatchStatus.SETUP.value
     assert winner_id is None

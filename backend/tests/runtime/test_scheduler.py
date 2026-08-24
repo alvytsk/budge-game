@@ -333,4 +333,5 @@ async def test_a_reset_disarms_the_deadline() -> None:
     scheduler.reschedule(reset)
     await clock.settle()
     assert scheduler.armed is False
+    assert scheduler.deadline_id is None
     assert reset.duel is None

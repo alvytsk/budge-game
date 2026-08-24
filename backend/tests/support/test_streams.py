@@ -24,12 +24,13 @@ def test_the_rich_stream_contains_every_event_type() -> None:
     )
 
 
-def test_the_rich_stream_ends_in_a_won_match() -> None:
-    """`recorded.state` itself is no longer this: §A appends two `MatchReset`
+def test_the_rich_stream_plays_the_match_to_a_win() -> None:
+    """`recorded.state` itself is not this: §A appends two `MatchReset`
     events after the match is decided, so the stream's own terminal state is
-    `setup` with no roster (see `test_the_stream_has_the_expected_shape`).
-    This test is about the match having been played to a win, not about the
-    tail-end resets, so it folds only the prefix through `MatchWon`.
+    `setup` with no roster (see `test_the_rich_stream_ends_in_a_reset` and
+    `test_the_stream_has_the_expected_shape`). This test is about the match
+    having been played to a win, not about the tail-end resets, so it folds
+    only the prefix through `MatchWon`.
     """
     recorded = build_rich_stream()
     events = recorded.events
@@ -41,6 +42,16 @@ def test_the_rich_stream_ends_in_a_won_match() -> None:
     assert state.status is MatchStatus.FINISHED
     assert state.winner is not None
     assert len(state.active_players()) == 1
+
+
+def test_the_rich_stream_ends_in_a_reset() -> None:
+    """The stream's own terminal state, which every DB test that plays the
+    whole stream now depends on: §A's second, roster-clearing `ResetMatch`
+    is the last command applied, so `recorded.state` itself is back in
+    `setup` with no roster -- not the won match the previous test checks."""
+    recorded = build_rich_stream()
+    assert recorded.state.status is MatchStatus.SETUP
+    assert recorded.state.players == ()
 
 
 def test_the_stream_is_a_foldable_log() -> None:
