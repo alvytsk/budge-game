@@ -517,7 +517,20 @@ async def _play_whole_match(
     recorded = await _play_whole_match(sessions, until=MatchWon)
 ```
 
-добавив `MatchWon` к импорту из `budge.domain.events`. Остальные вызовы `_play_whole_match` остаются без аргумента — им хвост со сбросами не мешает, а `test_a_rebuild_reproduces_the_incremental_projection` он, наоборот, превращает в требуемую §H проверку «инкрементальный путь и `rebuild` согласны на логе со сбросом», бесплатно и без нового теста.
+добавив `MatchWon` к импорту из `budge.domain.events`.
+
+**Осторожно с остальными вызовами `_play_whole_match`.** Полный поток теперь кончается снимком `('setup', None, [])` — хвостовой `keep_roster=False` удаляет все строки игроков и обнуляет победителя. А `rebuild` начинается ровно с этого же: `delete(MatchPlayer)` плюс `status=setup, winner_id=None`. Значит, любой тест, сравнивающий снимок после `rebuild` с ожидаемым, на полном потоке вырождается в «пусто против пусто» и проходит, даже если `apply_events` не вызывался вообще.
+
+Это касается двух тестов, и обоим нужен `until=MatchReset`:
+
+```python
+    recorded = await _play_whole_match(sessions, until=MatchReset)
+```
+
+- `test_a_rebuild_reproduces_the_incremental_projection`
+- `test_a_rebuild_from_the_database_alone_restores_the_projection` — здесь вырождение особенно коварно: блок порчи данных в этом тесте выставляет ровно `setup / None / без игроков`, то есть воспроизводит ожидаемый снимок буквально.
+
+`until=MatchReset` останавливает поток после первого сброса, который сохраняет ростер: снимок получается `setup / None / двое неисключённых игроков` — невырожденный, и ветка сброса при этом всё равно разыграна на обоих путях. Это строго больше покрытия, чем было до появления сбросов в потоке.
 
 - [ ] **Step 9: Написать падающие тесты на читающую модель**
 
