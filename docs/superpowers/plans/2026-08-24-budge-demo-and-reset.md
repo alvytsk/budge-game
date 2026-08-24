@@ -619,10 +619,13 @@ async def test_a_reset_disarms_the_deadline() -> None:
     сброс посреди дуэли оставил бы живой таймер, который через минуту
     разрешил бы дуэль, которой уже нет.
     """
+    async def _never_fires(_deadline_id: int) -> None:
+        raise AssertionError("the deadline must not fire in this test")
+
     recorded = build_rich_stream()
     duelling = _state_after(recorded, DuelStarted)
     clock = FakeClock(BASE_TIME)
-    scheduler = DeadlineScheduler(clock, lambda _: _noop())
+    scheduler = DeadlineScheduler(clock, _never_fires)
 
     scheduler.reschedule(duelling)
     await clock.settle()
@@ -635,7 +638,7 @@ async def test_a_reset_disarms_the_deadline() -> None:
     assert reset.duel is None
 ```
 
-Импорты: `MatchReset` к существующему списку из `budge.domain.events`. `_noop` — асинхронная заглушка обратного вызова; если в файле уже есть такая (тесты этого модуля передают `fire` куда-то), использовать её вместо новой. Точные имена `FakeClock.settle` и `_state_after` в файле уже есть — сверить и подставить.
+Импорты: `MatchReset` к существующему списку из `budge.domain.events`. `_state_after` и `FakeClock` в файле уже есть — сверить точные имена и подставить; если у `FakeClock` метод донастройки цикла называется иначе, чем `settle`, использовать тот, которым пользуются соседние тесты этого модуля.
 
 - [ ] **Step 13: Прогнать всё, что стоит на потоке**
 
@@ -1396,18 +1399,26 @@ Expected: PASS; в `contracts.ts` у `HostFrame` появляется `player_co
 ```tsx
   it("will not offer a board side the rules forbid", () => {
     // §2.1: W ≥ 3 и H ≥ 3. Сегодня оператор узнаёт это от сервера, отказом.
+    server.use(http.get("/api/matches", () => HttpResponse.json([])));
     renderWithQuery(<HomePage />);
     expect(screen.getByLabelText("Ширина")).toHaveAttribute("min", "3");
     expect(screen.getByLabelText("Высота")).toHaveAttribute("min", "3");
   });
 
   it("names the rule a board breaks before anything is sent", async () => {
+    // 5×4 = 20 клеток на троих: 20 не делится на 3, и это единственное из
+    // трёх условий §2.1, которое здесь нарушено.
+    server.use(http.get("/api/matches", () => HttpResponse.json([])));
     renderWithQuery(<HomePage />);
     await userEvent.clear(screen.getByLabelText("Ширина"));
     await userEvent.type(screen.getByLabelText("Ширина"), "5");
-    expect(await screen.findByText(/делится/i)).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText("Высота"));
+    await userEvent.type(screen.getByLabelText("Высота"), "4");
+    expect(await screen.findByText(/не делится на 3/i)).toBeInTheDocument();
   });
 ```
+
+Оба теста обязаны застабить `/api/matches`: `testing/setup.ts` поднимает msw с `onUnhandledRequest: "error"`, и `HomePage` дёргает этот роут при монтировании.
 
 - [ ] **Step 6: Убедиться, что тесты падают**
 
