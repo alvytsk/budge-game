@@ -101,9 +101,15 @@ class ReadinessBody(Response):
     It refuses nothing. §8 asks for «мягкое предупреждение, если у какой-то
     из них картинок меньше настраиваемого порога» — a warning, not a gate,
     and the operator remains the one who decides whether the show goes on.
+
+    §B: the verdict counts both pools. Ordinary categories need to number
+    `cells - players` — the remaining cells carry the players' secrets —
+    and secret categories need to number exactly `players`, because
+    `AssignSecret` requires distinct categories.
     """
 
     cells: int
+    players: int
     threshold: int
     ordinary_available: int
     secrets_available: int

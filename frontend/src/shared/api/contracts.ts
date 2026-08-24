@@ -215,6 +215,7 @@ export interface PlayerSummaryBody {
 
 export interface ReadinessBody {
   cells: number;
+  players: number;
   threshold: number;
   ordinary_available: number;
   secrets_available: number;

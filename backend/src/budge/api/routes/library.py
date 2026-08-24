@@ -225,16 +225,22 @@ async def reorder_images(
 
 
 @router.get("/readiness")
-async def readiness(request: Request, cells: int = 0) -> ReadinessBody:
+async def readiness(request: Request, cells: int = 0, players: int = 0) -> ReadinessBody:
     """§8's soft warning, answered in one call.
 
     «Отбор на партию: из активных, без повторов, число равно числу клеток
-    поля» — so a board of `cells` cells needs `cells - players` ordinary
-    categories plus one secret each. The player count is not known here, so
-    `ready` is answered against the strictest reading: enough ordinary
-    categories for every cell. It refuses nothing either way (§8 asks for
-    «мягкое предупреждение»), and an operator who wants the show to go on
-    can start it.
+    поля» — a board of `cells` cells needs `cells - players` ordinary
+    categories plus one secret each. `cells - players` is the count
+    `Materialiser._deal` actually draws from the bank: the remaining cells
+    carry the players' own secrets.
+
+    `players = 0` degenerates to the older, stricter reading — enough
+    ordinary categories for every cell, and no opinion about secrets — so a
+    caller that does not know the roster size still gets a usable answer and
+    no special case is needed.
+
+    It refuses nothing either way (§8 asks for «мягкое предупреждение»), and
+    an operator who wants the show to go on can start it.
     """
     settings = _settings(request)
     rows = await _catalogue(request).list_categories()
@@ -250,11 +256,12 @@ async def readiness(request: Request, cells: int = 0) -> ReadinessBody:
     ]
     return ReadinessBody(
         cells=cells,
+        players=players,
         threshold=settings.thin_image_threshold,
         ordinary_available=len(ordinary),
         secrets_available=len(secrets),
         thin=tuple(thin),
-        ready=len(ordinary) >= cells,
+        ready=len(ordinary) >= cells - players and len(secrets) >= players,
     )
 
 

@@ -325,6 +325,67 @@ async def test_readiness_ignores_inactive_categories(
     assert readiness["ready"] is False
 
 
+async def test_readiness_is_not_ready_without_enough_secret_categories(
+    clean_db: None, clean_bucket: None, api_settings: ApiSettings
+) -> None:
+    """§B: a library of twelve ordinary themes and zero secret ones today
+    reports «Тем достаточно: 12» — and no match can be assembled from it,
+    because every player needs a secret of their own.
+
+    Kills on: a verdict that counts only ordinary categories — the operator
+    would reach an empty secret picker on the setup screen with nothing on
+    the page explaining why.
+    """
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        for index in range(12):
+            await create_category(client, f"Тема {index}")
+
+        readiness = (await client.get("/api/library/readiness?cells=12&players=3")).json()
+
+    assert readiness["ordinary_available"] == 12
+    assert readiness["secrets_available"] == 0
+    assert readiness["ready"] is False
+
+
+async def test_readiness_is_ready_when_both_pools_cover_the_board(
+    clean_db: None, clean_bucket: None, api_settings: ApiSettings
+) -> None:
+    """`cells - players` is the count `Materialiser._deal` actually draws
+    from the ordinary bank: the remaining cells carry the players' own
+    secrets, so nine ordinary themes plus three secrets fill a twelve-cell,
+    three-player board."""
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        for index in range(9):
+            await create_category(client, f"Тема {index}")
+        for index in range(3):
+            await create_category(client, f"Тайна {index}", secret=True)
+
+        readiness = (await client.get("/api/library/readiness?cells=12&players=3")).json()
+
+    assert readiness["ready"] is True
+    assert readiness["players"] == 3
+
+
+async def test_readiness_without_a_player_count_keeps_the_strict_verdict(
+    clean_db: None, clean_bucket: None, api_settings: ApiSettings
+) -> None:
+    """At `players = 0` the verdict degenerates to the older, stricter
+    reading, so an existing caller that does not know the roster size still
+    gets the same answer it always did and no special case is needed."""
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        for index in range(12):
+            await create_category(client, f"Тема {index}")
+
+        fits = (await client.get("/api/library/readiness?cells=12")).json()
+        short = (await client.get("/api/library/readiness?cells=13")).json()
+
+    assert fits["ready"] is True
+    assert short["ready"] is False
+
+
 async def test_no_library_route_deletes_anything(api_settings: ApiSettings) -> None:
     """§5.3's «мягко», at the routing layer.
 
