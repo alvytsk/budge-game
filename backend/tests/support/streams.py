@@ -30,6 +30,7 @@ from budge.domain.actions import (
     JudgeCorrect,
     JudgePass,
     PauseDuel,
+    ResetMatch,
     ResumeDuel,
     StartDuel,
     StartMatch,
@@ -258,5 +259,12 @@ def build_rich_stream() -> Recorded:
     while recorder.state.status is not MatchStatus.FINISHED:
         _declare_and_start(recorder, now)
         now = _expire(recorder, now)
+
+    # §A: both forms of the flag, in one stream. First "the same match
+    # again" — the roster stays — then "from scratch", which clears it.
+    # The order is mandatory: a full reset after a full reset would be an
+    # empty transition and would emit nothing.
+    recorder.apply(ResetMatch(keep_roster=True), now=now)
+    recorder.apply(ResetMatch(keep_roster=False), now=now)
 
     return Recorded(state=recorder.state, events=tuple(recorder.events))

@@ -8,7 +8,9 @@ keep passing while covering one type less.
 from collections import Counter
 from typing import get_args
 
-from budge.domain.events import Event
+from budge.domain.events import Event, MatchWon
+from budge.domain.evolve import fold
+from budge.domain.genesis import create_initial_state
 from budge.domain.state import MatchStatus
 from support.streams import build_rich_stream
 
@@ -23,10 +25,22 @@ def test_the_rich_stream_contains_every_event_type() -> None:
 
 
 def test_the_rich_stream_ends_in_a_won_match() -> None:
+    """`recorded.state` itself is no longer this: §A appends two `MatchReset`
+    events after the match is decided, so the stream's own terminal state is
+    `setup` with no roster (see `test_the_stream_has_the_expected_shape`).
+    This test is about the match having been played to a win, not about the
+    tail-end resets, so it folds only the prefix through `MatchWon`.
+    """
     recorded = build_rich_stream()
-    assert recorded.state.status is MatchStatus.FINISHED
-    assert recorded.state.winner is not None
-    assert len(recorded.state.active_players()) == 1
+    events = recorded.events
+    won_index = next(i for i, event in enumerate(events) if isinstance(event, MatchWon))
+    state = fold(
+        create_initial_state(recorded.state.id, recorded.state.board, recorded.state.settings),
+        events[: won_index + 1],
+    )
+    assert state.status is MatchStatus.FINISHED
+    assert state.winner is not None
+    assert len(state.active_players()) == 1
 
 
 def test_the_stream_is_a_foldable_log() -> None:
@@ -69,6 +83,9 @@ def test_the_stream_has_the_expected_shape() -> None:
     that is fewer than the eleven-duel upper bound). `PlayerEliminated` and
     `MatchWon` are each 1 because this is a two-player match: the first
     (and only) elimination ends it.
+
+    `MatchReset` is 2: §A requires both forms of the flag in the stream,
+    and they are appended at the end, once the match has been played out.
     """
     recorded = build_rich_stream()
     names = [type(event).__name__ for event in recorded.events]
@@ -89,9 +106,10 @@ def test_the_stream_has_the_expected_shape() -> None:
         "DuelResolved": 10,
         "PlayerEliminated": 1,
         "MatchWon": 1,
+        "MatchReset": 2,
     }
     assert Counter(names) == Counter(expected_counts)
-    assert len(names) == sum(expected_counts.values()) == 44
+    assert len(names) == sum(expected_counts.values()) == 46
 
     expected_first_duel_prefix = [
         "MatchCreated",

@@ -1072,5 +1072,19 @@
     "payload": {
       "player_id": "00000000-0000-0000-0000-000000000002"
     }
+  },
+  {
+    "type": "match.reset",
+    "schema_version": 1,
+    "payload": {
+      "keep_roster": true
+    }
+  },
+  {
+    "type": "match.reset",
+    "schema_version": 1,
+    "payload": {
+      "keep_roster": false
+    }
   }
 ]

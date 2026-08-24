@@ -12,7 +12,14 @@ from datetime import datetime
 from uuid import uuid4
 
 from budge.domain.board import BoardSize
-from budge.domain.events import AnswerAccepted, DuelPaused, DuelStarted, Event, MatchCreated
+from budge.domain.events import (
+    AnswerAccepted,
+    DuelPaused,
+    DuelStarted,
+    Event,
+    MatchCreated,
+    MatchReset,
+)
 from budge.domain.evolve import fold
 from budge.domain.genesis import create_initial_state
 from budge.domain.ids import MatchId
@@ -298,3 +305,32 @@ async def test_the_scheduler_never_sleeps_on_the_wall_clock() -> None:
 
     await clock.advance_to(deadline)
     assert fired == [state.seq]
+
+
+async def test_a_reset_disarms_the_deadline() -> None:
+    """§A.5: `reschedule` reads state, and a state with no duel has no
+    deadline -- so the task is dropped on the same general path, without a
+    single line that knows about resets.
+
+    Kills on: a scheduler that drops tasks off a list of known event types
+    -- a reset mid-duel would leave the timer alive, and a minute later it
+    would resolve a duel that no longer exists.
+    """
+
+    async def _never_fires(_deadline_id: int) -> None:
+        raise AssertionError("the deadline must not fire in this test")
+
+    recorded = build_rich_stream()
+    duelling = _state_after(recorded, DuelStarted)
+    clock = FakeClock(BASE_TIME)
+    scheduler = DeadlineScheduler(clock, _never_fires)
+
+    scheduler.reschedule(duelling)
+    await clock.settle()
+    assert scheduler.armed is True
+
+    reset = fold(duelling, (MatchReset(keep_roster=True),))
+    scheduler.reschedule(reset)
+    await clock.settle()
+    assert scheduler.armed is False
+    assert reset.duel is None

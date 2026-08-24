@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from budge.db.models import Match, MatchPlayer
 from budge.domain.events import (
     Event,
+    MatchReset,
     MatchStarted,
     MatchWon,
     PlayerAdded,
@@ -50,6 +51,26 @@ async def apply_events(
                     update(Match)
                     .where(Match.id == match_id)
                     .values(status=MatchStatus.RUNNING.value)
+                )
+            case MatchReset():
+                # §A.6: line for line the first half of `rebuild`. The
+                # overlap is not a coincidence -- it is what makes the
+                # "incremental path and rebuild agree" test cover a reset
+                # too, for free.
+                if event.keep_roster:
+                    await session.execute(
+                        update(MatchPlayer)
+                        .where(MatchPlayer.match_id == match_id)
+                        .values(eliminated=False)
+                    )
+                else:
+                    await session.execute(
+                        delete(MatchPlayer).where(MatchPlayer.match_id == match_id)
+                    )
+                await session.execute(
+                    update(Match)
+                    .where(Match.id == match_id)
+                    .values(status=MatchStatus.SETUP.value, winner_id=None)
                 )
             case PlayerEliminated():
                 await session.execute(
