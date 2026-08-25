@@ -96,6 +96,14 @@ The command is idempotent by category title: a second run does not
 duplicate the library, it assembles a second match. Flags: `--board 4x3`,
 `--players 3`, `--images 3`, `--start`.
 
+It prints a console link and a stage link. Those are built from
+`--public-url`, which defaults to `http://127.0.0.1:8080` — the port
+`compose.yaml` publishes, i.e. the one a browser on the host can reach.
+`--api` is a separate address: it is where the command sends its own HTTP
+calls, and its default is where the API listens inside the container. Pass
+`--public-url` when the operator's browser reaches this deployment by some
+other name, e.g. `--public-url http://budge.office:8080`.
+
 To run the same match again without assembling it from scratch, the
 console has "Replay" (roster and secrets stay) and "Full reset".
 

@@ -91,7 +91,21 @@ def main(argv: list[str] | None = None) -> int:
     seed = subcommands.add_parser(
         "seed-demo", help="fill the library and assemble a playable match (§G)"
     )
-    seed.add_argument("--api", default="http://127.0.0.1:8000")
+    # Two different consumers, so two different addresses. `--api` is where
+    # this process sends its HTTP calls, and its default is where the API
+    # listens *inside the container this command runs in*. `--public-url` is
+    # what the printed links are built from, and those are opened by a human
+    # in a browser on the host — where §10 publishes only Caddy's port, and
+    # 8000 is not bound at all. One value serving both printed a link that
+    # could not be followed from the machine the operator was sitting at.
+    seed.add_argument(
+        "--api", default="http://127.0.0.1:8000", help="where to send the API calls"
+    )
+    seed.add_argument(
+        "--public-url",
+        default="http://127.0.0.1:8080",
+        help="the origin the printed links use, as reached from a browser",
+    )
     seed.add_argument("--board", default="4x3", type=_board_size, help="width x height, e.g. 4x3")
     seed.add_argument("--players", type=int, default=3)
     seed.add_argument("--images", type=int, default=3)
@@ -222,8 +236,12 @@ def main(argv: list[str] | None = None) -> int:
             # why, not an uncaught-exception traceback from inside asyncio.
             print(f"демо остановлено: {failure}", file=sys.stderr)
             return 1
-        print(f"партия: {args.api}/host/match/{demo_report.match_id}")
-        print(f"экран сцены: {args.api}/stage/{demo_report.stage_token}")
+        # `--public-url`, never `--api`: these are followed by a human, not
+        # by this process. See the argument's own comment for why the two
+        # differ by default.
+        public = args.public_url.rstrip("/")
+        print(f"партия: {public}/host/match/{demo_report.match_id}")
+        print(f"экран сцены: {public}/stage/{demo_report.stage_token}")
         print(
             f"создано тем: {demo_report.categories_created}, "
             f"картинок: {demo_report.images_created}"

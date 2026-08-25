@@ -260,6 +260,87 @@ def test_seed_demo_builds_the_plan_from_the_flags(
     assert "tok" in out
 
 
+def test_seed_demo_prints_links_a_browser_can_follow(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The printed links use `--public-url`, never `--api`.
+
+    The two differ by default and must: `--api` is where this process sends
+    its calls, which inside the container is port 8000, while §10 publishes
+    only Caddy's port to the host — so 8000 is not bound on the machine the
+    operator is sitting at. Building the links from `--api` printed an
+    address that could not be followed, which is how this was found: by
+    copying the output into a browser and getting nothing.
+
+    Kills on: either link built from `args.api` again, or `--public-url`
+    accepted and then ignored.
+    """
+    from budge.demo import seed as seed_module
+
+    serve_environment(monkeypatch)
+
+    async def fake_run(
+        caller: object, plan: seed_module.DemoPlan
+    ) -> seed_module.DemoReport:
+        return seed_module.DemoReport(
+            match_id="m1",
+            stage_token="tok",
+            categories_created=0,
+            images_created=0,
+            started=True,
+        )
+
+    monkeypatch.setattr(seed_module, "run", fake_run)
+
+    assert (
+        main(
+            [
+                "seed-demo",
+                "--api",
+                "http://127.0.0.1:8000",
+                "--public-url",
+                "http://budge.local:9999",
+            ]
+        )
+        == 0
+    )
+
+    out = capsys.readouterr().out
+    assert "http://budge.local:9999/host/match/m1" in out
+    assert "http://budge.local:9999/stage/tok" in out
+    assert "127.0.0.1:8000" not in out
+
+
+def test_seed_demo_links_default_to_the_published_port(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Run with no flags, the links must name the port `compose.yaml`
+    actually publishes — the whole point of the default being different
+    from `--api`'s.
+
+    Kills on: the two defaults being unified back to one value.
+    """
+    from budge.demo import seed as seed_module
+
+    serve_environment(monkeypatch)
+
+    async def fake_run(
+        caller: object, plan: seed_module.DemoPlan
+    ) -> seed_module.DemoReport:
+        return seed_module.DemoReport(
+            match_id="m1",
+            stage_token="tok",
+            categories_created=0,
+            images_created=0,
+            started=False,
+        )
+
+    monkeypatch.setattr(seed_module, "run", fake_run)
+
+    assert main(["seed-demo"]) == 0
+    assert "http://127.0.0.1:8080/host/match/m1" in capsys.readouterr().out
+
+
 def test_seed_demo_rejects_a_malformed_board(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
