@@ -76,6 +76,15 @@ describe("HomePage", () => {
     expect(screen.getByLabelText("Высота")).toHaveAttribute("min", "3");
   });
 
+  it("will not offer a roster the rules forbid", () => {
+    // §1.1: 2-4 players. Same silent-refusal class as the board sides —
+    // `validate_board` rejects player_count < 2 or > 4 server-side.
+    server.use(http.get("/api/matches", () => HttpResponse.json([])));
+    renderWithQuery(<HomePage />);
+    expect(screen.getByLabelText("Игроков")).toHaveAttribute("min", "2");
+    expect(screen.getByLabelText("Игроков")).toHaveAttribute("max", "4");
+  });
+
   it("names the rule a board breaks before anything is sent", async () => {
     // 5x4 = 20 cells on three players: 20 does not divide by 3, and that
     // is the only one of §2.1's three conditions broken here.
@@ -86,5 +95,20 @@ describe("HomePage", () => {
     await userEvent.clear(screen.getByLabelText("Высота"));
     await userEvent.type(screen.getByLabelText("Высота"), "4");
     expect(await screen.findByText(/не делится на 3/i)).toBeInTheDocument();
+  });
+
+  it("names the roster rule before the divisibility rule when both break", async () => {
+    // 12 cells on five players breaks both §1.1's 2-4 range and §2.1's
+    // divisibility — an out-of-range roster would make "12 не делится на
+    // 5" read as if 5 were a target worth reaching. The roster arm must
+    // run first.
+    // Kills on: swapping the cascade order, or dropping the roster arm —
+    // either leaves the divisibility message on screen instead.
+    server.use(http.get("/api/matches", () => HttpResponse.json([])));
+    renderWithQuery(<HomePage />);
+    await userEvent.clear(screen.getByLabelText("Игроков"));
+    await userEvent.type(screen.getByLabelText("Игроков"), "5");
+    expect(await screen.findByText("Игроков — от 2 до 4")).toBeInTheDocument();
+    expect(screen.queryByText(/не делится на/i)).not.toBeInTheDocument();
   });
 });

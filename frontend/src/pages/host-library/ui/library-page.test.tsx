@@ -50,13 +50,20 @@ describe("LibraryPage", () => {
     expect(screen.getByTestId("category-a")).toHaveAttribute("data-secret", "false");
   });
 
-  it("warns softly when the library is thin, and refuses nothing", async () => {
-    // §8: «мягкое предупреждение». Kills on: turning this into a block —
-    // an operator who wants the show to go on must be able to start it.
-    stock({ ...READY, ready: false, thin: [{ id: "b", title: "Тайна", active_image_count: 3 }] });
+  it("names a thin category even when the server calls the library ready", async () => {
+    // §D: the server's own `ready` verdict never looks at `thin`
+    // (`ordinary_available >= cells - players && secrets_available >=
+    // players`) — both pools can already cover the board while one
+    // category is running low. `READY` here is a fixture the server could
+    // actually emit (40 ordinary against 12 cells, 6 secrets against 0
+    // players — both satisfied, `ready: true`) with `thin` added; this is
+    // the exact state that was silently unreachable when the badge gated
+    // all naming behind `ready`.
+    // §8: «мягкое предупреждение» still holds — nothing here blocks.
+    stock({ ...READY, thin: [{ id: "b", title: "Тайна", active_image_count: 3 }] });
     renderWithQuery(<LibraryPage />);
     await screen.findByText("Кино");
-    expect(screen.getByTestId("readiness")).toHaveAttribute("data-ready", "false");
+    expect(screen.getByTestId("readiness")).toHaveAttribute("data-ready", "true");
     expect(screen.getByTestId("readiness")).toHaveTextContent("Тайна");
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });

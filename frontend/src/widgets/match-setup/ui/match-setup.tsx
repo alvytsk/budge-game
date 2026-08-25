@@ -4,8 +4,8 @@ import { shortfallOf, useCategories, useReadiness } from "@/features/library";
 import { useAddPlayer, useAssignSecret, useDeal, useStart } from "@/features/match-assembly";
 import type { HostFrame, OutcomeBody } from "@/shared/api";
 
-// Wide enough for the six players §2.2 allows, and chosen for separation
-// on a projector rather than on a monitor.
+// §1.1 allows at most four players; six colours give headroom past that
+// limit, chosen for separation on a projector rather than on a monitor.
 const COLOURS = ["#e4572e", "#2e86e4", "#3fb950", "#d4a017", "#a371f7", "#e45ea0"];
 
 export interface MatchSetupProps {
@@ -39,13 +39,23 @@ export function MatchSetup({ frame, matchId, stageToken }: MatchSetupProps) {
         {`Экран сцены: ${window.location.origin}/stage/${stageToken}`}
       </p>
 
-      {missing.length > 0 && (
-        <p className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-500/15 p-3 text-amber-300">
-          <span>{`Библиотеке не хватает: ${missing.join("; ")}.`}</span>
-          <Link to="/host/library" className="underline">
-            Библиотека
-          </Link>
+      {readiness.isError ? (
+        // §D's whole point is naming a reason instead of a mute screen —
+        // a failed request is a reason too, and treating it like a still-
+        // loading query (`missing` stays `[]`) would silently put the
+        // operator back at the empty picker this task exists to fix.
+        <p className="rounded-lg bg-amber-500/15 p-3 text-amber-300">
+          Не удалось проверить готовность библиотеки — сервер не ответил.
         </p>
+      ) : (
+        missing.length > 0 && (
+          <p className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-500/15 p-3 text-amber-300">
+            <span>{`Библиотеке не хватает: ${missing.join("; ")}.`}</span>
+            <Link to="/host/library" className="underline">
+              Библиотека
+            </Link>
+          </p>
+        )
       )}
 
       <div className="flex items-end gap-3">

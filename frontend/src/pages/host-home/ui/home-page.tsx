@@ -10,19 +10,24 @@ export function HomePage() {
   const [height, setHeight] = useState(3);
   const [players, setPlayers] = useState(3);
   // §2.1: a board's sides are at least 3, its cell count is at most 36,
-  // and its cells must divide evenly across the players. The button is
-  // never disabled — ruling 4 leaves the check to `MatchLifecycle.create`
-  // — but the operator gets to see which of the three the current shape
-  // breaks before pressing it, rather than learning it from a refusal.
+  // and its cells must divide evenly across the players. §1.1: 2-4
+  // players. The button is never disabled — ruling 4 leaves the check to
+  // `MatchLifecycle.create` — but the operator gets to see which rule the
+  // current shape breaks before pressing it, rather than learning it from
+  // a refusal. The roster check runs before the divisibility check: an
+  // out-of-range roster would make "N does not divide evenly" read as if
+  // N were a target worth hitting.
   const cells = width * height;
   const broken =
     width < 3 || height < 3
-      ? "Сторона поля — не меньше 3 (§2.1)"
+      ? "Сторона поля — не меньше 3"
       : cells > 36
         ? `Клеток ${cells}, а больше 36 быть не может`
-        : cells % players !== 0
-          ? `${cells} не делится на ${players} игроков нацело`
-          : null;
+        : players < 2 || players > 4
+          ? "Игроков — от 2 до 4"
+          : cells % players !== 0
+            ? `${cells} не делится на ${players} игроков нацело`
+            : null;
   const matches = useQuery({
     queryKey: ["matches"],
     queryFn: async (): Promise<MatchSummaryBody[]> => {
@@ -42,20 +47,22 @@ export function HomePage() {
       </div>
       <div className="flex items-end gap-3 rounded-xl bg-white/5 p-4">
         {
-          // §2.1's minimum side of 3 applies to the board, not the roster —
-          // §2.2 still allows a match of two.
+          // §2.1's minimum side of 3 applies to the board; §1.1's 2-4
+          // applies to the roster — two different rules, two different
+          // ranges.
           (
             [
-              ["Ширина", width, setWidth, 3],
-              ["Высота", height, setHeight, 3],
-              ["Игроков", players, setPlayers, 1],
+              ["Ширина", width, setWidth, 3, undefined],
+              ["Высота", height, setHeight, 3, undefined],
+              ["Игроков", players, setPlayers, 2, 4],
             ] as const
-          ).map(([label, value, set, min]) => (
+          ).map(([label, value, set, min, max]) => (
             <label key={label} className="flex flex-col gap-1 text-sm text-stage-muted">
               {label}
               <input
                 type="number"
                 min={min}
+                max={max}
                 value={value}
                 onChange={(event) => set(Number(event.target.value))}
                 className="w-20 rounded-lg bg-white/10 px-3 py-2 text-stage-ink"

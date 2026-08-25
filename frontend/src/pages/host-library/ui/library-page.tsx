@@ -14,6 +14,10 @@ export function LibraryPage() {
   const [picked, setPicked] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [isSecret, setIsSecret] = useState(false);
+  // §D: the server's own `ready` never looks at `thin` — both pools can be
+  // large enough while one category is running low, and `ready` alone
+  // would hide it. Naming is driven by `shortfallOf`, not by `ready`.
+  const missing = readiness.data ? shortfallOf(readiness.data) : [];
 
   return (
     <div className="flex h-full min-h-0">
@@ -26,9 +30,9 @@ export function LibraryPage() {
             data-ready={readiness.data.ready}
             className="rounded-lg bg-white/5 p-3 text-sm text-stage-muted data-[ready=false]:text-amber-300"
           >
-            {readiness.data.ready
+            {missing.length === 0
               ? `Тем достаточно: ${readiness.data.ordinary_available}`
-              : `Не хватает: ${shortfallOf(readiness.data).join("; ")}`}
+              : `Не хватает: ${missing.join("; ")}`}
           </p>
         )}
 

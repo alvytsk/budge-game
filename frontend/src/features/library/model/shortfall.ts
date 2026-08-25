@@ -15,7 +15,10 @@ export function shortfallOf(readiness: ReadinessBody): string[] {
     missing.push(`секретных тем ${readiness.secrets_available} из ${readiness.players}`);
   }
   if (readiness.thin.length > 0) {
-    missing.push(`мало картинок: ${readiness.thin.map((row) => row.title).join(", ")}`);
+    // A dash, not a colon: both call sites prefix this list with
+    // "Не хватает: " / "не хватает: ", and a second colon inside one item
+    // reads as a nested list ("Не хватает: мало картинок: Тайна").
+    missing.push(`мало картинок — ${readiness.thin.map((row) => row.title).join(", ")}`);
   }
   return missing;
 }

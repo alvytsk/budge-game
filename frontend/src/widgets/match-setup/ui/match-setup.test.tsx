@@ -204,4 +204,16 @@ describe("MatchSetup", () => {
     expect(asked[0]).toContain("cells=12");
     expect(asked[0]).toContain("players=4");
   });
+
+  it("says the readiness check failed rather than going quiet", async () => {
+    // Minor 5: `missing` falls back to `[]` while the query is still
+    // loading, and a failed request looks identical to that fallback
+    // unless it is handled on its own — which would put the operator
+    // straight back at the mute empty picker this task exists to close.
+    // Kills on: treating `readiness.isError` like the loading state.
+    stock();
+    server.use(http.get("/api/library/readiness", () => new HttpResponse(null, { status: 500 })));
+    renderWithQuery(<MatchSetup frame={hostFrame()} matchId={MATCH} stageToken="t" />);
+    expect(await screen.findByText(/не удалось проверить/i)).toBeInTheDocument();
+  });
 });
