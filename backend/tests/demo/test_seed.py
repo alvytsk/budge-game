@@ -17,7 +17,6 @@ class FakeApi:
     """The routes the demo touches, answering the way the real ones do."""
 
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str]] = []
         self.categories: list[dict[str, Any]] = []
         self.media: set[str] = set()
         self.images = 0
@@ -34,7 +33,6 @@ class FakeApi:
         body: bytes | None = None,
         content_type: str | None = None,
     ) -> tuple[int, object]:
-        self.calls.append((method, path))
         if method == "GET" and path == "/api/library/categories":
             return 200, list(self.categories)
         if method == "POST" and path == "/api/media":
@@ -102,16 +100,28 @@ async def test_every_player_gets_a_secret_of_their_own() -> None:
 
 
 async def test_the_board_gets_enough_ordinary_categories() -> None:
-    """§G.5: a 4x3 board for three players needs 9 ordinary categories.
+    """§G.5: a 4x3 board for three players needs 9 ordinary categories, and the
+    demo creates 12 — one per cell, not the bare minimum. Likewise 4 secret
+    categories, not the bare `players` count.
 
-    The demo creates a surplus.
+    §G.5 is explicit the surplus is deliberate: "Запас в обеих строках
+    намеренный: он оставляет место перераздаче и четвёртому игроку". Pinning
+    only `>= cells - players` and `>= players` would let that headroom be
+    quietly deleted — e.g. dropping `plan.players + 1` to `plan.players` in
+    `_ensure_categories` still satisfies `>= 3` for three secrets. Pinning the
+    exact counts documented in §G.5 makes such a change a deliberate edit to
+    this test, not something it shrugs at.
+
+    Kills on: `cells` computed as `width + height` instead of `width *
+    height` (7 ordinary instead of 12), or `plan.players + 1` reduced to
+    `plan.players` (3 secrets instead of 4).
     """
     api = FakeApi()
     await run(api, DemoPlan(board=(4, 3), players=3, images=3, start=False))
     ordinary = [row for row in api.categories if not row["is_secret"]]
     secrets = [row for row in api.categories if row["is_secret"]]
-    assert len(ordinary) >= 12 - 3
-    assert len(secrets) >= 3
+    assert len(ordinary) == 12
+    assert len(secrets) == 4
 
 
 async def test_no_category_is_left_without_pictures() -> None:
@@ -152,3 +162,27 @@ async def test_a_refused_command_stops_the_demo_loudly() -> None:
 
     with pytest.raises(RuntimeError, match="secret_missing"):
         await run(RefusingApi(), DemoPlan(board=(4, 3), players=3, images=3, start=False))
+
+
+async def test_a_refusal_wrapped_in_200_stops_the_demo_too() -> None:
+    """`_expect` inspects the outcome envelope, not only the HTTP status,
+    because a command route can in principle answer 200 with a rejected
+    outcome (§6.3) even though today's `api/outcomes.py` maps `Rejected` to
+    409 and never to 200 — the previous test alone cannot reach this branch,
+    since its 409 is already outside `accept` and short-circuits before the
+    envelope is ever inspected. This test exists so that branch stays
+    covered instead of looking like dead code to a future reader who checks
+    coverage and deletes it.
+
+    Kills on: `_expect` dropping the `payload.get("outcome") in
+    {"rejected", "failed"}` check and trusting the status code alone.
+    """
+
+    class SoftRefusingApi(FakeApi):
+        async def call(self, method: str, path: str, **kwargs: object) -> tuple[int, object]:
+            if path.endswith("/secrets"):
+                return 200, {"outcome": "rejected", "reason": "duplicate_category"}
+            return await super().call(method, path, **kwargs)  # type: ignore[arg-type]
+
+    with pytest.raises(RuntimeError, match="duplicate_category"):
+        await run(SoftRefusingApi(), DemoPlan(board=(4, 3), players=3, images=3, start=False))
