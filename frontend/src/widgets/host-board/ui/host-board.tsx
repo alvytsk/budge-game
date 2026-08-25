@@ -109,11 +109,18 @@ export function HostBoard({ frame, onDeclare }: HostBoardProps) {
         })}
       </div>
 
-      {/* The true shapes, drawn over the buttons and deliberately inert. */}
+      {/* The true shapes, drawn over the buttons and deliberately inert.
+          `h-full w-full` is load-bearing, not decoration: an `<svg>` is a
+          replaced element with an intrinsic ratio from its viewBox, so
+          `inset-4` alone leaves the height to that ratio and the bottom
+          inset is dropped as over-constrained. On a 4x3 board in a 1440
+          window that made the overlay 1056px tall inside a 758px grid, and
+          every outline landed across the middle of a button instead of on
+          its edge. `Board` on the stage always sized it this way. */}
       <svg
         viewBox={`0 0 ${frame.board.width * CELL} ${frame.board.height * CELL}`}
         preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-4"
+        className="pointer-events-none absolute inset-4 h-[calc(100%-2rem)] w-[calc(100%-2rem)]"
         aria-hidden="true"
       >
         {frame.groups.map((group) => (

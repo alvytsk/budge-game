@@ -23,9 +23,17 @@ export function outlinePath(cells: CellFrame[], size: number): string {
 
 /** Where the group's name goes: the centre of the cell nearest the
  * group's centroid, so an L-shaped group never labels itself over its
- * neighbour. */
-export function labelAnchor(cells: CellFrame[], size: number): { x: number; y: number } {
-  if (cells.length === 0) return { x: 0, y: 0 };
+ * neighbour.
+ *
+ * The cell is returned alongside the point because fitting the name needs
+ * it — `labelWidth` measures the group's run through this cell, and
+ * recovering it by dividing the point back out would be the same
+ * arithmetic done twice. */
+export function labelAnchor(
+  cells: CellFrame[],
+  size: number,
+): { x: number; y: number; col: number; row: number } {
+  if (cells.length === 0) return { x: 0, y: 0, col: 0, row: 0 };
   const cx = cells.reduce((sum, cell) => sum + cell.col, 0) / cells.length;
   const cy = cells.reduce((sum, cell) => sum + cell.row, 0) / cells.length;
   let best = cells[0] as CellFrame;
@@ -37,5 +45,10 @@ export function labelAnchor(cells: CellFrame[], size: number): { x: number; y: n
       best = cell;
     }
   }
-  return { x: best.col * size + size / 2, y: best.row * size + size / 2 };
+  return {
+    x: best.col * size + size / 2,
+    y: best.row * size + size / 2,
+    col: best.col,
+    row: best.row,
+  };
 }

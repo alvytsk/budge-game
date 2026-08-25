@@ -37,7 +37,14 @@ describe("outlinePath", () => {
 
 describe("labelAnchor", () => {
   it("centres on the one cell of a single-cell group", () => {
-    expect(labelAnchor(cells([0, 0]), 10)).toEqual({ x: 5, y: 5 });
+    expect(labelAnchor(cells([0, 0]), 10)).toEqual({ x: 5, y: 5, col: 0, row: 0 });
+  });
+
+  it("reports the cell it landed on, not only the point", () => {
+    // `labelWidth` measures the group's run through that cell, so the point
+    // alone is not enough — and recovering the cell by dividing the point
+    // back out would be this arithmetic done twice, in two places.
+    expect(labelAnchor(cells([2, 1]), 10)).toEqual({ x: 25, y: 15, col: 2, row: 1 });
   });
 
   it("puts the label on a cell of the group, not in its empty middle", () => {
@@ -45,9 +52,9 @@ describe("labelAnchor", () => {
     // label there sits on the neighbour's colour.
     const anchor = labelAnchor(cells([0, 0], [0, 1], [1, 1]), 10);
     expect([
-      { x: 5, y: 5 },
-      { x: 5, y: 15 },
-      { x: 15, y: 15 },
+      { x: 5, y: 5, col: 0, row: 0 },
+      { x: 5, y: 15, col: 0, row: 1 },
+      { x: 15, y: 15, col: 1, row: 1 },
     ]).toContainEqual(anchor);
   });
 });
