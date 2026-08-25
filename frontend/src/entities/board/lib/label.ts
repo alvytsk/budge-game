@@ -87,3 +87,45 @@ export function wrapLabel(text: string, maxLines: number = MAX_LABEL_LINES): str
   out.push(current);
   return out;
 }
+
+/** The character a truncated name ends with. One glyph, not three dots:
+ * three periods in Oswald at the floor size read as dirt on the lens. */
+export const ELLIPSIS = "…";
+
+/** The longest prefix of `text` that fits `budget` once the ellipsis is
+ * added, or `text` itself when the whole of it already fits.
+ *
+ * `widthOfPrefix` is the browser's own answer for the first n characters —
+ * `SVGTextContentElement.getSubStringLength` — so this searches over real
+ * widths and never assumes a per-character one. Callers that cannot
+ * measure should not call it; there is nothing sensible to guess.
+ *
+ * Trailing spaces and punctuation are trimmed off the prefix so the result
+ * reads «Достопримечат…» rather than «Достопримечат …».
+ */
+export function truncateToWidth(
+  widthOfPrefix: (chars: number) => number,
+  text: string,
+  ellipsisWidth: number,
+  budget: number,
+): string {
+  if (text.length === 0) return text;
+  if (widthOfPrefix(text.length) <= budget) return text;
+
+  const room = budget - ellipsisWidth;
+  if (room <= 0) return ELLIPSIS;
+
+  // Binary search the largest prefix that still leaves room for the
+  // ellipsis. `low` is always a fitting length, `high` always a failing one.
+  let low = 0;
+  let high = text.length;
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
+    if (widthOfPrefix(middle) <= room) low = middle;
+    else high = middle;
+  }
+  return `${text
+    .slice(0, low)
+    .trimEnd()
+    .replace(/[.,:;-]+$/, "")}${ELLIPSIS}`;
+}

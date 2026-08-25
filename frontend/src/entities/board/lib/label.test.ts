@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { fitSize, labelWidth, MAX_LABEL_LINES, MIN_LABEL_SIZE, wrapLabel } from "./label";
+import {
+  ELLIPSIS,
+  fitSize,
+  labelWidth,
+  MAX_LABEL_LINES,
+  MIN_LABEL_SIZE,
+  truncateToWidth,
+  wrapLabel,
+} from "./label";
 
 const cell = (col: number, row: number) => ({ col, row });
 
@@ -108,5 +116,42 @@ describe("fitSize", () => {
     // `getBBox` answers 0 for an element that has not been laid out; a
     // scale from that would divide by zero and blank the stage.
     expect(fitSize(0, 88, 26)).toBe(26);
+  });
+});
+
+describe("truncateToWidth", () => {
+  // A stand-in for the browser's `getSubStringLength`: every character is
+  // 10 wide. The real one is not uniform, which is the whole reason the
+  // search runs over measurements instead of counts — but a uniform fake
+  // makes the arithmetic checkable by hand.
+  const each10 = (chars: number) => chars * 10;
+
+  it("leaves a name that already fits untouched", () => {
+    expect(truncateToWidth(each10, "Кино", 8, 100)).toBe("Кино");
+  });
+
+  it("cuts to the longest prefix that still leaves room for the ellipsis", () => {
+    // Budget 100, ellipsis 20, so 80 of text — eight characters at ten each.
+    expect(truncateToWidth(each10, "Достопримечательности", 20, 100)).toBe("Достопри…");
+  });
+
+  it("never returns something wider than the budget", () => {
+    // Kills on: an off-by-one in the search that keeps one character too
+    // many — the exact failure the ellipsis exists to prevent.
+    const cut = truncateToWidth(each10, "Достопримечательности", 20, 100);
+    expect(each10(cut.length - 1) + 20).toBeLessThanOrEqual(100);
+  });
+
+  it("drops trailing punctuation and space so the ellipsis sits flush", () => {
+    // «Демо: …» reads as two thoughts; «Демо…» reads as one cut short.
+    expect(truncateToWidth(each10, "Демо: тема", 20, 80)).toBe("Демо…");
+  });
+
+  it("degrades to the ellipsis alone when there is no room for any of it", () => {
+    expect(truncateToWidth(each10, "Достопримечательности", 20, 15)).toBe(ELLIPSIS);
+  });
+
+  it("survives an empty name", () => {
+    expect(truncateToWidth(each10, "", 20, 100)).toBe("");
   });
 });

@@ -1,5 +1,14 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { fitSize, labelAnchor, labelWidth, outlinePath, wrapLabel } from "@/entities/board";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  ELLIPSIS,
+  fitSize,
+  labelAnchor,
+  labelWidth,
+  MIN_LABEL_SIZE,
+  outlinePath,
+  truncateToWidth,
+  wrapLabel,
+} from "@/entities/board";
 import { colourOf, inkOn } from "@/entities/match";
 import type { StageFrame, StageGroupFrame } from "@/shared/api";
 
@@ -7,8 +16,12 @@ export const CELL = 100;
 
 const THIN = 2;
 const THICK = 10;
-
 const LINE_HEIGHT = 1.05;
+
+interface Fitted {
+  size: number;
+  lines: string[];
+}
 
 interface FittedLabelProps {
   text: string;
@@ -19,60 +32,84 @@ interface FittedLabelProps {
   width: number;
 }
 
-/** A group's name, wrapped to fit and then shrunk until it does.
+/** A group's name: wrapped, then shrunk, then cut — in that order, and
+ * every step decided by measurement rather than by counting characters.
  *
- * The shrink is measured, not estimated. Oswald's advance runs from 0.25em
- * on «I» to 0.68em on «Ж» — measured in the browser — so any character
- * count is a poor predictor of width, and a label sized from one either
- * overruns its cell or wastes most of it. `getBBox` answers exactly, once
- * per name; wrapping only decides where the words split, which is
- * forgiving enough for arithmetic.
+ * Oswald's advance runs from 0.25em on «I» to 0.68em on «Ж», measured in
+ * the browser, so no character count predicts width well enough to size or
+ * cut from. `getComputedTextLength` and `getSubStringLength` answer
+ * exactly, and they answer about the face actually in use.
+ *
+ * Two passes, and only for names that need the second: the first measures
+ * the wrapped lines and settles the size; if that hits the floor the name
+ * is still too wide, and the second cuts each line to what fits. Names
+ * change between duels, not between frames, so the cost is nothing.
  */
 function FittedLabel({ text, x, y, fill, base, width }: FittedLabelProps) {
-  const ref = useRef<SVGTextElement>(null);
-  const lines = wrapLabel(text);
-  // `null` means "not measured yet", which is also the state the component
-  // renders at `base` in — so the one measurement is taken at the size the
-  // scale below is relative to.
-  // Reset on a rename comes from the `key` at the call site, not an
-  // effect: a renamed category is a different width, and remounting is
-  // exactly what "forget the old measurement" means.
-  const [natural, setNatural] = useState<number | null>(null);
+  const lines = useMemo(() => wrapLabel(text), [text]);
+  const lineRefs = useRef<(SVGTSpanElement | null)[]>([]);
+  const ellipsisRef = useRef<SVGTSpanElement>(null);
+  // `null` means "not measured yet", which is also the state this renders
+  // at `base` in — so the measurement is taken at the size it is relative to.
+  const [fitted, setFitted] = useState<Fitted | null>(null);
 
   useLayoutEffect(() => {
-    if (natural !== null) return;
-    const node = ref.current;
-    // jsdom implements neither, and a stage that cannot measure should
-    // draw the name at its natural size rather than not at all.
-    if (!node || typeof node.getBBox !== "function") return;
-    setNatural(node.getBBox().width);
-  }, [natural]);
+    if (fitted !== null) return;
+
+    const spans = lines.map((_, index) => lineRefs.current[index]);
+    // jsdom implements none of this. A stage that cannot measure draws the
+    // name at its natural size rather than not at all.
+    if (spans.some((span) => !span || typeof span.getComputedTextLength !== "function")) return;
+
+    const measured = spans.map((span) => (span as SVGTSpanElement).getComputedTextLength());
+    const size = fitSize(Math.max(...measured), width, base);
+    if (size > MIN_LABEL_SIZE) {
+      setFitted({ size, lines });
+      return;
+    }
+
+    // At the floor and still over the edge. Everything below is measured at
+    // `base` while the final render is at the floor, so the budget is scaled
+    // into base units rather than the widths being scaled out of them.
+    const budget = width * (base / MIN_LABEL_SIZE);
+    const ellipsis = ellipsisRef.current?.getComputedTextLength() ?? 0;
+    setFitted({
+      size: MIN_LABEL_SIZE,
+      lines: lines.map((line, index) => {
+        const span = spans[index] as SVGTSpanElement;
+        return truncateToWidth(
+          (chars) => span.getSubStringLength(0, chars),
+          line,
+          ellipsis,
+          budget,
+        );
+      }),
+    });
+  }, [fitted, lines, width, base]);
 
   // The first measurement can land before Oswald has arrived, and the
   // fallback face is wider — every label then sizes itself against a font
-  // it is not drawn in and comes out smaller than its cell allows. Once
-  // was 23.4 where 26 fitted, measured on the real stage. One more
-  // measurement when the faces have settled costs nothing: names change
-  // between duels, not between frames.
+  // it is not drawn in. Once was 23.4 where 26 fitted, measured on the real
+  // stage. One more measurement when the faces have settled costs nothing.
   useEffect(() => {
     const fonts = document.fonts;
     if (!fonts) return;
     let live = true;
     void fonts.ready.then(() => {
-      if (live) setNatural(null);
+      if (live) setFitted(null);
     });
     return () => {
       live = false;
     };
   }, []);
 
-  const size = natural === null ? base : fitSize(natural, width, base);
+  const shown = fitted?.lines ?? lines;
+  const size = fitted?.size ?? base;
   const step = size * LINE_HEIGHT;
-  const top = y - ((lines.length - 1) * step) / 2;
+  const top = y - ((shown.length - 1) * step) / 2;
 
   return (
     <text
-      ref={ref}
       x={x}
       y={top}
       textAnchor="middle"
@@ -82,11 +119,26 @@ function FittedLabel({ text, x, y, fill, base, width }: FittedLabelProps) {
       fontSize={size}
       style={{ paintOrder: "stroke" }}
     >
-      {lines.map((line, index) => (
-        <tspan key={line} x={x} y={top + index * step}>
+      {shown.map((line, index) => (
+        <tspan
+          key={line}
+          ref={(node) => {
+            lineRefs.current[index] = node;
+          }}
+          x={x}
+          y={top + index * step}
+        >
           {line}
         </tspan>
       ))}
+      {/* Measured, never seen: the cut needs the ellipsis's own width, and
+          the only exact source for it is the face in use. Rendered only
+          while measuring, and hidden while it is. */}
+      {fitted === null && (
+        <tspan ref={ellipsisRef} visibility="hidden">
+          {ELLIPSIS}
+        </tspan>
+      )}
     </text>
   );
 }
@@ -149,6 +201,8 @@ export function GroupShape({ frame, group, highlighted, arriving }: GroupShapePr
         strokeWidth={THICK}
         strokeLinejoin="round"
       />
+      {/* Keyed on the name: a rename is a different width, and remounting
+          is exactly what "forget the old measurement" means. */}
       <FittedLabel
         key={label}
         text={label}
