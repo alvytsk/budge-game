@@ -104,8 +104,8 @@ async def test_the_board_gets_enough_ordinary_categories() -> None:
     demo creates 12 — one per cell, not the bare minimum. Likewise 4 secret
     categories, not the bare `players` count.
 
-    §G.5 is explicit the surplus is deliberate: "Запас в обеих строках
-    намеренный: он оставляет место перераздаче и четвёртому игроку". Pinning
+    §G.5 is explicit the surplus is deliberate: «Запас в обеих строках
+    намеренный: он оставляет место перераздаче и четвёртому игроку». Pinning
     only `>= cells - players` and `>= players` would let that headroom be
     quietly deleted — e.g. dropping `plan.players + 1` to `plan.players` in
     `_ensure_categories` still satisfies `>= 3` for three secrets. Pinning the
@@ -135,6 +135,22 @@ async def test_no_category_is_left_without_pictures() -> None:
     api = FakeApi()
     await run(api, DemoPlan(board=(4, 3), players=3, images=3, start=False))
     assert api.images == len(api.categories) * 3
+
+
+async def test_images_are_capped_at_the_palette_length() -> None:
+    """§G.4: colours exist so a picture change is visible on the stage
+    screen. Above the palette's own length, `PALETTE[... % len(PALETTE)]`
+    would wrap around *within one category* and repeat a colour — exactly
+    the repeated-picture deck §G.4 exists to rule out.
+
+    Kills on: `plan.images` used unclamped — a category would end up with
+    more pictures than the palette has colours, and two would share one.
+    """
+    from budge.demo.pictures import PALETTE
+
+    api = FakeApi()
+    await run(api, DemoPlan(board=(4, 3), players=3, images=len(PALETTE) + 5, start=False))
+    assert api.images == len(api.categories) * len(PALETTE)
 
 
 async def test_a_second_run_does_not_duplicate_the_library() -> None:

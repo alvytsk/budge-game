@@ -59,11 +59,16 @@ describe("LibraryPage", () => {
     // players — both satisfied, `ready: true`) with `thin` added; this is
     // the exact state that was silently unreachable when the badge gated
     // all naming behind `ready`.
+    //
+    // `data-ready` is keyed off `missing.length === 0`, not off the
+    // server's raw `ready`, so it agrees with the text: a thin category
+    // still names a shortfall, and the badge must render amber for it
+    // rather than the muted grey a stale `ready: true` would give.
     // §8: «мягкое предупреждение» still holds — nothing here blocks.
     stock({ ...READY, thin: [{ id: "b", title: "Тайна", active_image_count: 3 }] });
     renderWithQuery(<LibraryPage />);
     await screen.findByText("Кино");
-    expect(screen.getByTestId("readiness")).toHaveAttribute("data-ready", "true");
+    expect(screen.getByTestId("readiness")).toHaveAttribute("data-ready", "false");
     expect(screen.getByTestId("readiness")).toHaveTextContent("Тайна");
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
@@ -113,6 +118,41 @@ describe("LibraryPage", () => {
     const badge = await screen.findByTestId("readiness");
     expect(badge).toHaveTextContent(/обычных тем/i);
     expect(badge).not.toHaveTextContent("—");
+  });
+
+  it("names the secret shortfall when the library holds only ordinary themes", async () => {
+    // §B/§D: DEFAULT_PLAYERS must actually reach useReadiness, or
+    // `secrets_available < readiness.players` can never fire and a
+    // library of twelve ordinary themes and zero secret ones renders
+    // "Тем достаточно". Kills on: `useReadiness(DEFAULT_CELLS)` with
+    // `players` left at its default of 0.
+    //
+    // The msw handler recomputes `secrets_available < players` itself from
+    // the request's own query string, the way the real route does — a
+    // fixture with `players` merely baked into the JSON body would pass
+    // regardless of what the component actually asked for, since msw does
+    // not enforce the query string on its own.
+    const asked: string[] = [];
+    server.use(
+      http.get("/api/library/categories", () => HttpResponse.json([])),
+      http.get("/api/library/readiness", ({ request }) => {
+        asked.push(new URL(request.url).search);
+        const players = Number(new URL(request.url).searchParams.get("players") ?? 0);
+        return HttpResponse.json({
+          cells: 12,
+          players,
+          threshold: 5,
+          ordinary_available: 40,
+          secrets_available: 0,
+          thin: [],
+          ready: players === 0,
+        });
+      }),
+    );
+    renderWithQuery(<LibraryPage />);
+    const badge = await screen.findByTestId("readiness");
+    expect(badge).toHaveTextContent(/секретных тем/i);
+    expect(asked[0]).toContain("players=3");
   });
 
   it("creates a secret theme in one step", async () => {

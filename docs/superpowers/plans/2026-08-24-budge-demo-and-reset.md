@@ -15,7 +15,7 @@
 - **Язык интерфейса — русский.** Любая строка, которую видит оператор, — по-русски. Комментарии и docstring'и в коде — по-английски, как во всём репозитории.
 - **Библиотеку пишет ровно один модуль** — `src/budge/library/catalogue.py`. Тест `tests/library/test_write_paths.py::test_no_write_outside_the_catalogue` парсит каждый модуль под `src/budge/` и падает на любом `session.add(Category(...))` / `update(Image)` вне него. Демо пишет библиотеку только через HTTP-роуты.
 - **Wire-имена событий — замороженный литерал.** Новое событие добавляется в `WIRE_NAMES` в `src/budge/db/codec/registry.py`; менять существующее значение — миграция данных.
-- **Контракт TypeScript генерируется, а не пишется.** После правки любой модели в `src/budge/api/schemas/` выполнить `budge export-types`; CI валит расхождение.
+- **Контракт TypeScript генерируется, а не пишется.** После правки любой модели в `src/budge/api/schemas/` выполнить `budge export-types`; расхождение проверяется вручную командой `budge export-types --check` — своего гейта в CI на это больше нет.
 - **Никаких новых зависимостей.** Картинки генерируются на `zlib` + `struct` из stdlib; HTTP в демо — `urllib.request`. Pillow, httpx и requests в рантайм-зависимостях не появляются (httpx остаётся dev-only).
 - **Домен чист.** `decide` не читает часы и не генерирует случайные числа; всё недетерминированное приходит значениями в `DecisionContext`.
 - **Границы транспорта (ruling 5).** REST — команды сборки: `CreateMatch`, `AddPlayer`, `AssignSecret`, `DealBoard`, `StartMatch` и теперь `ResetMatch`. Сокету принадлежит всё от `DeclareAttack` и дальше.

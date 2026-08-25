@@ -2,14 +2,15 @@ import { useState } from "react";
 import { shortfallOf, useCategories, useCreateCategory, useReadiness } from "@/features/library";
 import { CategoryEditor } from "@/widgets/category-editor";
 
-// §8's readiness is answered per board size. Twelve cells is the board the
-// setup screen offers first; the operator sees a real number either way,
-// and nothing here refuses anything.
+// §8's readiness is answered per board size and player count. 4x3 for
+// three players is the setup screen's own default (§G.5); the operator
+// sees a real number either way, and nothing here refuses anything.
 const DEFAULT_CELLS = 12;
+const DEFAULT_PLAYERS = 3;
 
 export function LibraryPage() {
   const categories = useCategories();
-  const readiness = useReadiness(DEFAULT_CELLS);
+  const readiness = useReadiness(DEFAULT_CELLS, DEFAULT_PLAYERS);
   const create = useCreateCategory();
   const [picked, setPicked] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -27,7 +28,7 @@ export function LibraryPage() {
         {readiness.data && (
           <p
             data-testid="readiness"
-            data-ready={readiness.data.ready}
+            data-ready={missing.length === 0}
             className="rounded-lg bg-white/5 p-3 text-sm text-stage-muted data-[ready=false]:text-amber-300"
           >
             {missing.length === 0

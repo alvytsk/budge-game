@@ -368,6 +368,32 @@ async def test_readiness_is_ready_when_both_pools_cover_the_board(
     assert readiness["players"] == 3
 
 
+async def test_readiness_is_not_ready_one_secret_short_of_the_roster(
+    clean_db: None, clean_bucket: None, api_settings: ApiSettings
+) -> None:
+    """§B: the verdict must actually compare `secrets_available` against
+    `players`, not merely ask whether any secret exists at all — "does the
+    library have *any* secrets" is exactly the plausible wrong reading, and
+    it would pass this same fixture right up until the third player's
+    picker came up empty.
+
+    Kills on: `len(secrets) >= players` narrowed to `len(secrets) > 0` —
+    the two 0-vs-ready and 3-vs-ready cases above cannot tell that mutation
+    apart from the real rule, because both land on the same side of `> 0`.
+    """
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        for index in range(9):
+            await create_category(client, f"Тема {index}")
+        for index in range(2):
+            await create_category(client, f"Тайна {index}", secret=True)
+
+        readiness = (await client.get("/api/library/readiness?cells=12&players=3")).json()
+
+    assert readiness["secrets_available"] == 2
+    assert readiness["ready"] is False
+
+
 async def test_readiness_without_a_player_count_keeps_the_strict_verdict(
     clean_db: None, clean_bucket: None, api_settings: ApiSettings
 ) -> None:

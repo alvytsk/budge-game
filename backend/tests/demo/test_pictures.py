@@ -63,7 +63,7 @@ def test_the_palette_names_its_colours_in_russian() -> None:
         assert name.strip() != ""
         assert all(0 <= channel <= 255 for channel in rgb)
         # Verify at least one Cyrillic character in each colour name
-        assert any('Ѐ' <= char <= 'ӿ' for char in name), (
+        assert any("Ѐ" <= char <= "ӿ" for char in name), (
             f"Colour name '{name}' is not in Russian Cyrillic"
         )
 

@@ -145,7 +145,12 @@ describe("MatchSetup", () => {
         stageToken="t"
       />,
     );
-    expect(await screen.findByText(/секретных тем/i)).toBeInTheDocument();
+    // §B: `ordinaryNeeded` is `cells - players` (9 - 3 = 6), not `cells`.
+    // Kills on: `ordinaryNeeded` collapsing to `readiness.cells` — that
+    // mutation still passes an assertion that only checks for
+    // `/секретных тем/i`, since this fixture is short on both pools.
+    expect(await screen.findByText(/обычных тем 0 из 6/i)).toBeInTheDocument();
+    expect(screen.getByText(/секретных тем/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Библиотека" })).toHaveAttribute(
       "href",
       "/host/library",

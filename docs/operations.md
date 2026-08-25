@@ -84,20 +84,20 @@ is also gone, copy the mirror back into the bucket before starting `api` —
 `/backups/media/<first two characters>/<digest>`, uploaded under the same
 digest as its key.
 
-## Демо-партия
+## Demo match
 
-Наполнить пустую систему и собрать играбельную партию:
+Fill an empty system and assemble a playable match:
 
 ```bash
 docker compose exec api budge seed-demo --start
 ```
 
-Команда идемпотентна по названию темы: второй прогон не удваивает
-библиотеку, а собирает вторую партию. Флаги: `--board 4x3`, `--players 3`,
-`--images 3`, `--start`.
+The command is idempotent by category title: a second run does not
+duplicate the library, it assembles a second match. Flags: `--board 4x3`,
+`--players 3`, `--images 3`, `--start`.
 
-Чтобы прогнать ту же партию ещё раз, не собирая её заново, в пульте есть
-«Переиграть» (ростер и секреты остаются) и «Сбросить полностью».
+To run the same match again without assembling it from scratch, the
+console has "Replay" (roster and secrets stay) and "Full reset".
 
 ## Changing the operator's password
 

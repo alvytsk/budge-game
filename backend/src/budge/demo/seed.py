@@ -134,7 +134,11 @@ async def _ensure_categories(
         category_id = str(created["id"])
         categories_created += 1
         (secrets if is_secret else ordinary).append(category_id)
-        for index in range(plan.images):
+        # §G.4: capped at the palette's own length — beyond it, the modulo
+        # below would wrap around *within this one category* and repeat a
+        # picture, which is exactly the deck §G.4 exists to rule out.
+        image_count = min(plan.images, len(PALETTE))
+        for index in range(image_count):
             name, rgb = PALETTE[(len(ordinary) + len(secrets) + index) % len(PALETTE)]
             stored = await _expect(
                 caller,

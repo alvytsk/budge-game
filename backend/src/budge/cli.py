@@ -20,6 +20,26 @@ from budge.config import Settings
 ALEMBIC_INI = Path(budge.__file__).resolve().parent / "alembic.ini"
 
 
+def _board_size(value: str) -> tuple[int, int]:
+    """`type=` for `--board`: parses `WIDTHxHEIGHT`, e.g. `4x3`.
+
+    Validating here — an `ArgumentTypeError`, which argparse turns into its
+    own usage-and-exit — means `--board 12`, `--board 4X3` and `--board 4x`
+    are rejected with a message an operator can act on, instead of reaching
+    `int("")` / `int("X3")` unguarded and surfacing as a raw `ValueError`
+    traceback. Putting the rule on the argument itself, rather than in the
+    branch that consumes it, is also where a second board-shaped flag could
+    reuse it.
+    """
+    width, separator, height = value.partition("x")
+    if not separator or not width.isdigit() or not height.isdigit():
+        raise argparse.ArgumentTypeError(
+            f"--board должен быть в формате ШИРИНАxВЫСОТА, например 4x3 "
+            f"(получено {value!r})"
+        )
+    return int(width), int(height)
+
+
 def _config(url: str) -> Config:
     config = Config(str(ALEMBIC_INI))
     config.set_main_option("sqlalchemy.url", url)
@@ -72,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
         "seed-demo", help="fill the library and assemble a playable match (§G)"
     )
     seed.add_argument("--api", default="http://127.0.0.1:8000")
-    seed.add_argument("--board", default="4x3", help="width x height, e.g. 4x3")
+    seed.add_argument("--board", default="4x3", type=_board_size, help="width x height, e.g. 4x3")
     seed.add_argument("--players", type=int, default=3)
     seed.add_argument("--images", type=int, default=3)
     seed.add_argument(
@@ -174,10 +194,9 @@ def main(argv: list[str] | None = None) -> int:
         from budge.api.security import mint_session
         from budge.api.settings import ApiSettings
         from budge.demo.http import UrllibCaller
-        from budge.demo.seed import DemoPlan, run
+        from budge.demo.seed import DemoFailed, DemoPlan, run
         from budge.runtime.clock import SystemClock
 
-        width, _, height = args.board.partition("x")
         settings = ApiSettings()
         # §G.3: `BUDGE_HOST_PASSWORD` is a scrypt hash and cannot be logged
         # in with. The signing key can mint the same cookie the login route
@@ -186,17 +205,23 @@ def main(argv: list[str] | None = None) -> int:
         caller = UrllibCaller(
             args.api, mint_session(settings.secret_key, issued_at=SystemClock().now())
         )
-        demo_report = asyncio.run(
-            run(
-                caller,
-                DemoPlan(
-                    board=(int(width), int(height)),
-                    players=args.players,
-                    images=args.images,
-                    start=args.start,
-                ),
+        try:
+            demo_report = asyncio.run(
+                run(
+                    caller,
+                    DemoPlan(
+                        board=args.board,
+                        players=args.players,
+                        images=args.images,
+                        start=args.start,
+                    ),
+                )
             )
-        )
+        except DemoFailed as failure:
+            # An operator running this needs to know the demo stopped and
+            # why, not an uncaught-exception traceback from inside asyncio.
+            print(f"демо остановлено: {failure}", file=sys.stderr)
+            return 1
         print(f"партия: {args.api}/host/match/{demo_report.match_id}")
         print(f"экран сцены: {args.api}/stage/{demo_report.stage_token}")
         print(

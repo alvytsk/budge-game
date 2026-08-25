@@ -225,6 +225,83 @@ def test_the_alembic_ini_travels_with_the_package() -> None:
     assert ALEMBIC_INI.parent == Path(budge.__file__).parent
 
 
+def test_seed_demo_builds_the_plan_from_the_flags(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Kills on: `--board` parsed wrong (e.g. width and height swapped, or
+    left as the raw string), or the plan built from a default instead of
+    what was actually typed on the command line."""
+    from budge.demo import seed as seed_module
+
+    serve_environment(monkeypatch)
+    captured: dict[str, object] = {}
+
+    async def fake_run(
+        caller: object, plan: seed_module.DemoPlan
+    ) -> seed_module.DemoReport:
+        captured["plan"] = plan
+        return seed_module.DemoReport(
+            match_id="m1",
+            stage_token="tok",
+            categories_created=2,
+            images_created=6,
+            started=False,
+        )
+
+    monkeypatch.setattr(seed_module, "run", fake_run)
+
+    assert main(["seed-demo", "--board", "4x3", "--players", "3"]) == 0
+
+    plan = captured["plan"]
+    assert isinstance(plan, seed_module.DemoPlan)
+    assert plan == seed_module.DemoPlan(board=(4, 3), players=3, images=3, start=False)
+    out = capsys.readouterr().out
+    assert "m1" in out
+    assert "tok" in out
+
+
+def test_seed_demo_rejects_a_malformed_board(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--board 12`, `--board 4X3` and `--board 4x` reach `int("")` /
+    `int("X3")` unvalidated and used to surface as an uncaught `ValueError`
+    traceback instead of a message an operator can act on.
+
+    Kills on: no validation on `--board`, or validation that lets a
+    malformed value through to `DemoPlan`."""
+    serve_environment(monkeypatch)
+
+    for malformed in ("12", "4X3", "4x"):
+        with pytest.raises(SystemExit) as excinfo:
+            main(["seed-demo", "--board", malformed])
+        assert excinfo.value.code == 2
+        assert "--board" in capsys.readouterr().err
+
+
+def test_seed_demo_reports_a_demo_failure_instead_of_a_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Kills on: letting `DemoFailed` escape `asyncio.run` uncaught — the
+    operator would see a Python traceback instead of a diagnosable
+    message, and the process would still exit non-zero by accident rather
+    than by design."""
+    from budge.demo import seed as seed_module
+
+    serve_environment(monkeypatch)
+
+    async def failing_run(
+        caller: object, plan: seed_module.DemoPlan
+    ) -> seed_module.DemoReport:
+        raise seed_module.DemoFailed("POST /api/library/categories answered 500: {}")
+
+    monkeypatch.setattr(seed_module, "run", failing_run)
+
+    assert main(["seed-demo", "--board", "4x3"]) == 1
+    err = capsys.readouterr().err
+    assert "демо остановлено" in err
+    assert "500" in err
+
+
 def test_the_help_names_the_program_the_user_typed(capsys: pytest.CaptureFixture[str]) -> None:
     """`prog=` has no other coverage, so a missed rename here would ship a
     CLI whose --help and every error message name a program that does not
