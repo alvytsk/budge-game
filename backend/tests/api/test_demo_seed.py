@@ -1,0 +1,119 @@
+"""§G: демо доходит до играбельной партии против живой системы.
+
+Тот же проход, что в `tests/demo/test_seed.py`, но с настоящими PostgreSQL и
+MinIO под ним — и потому это единственное место, где проверяется, что
+`POST /api/media` принимает сгенерированные байты, а `deal` находит в базе
+достаточно категорий.
+
+There is no `host_client` fixture in this suite — `test_match_routes.py` and
+`test_library_routes.py` both stand the app up per test through
+`running_app(build_app(api_settings))` and log in by hand, so this module
+follows the same shape rather than inventing a fixture the rest of the
+suite does not have.
+"""
+
+from typing import Any
+
+import httpx
+import pytest
+
+from api.conftest import TEST_PASSWORD, running_app
+from budge.api.app import build_app
+from budge.api.settings import ApiSettings
+from budge.demo.seed import DemoPlan, run
+
+pytestmark = pytest.mark.integration
+
+
+class HttpxCaller:
+    """`Caller` over the ASGI app the API suite already stands up."""
+
+    def __init__(self, client: httpx.AsyncClient) -> None:
+        self._client = client
+
+    async def call(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: object | None = None,
+        body: bytes | None = None,
+        content_type: str | None = None,
+    ) -> tuple[int, object]:
+        headers = {"content-type": content_type} if content_type else None
+        response = await self._client.request(
+            method, path, json=json, content=body, headers=headers
+        )
+        if not response.content:
+            return response.status_code, None
+        return response.status_code, response.json()
+
+
+async def log_in(client: Any) -> None:
+    assert (await client.post("/api/session", json={"password": TEST_PASSWORD})).status_code == 204
+
+
+async def test_the_demo_leaves_a_running_match(
+    clean_db: None, clean_bucket: None, api_settings: ApiSettings
+) -> None:
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        report = await run(
+            HttpxCaller(client), DemoPlan(board=(4, 3), players=3, images=3, start=True)
+        )
+        snapshot = (await client.get(f"/api/matches/{report.match_id}")).json()
+
+    assert snapshot["frame"]["status"] == "running"
+    assert len(snapshot["frame"]["groups"]) == 12
+    assert len(snapshot["frame"]["players"]) == 3
+
+
+async def test_the_demo_leaves_the_library_ready(
+    clean_db: None, clean_bucket: None, api_settings: ApiSettings
+) -> None:
+    """§B, проверенный тем самым вердиктом, который задача 5 научила
+    считать секреты."""
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        await run(
+            HttpxCaller(client), DemoPlan(board=(4, 3), players=3, images=3, start=False)
+        )
+        body = (await client.get("/api/library/readiness?cells=12&players=3")).json()
+
+    assert body["ready"] is True
+
+
+async def test_a_second_run_adds_no_categories(
+    clean_db: None, clean_bucket: None, api_settings: ApiSettings
+) -> None:
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        caller = HttpxCaller(client)
+        await run(caller, DemoPlan(board=(4, 3), players=3, images=3, start=False))
+        before = len((await client.get("/api/library/categories")).json())
+        second = await run(caller, DemoPlan(board=(4, 3), players=3, images=3, start=False))
+        after = len((await client.get("/api/library/categories")).json())
+
+    assert after == before
+    assert second.categories_created == 0
+
+
+async def test_the_demo_match_can_be_reset_and_dealt_again(
+    clean_db: None, clean_bucket: None, api_settings: ApiSettings
+) -> None:
+    """§A вместе с §G: ради этой пары всё и делалось — партия, которую можно
+    гонять по кругу, не собирая её заново."""
+    async with running_app(build_app(api_settings)) as client:
+        await log_in(client)
+        report = await run(
+            HttpxCaller(client), DemoPlan(board=(4, 3), players=3, images=3, start=True)
+        )
+        reset = await client.post(
+            f"/api/matches/{report.match_id}/reset", json={"keep_roster": True}
+        )
+        deal = await client.post(f"/api/matches/{report.match_id}/deal")
+        start = await client.post(f"/api/matches/{report.match_id}/start")
+
+    assert reset.json()["outcome"] == "accepted"
+    assert deal.json()["outcome"] == "accepted"
+    assert start.json()["outcome"] == "accepted"

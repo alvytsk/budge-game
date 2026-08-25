@@ -68,6 +68,16 @@ def main(argv: list[str] | None = None) -> int:
         help="restore the newest backup into a scratch database and prove it (§10)",
     )
     drill_parser.add_argument("--from", dest="source", default="/backups")
+    seed = subcommands.add_parser(
+        "seed-demo", help="fill the library and assemble a playable match (§G)"
+    )
+    seed.add_argument("--api", default="http://127.0.0.1:8000")
+    seed.add_argument("--board", default="4x3", help="width x height, e.g. 4x3")
+    seed.add_argument("--players", type=int, default=3)
+    seed.add_argument("--images", type=int, default=3)
+    seed.add_argument(
+        "--start", action="store_true", help="press «Начать» too, not just deal"
+    )
 
     args = parser.parse_args(argv)
     if args.command == "migrate":
@@ -156,6 +166,44 @@ def main(argv: list[str] | None = None) -> int:
         # Non-zero on failure, so the scheduler and any human running this
         # by hand both learn the answer without reading a log.
         return 0 if report.passed else 1
+    if args.command == "seed-demo":
+        # Imported here for the reason `serve`'s imports are: `migrate` must
+        # not pull the API model tree in to run one Alembic command.
+        import asyncio
+
+        from budge.api.security import mint_session
+        from budge.api.settings import ApiSettings
+        from budge.demo.http import UrllibCaller
+        from budge.demo.seed import DemoPlan, run
+        from budge.runtime.clock import SystemClock
+
+        width, _, height = args.board.partition("x")
+        settings = ApiSettings()
+        # §G.3: `BUDGE_HOST_PASSWORD` is a scrypt hash and cannot be logged
+        # in with. The signing key can mint the same cookie the login route
+        # mints, and holding it is already the operator's authority — it is
+        # what signs stage links (§7.5).
+        caller = UrllibCaller(
+            args.api, mint_session(settings.secret_key, issued_at=SystemClock().now())
+        )
+        demo_report = asyncio.run(
+            run(
+                caller,
+                DemoPlan(
+                    board=(int(width), int(height)),
+                    players=args.players,
+                    images=args.images,
+                    start=args.start,
+                ),
+            )
+        )
+        print(f"партия: {args.api}/host/match/{demo_report.match_id}")
+        print(f"экран сцены: {args.api}/stage/{demo_report.stage_token}")
+        print(
+            f"создано тем: {demo_report.categories_created}, "
+            f"картинок: {demo_report.images_created}"
+        )
+        return 0
     return 1  # pragma: no cover - argparse rejects anything else first
 
 
