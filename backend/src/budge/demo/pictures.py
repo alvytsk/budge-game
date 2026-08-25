@@ -12,9 +12,8 @@ identical images would demonstrate the mechanic failing to be visible.
 import struct
 import zlib
 
-# Названия уходят в `answer_text`, который ведущий читает вслух, поэтому они
-# по-русски и в именительном падеже — так же, как читался бы настоящий
-# ответ.
+# Colour names go into `answer_text`, which the host reads aloud, so they are
+# in Russian and nominative case — as a real answer would be read.
 PALETTE: tuple[tuple[str, tuple[int, int, int]], ...] = (
     ("Красный", (220, 60, 50)),
     ("Синий", (45, 110, 220)),
