@@ -1,11 +1,11 @@
 from uuid import uuid4
 
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.budgets import Budgets
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import MatchId, PlayerId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchStatus
+from budge.domain.board import BoardSize
+from budge.domain.budgets import Budgets
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import MatchId, PlayerId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchStatus
 
 
 def test_default_settings_match_the_spec() -> None:

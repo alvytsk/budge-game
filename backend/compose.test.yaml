@@ -1,0 +1,46 @@
+# PostgreSQL for the integration suite only. Port 5434 keeps it clear of a
+# default local server (5432) and of the neighbouring triviador project (5433).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: budge
+      POSTGRES_PASSWORD: budge
+      POSTGRES_DB: budge_test
+    ports:
+      - "5434:5432"
+    # The test database is disposable by definition: keeping it in a tmpfs
+    # makes the suite faster and makes "it survived a reboot" impossible to
+    # rely on by accident.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budge -d budge_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  # §10 asks for «S3-совместимое хранилище медиа в compose». MinIO rather
+  # than garage (the plan's ruling 9): its bucket is created through the S3
+  # API itself, from a fixture, so this same definition works unchanged as
+  # a GitHub Actions `services:` block — no init container, no CLI step.
+  #
+  # Port 9002 keeps it clear of 9000, which a local MinIO or a neighbouring
+  # project may already hold — the same reasoning postgres's 5434 was
+  # chosen under.
+  minio:
+    image: minio/minio:latest
+    command: server /data --address :9000
+    environment:
+      MINIO_ROOT_USER: budge
+      MINIO_ROOT_PASSWORD: budge-secret
+    ports:
+      - "9002:9000"
+    # Disposable by definition, like the database beside it.
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

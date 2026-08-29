@@ -1,8 +1,8 @@
 import pytest
 
-from podvinsya.domain.actions import JudgeCorrect, PauseDuel, ResumeDuel
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.timing import deadline_of
+from budge.domain.actions import JudgeCorrect, PauseDuel, ResumeDuel
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.timing import deadline_of
 
 from .conftest import apply, at, build_duel_state
 

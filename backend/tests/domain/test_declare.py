@@ -2,11 +2,11 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import DeclareAttack
-from podvinsya.domain.errors import Rejected, RejectionReason
-from podvinsya.domain.ids import GroupId
-from podvinsya.domain.rules import legal_targets, starting_budget_ms
-from podvinsya.domain.state import DuelPhase
+from budge.domain.actions import DeclareAttack
+from budge.domain.errors import Rejected, RejectionReason
+from budge.domain.ids import GroupId
+from budge.domain.rules import legal_targets, starting_budget_ms
+from budge.domain.state import DuelPhase
 
 from .conftest import IMAGE_POOL, apply, build_declared_state, build_running_state
 
@@ -154,7 +154,7 @@ def test_attacking_your_own_group_is_rejected() -> None:
 
 
 def test_attacking_a_non_adjacent_group_is_rejected() -> None:
-    from podvinsya.domain.board import groups_are_adjacent
+    from budge.domain.board import groups_are_adjacent
 
     state, _ = build_running_state(4)
     attacker_id = state.current_player()

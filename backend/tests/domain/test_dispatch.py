@@ -3,16 +3,16 @@ from uuid import uuid4
 
 import pytest
 
-from podvinsya.domain.actions import CreateMatch
-from podvinsya.domain.board import BoardSize
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.events import MatchCreated
-from podvinsya.domain.evolve import evolve, fold
-from podvinsya.domain.genesis import create_initial_state
-from podvinsya.domain.ids import MatchId
-from podvinsya.domain.settings import MatchSettings
-from podvinsya.domain.state import MatchStatus
+from budge.domain.actions import CreateMatch
+from budge.domain.board import BoardSize
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.events import MatchCreated
+from budge.domain.evolve import evolve, fold
+from budge.domain.genesis import create_initial_state
+from budge.domain.ids import MatchId
+from budge.domain.settings import MatchSettings
+from budge.domain.state import MatchStatus
 
 NOW = datetime(2026, 8, 22, 12, 0, 0, tzinfo=UTC)
 

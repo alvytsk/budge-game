@@ -1,0 +1,4 @@
+# msw's postinstall only fetches its browser service worker; this project
+# uses `msw/node` in vitest only, so the build script is not needed.
+allowBuilds:
+  msw: false

@@ -1,0 +1,170 @@
+# The whole deployment (§10). One file, one `docker compose up -d`.
+#
+# Service order is not decoration: `migrate` runs to completion before
+# `api` starts (§10, I8), and `api` waits for both stores to be healthy
+# before that.
+
+name: budge
+
+x-postgres-url: &postgres-url
+  BUDGE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+x-s3: &s3
+  BUDGE_S3_ENDPOINT: http://minio:9000
+  BUDGE_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+  BUDGE_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+  BUDGE_S3_BUCKET: budge-media
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --address :9000
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # MinIO comes up with no buckets, and `S3MediaStore.healthy()` is a
+  # `HeadBucket` — so without this the API's own §10 healthcheck answers
+  # `{"storage": false}` with a 503 forever and `api` never goes healthy.
+  # One-shot and waited on, exactly like `migrate`: creating the bucket is
+  # a step before the application starts, not something the application
+  # does to itself on the way up.
+  create-bucket:
+    image: minio/mc:latest
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      # Passed as environment rather than interpolated into the command,
+      # so the root password does not end up in `docker compose config`
+      # or in the container's argv.
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    entrypoint: ["/bin/sh", "-c"]
+    # `--ignore-existing` is what makes a second `up` a no-op rather than
+    # a failure that stops the whole stack.
+    command:
+      - >-
+        mc alias set budge http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        mc mb --ignore-existing budge/budge-media
+
+  # §10: «Миграции применяются отдельным шагом до старта приложения».
+  # One-shot, and `api` will not start until it has exited 0.
+  migrate:
+    image: budge-api
+    build: ./backend
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *postgres-url
+    command: ["budge", "migrate"]
+
+  api:
+    image: budge-api
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      create-bucket:
+        condition: service_completed_successfully
+    environment:
+      <<: [*postgres-url, *s3]
+      BUDGE_SECRET_KEY: ${BUDGE_SECRET_KEY}
+      BUDGE_HOST_PASSWORD: ${BUDGE_HOST_PASSWORD}
+    healthcheck:
+      # §10's own healthcheck endpoint, which already probes both stores.
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  web:
+    image: budge-web
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${BUDGE_PORT:-8080}:80"
+    volumes:
+      # Bind-mounted rather than baked in, so the operator can change a
+      # route without rebuilding the SPA.
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
+  # §10: «бэкапы по расписанию с учениями по восстановлению» (I9).
+  backup:
+    image: budge-api
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      # The bucket, not just the schema: `backup` reads every referenced
+      # blob out of S3 to mirror it (I6) and the drill cross-checks the
+      # mirror against the restored rows (I3). Without this the first run
+      # of the loop races `create-bucket` and fails on a missing bucket.
+      create-bucket:
+        condition: service_completed_successfully
+    environment:
+      <<: [*postgres-url, *s3]
+      # `budge backup` builds `ApiSettings` to get the S3 half of it,
+      # and pydantic validates the whole model — so the two API-only
+      # secrets have to be present or the very first run dies in
+      # validation before it opens a connection. The backup process reads
+      # neither; a narrower settings object for the backup branch is the
+      # right fix and belongs with the CLI, not here.
+      BUDGE_SECRET_KEY: ${BUDGE_SECRET_KEY}
+      BUDGE_HOST_PASSWORD: ${BUDGE_HOST_PASSWORD}
+      BUDGE_BACKUP_INTERVAL: ${BUDGE_BACKUP_INTERVAL:-3600}
+      BUDGE_DRILL_INTERVAL: ${BUDGE_DRILL_INTERVAL:-86400}
+    volumes:
+      - backups:/backups
+    # A named volume is created root-owned, so the image's uid 10001
+    # cannot `mkdir` inside it and the very first backup dies. Fix the one
+    # directory as root and immediately drop back to `budge`: a backup
+    # loop that keeps root for the life of the container is a worse trade
+    # than a chown at start-up.
+    #
+    # `setpriv`, not `su`: `su` stays alive as a root PID 1 forwarding
+    # signals, so the container would hold a root process for its whole
+    # life. `setpriv` execs, which leaves the loop itself as PID 1 under
+    # uid 10001 and no root process at all. `env HOME=` because setpriv
+    # does not set it the way `su` would.
+    user: root
+    entrypoint:
+      - /bin/sh
+      - -c
+      - chown budge:budge /backups && exec setpriv --reuid=10001 --regid=10001 --clear-groups env HOME=/home/budge /bin/sh /app/scripts/backup-loop.sh
+
+volumes:
+  postgres-data:
+  minio-data:
+  backups:

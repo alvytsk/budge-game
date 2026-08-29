@@ -3,14 +3,14 @@ from dataclasses import replace
 
 import pytest
 
-from podvinsya.domain import check_invariants
-from podvinsya.domain.actions import DeclareAttack, JudgeCorrect, StartDuel
-from podvinsya.domain.board import Cell
-from podvinsya.domain.context import DecisionContext
-from podvinsya.domain.decide import decide
-from podvinsya.domain.evolve import fold
-from podvinsya.domain.rules import group_containing, legal_targets
-from podvinsya.domain.state import Group, MatchState, MatchStatus
+from budge.domain import check_invariants
+from budge.domain.actions import DeclareAttack, JudgeCorrect, StartDuel
+from budge.domain.board import Cell
+from budge.domain.context import DecisionContext
+from budge.domain.decide import decide
+from budge.domain.evolve import fold
+from budge.domain.rules import group_containing, legal_targets
+from budge.domain.state import Group, MatchState, MatchStatus
 
 from .conftest import IMAGE_POOL, at, build_running_state
 
@@ -188,3 +188,37 @@ def test_groups_falling_out_of_lockstep_is_caught() -> None:
     groups[left.id] = replace(left, cells=left.cells | right.cells)
     with pytest.raises(AssertionError, match="lockstep"):
         check_invariants(replace(state, groups=groups))
+
+
+@pytest.mark.parametrize("seed", range(25))
+def test_invariants_survive_a_reset_dropped_into_a_random_match(seed: int) -> None:
+    """§A.3: after a reset there are zero groups, which is the same state
+    the match is already in between `CreateMatch` and `DealBoard`.
+
+    Kills on: a reset that leaves half the board behind -- say, one that
+    forgets `played_categories` -- the bijection between groups and
+    unplayed categories would break on the very next deal.
+    """
+    from budge.domain.actions import DealBoard, ResetMatch, StartMatch
+    from support.streams import make_deal
+
+    rng = random.Random(seed)
+    state, players = build_running_state(4)
+    clock = 0.0
+    for _ in range(rng.randint(1, 4)):
+        if state.status is not MatchStatus.RUNNING:
+            break
+        state, clock = _play_one_duel(state, rng, clock)
+
+    state = fold(
+        state,
+        decide(state, ResetMatch(keep_roster=True), DecisionContext(now=at(clock))),
+    )
+    check_invariants(state)
+
+    deal = make_deal(state.board, players, dict(state.secrets))
+    state = fold(state, decide(state, DealBoard(), DecisionContext(now=at(clock), deal=deal)))
+    check_invariants(state)
+    state = fold(state, decide(state, StartMatch(), DecisionContext(now=at(clock))))
+    check_invariants(state)
+    assert state.status is MatchStatus.RUNNING

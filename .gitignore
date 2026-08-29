@@ -6,3 +6,14 @@ backend/.mypy_cache/
 backend/.ruff_cache/
 **/__pycache__/
 *.egg-info/
+
+# `.env` holds the signing key and both store passwords. Committing it
+# would publish them.
+.env
+
+# `uv run` writes this; nothing in the project reads it. Dependencies are
+# pinned by the floors in `backend/pyproject.toml`, and the image is built
+# from that — so a lockfile here would be a second, unconsulted source of
+# truth that drifts. Committing it is a deliberate change of that policy,
+# not a tidy-up.
+backend/uv.lock

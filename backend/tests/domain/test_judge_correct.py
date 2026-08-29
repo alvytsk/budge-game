@@ -1,7 +1,7 @@
 import pytest
 
-from podvinsya.domain.actions import JudgeCorrect
-from podvinsya.domain.errors import Rejected, RejectionReason
+from budge.domain.actions import JudgeCorrect
+from budge.domain.errors import Rejected, RejectionReason
 
 from .conftest import BASE_TIME, apply, at, build_declared_state, build_duel_state
 
